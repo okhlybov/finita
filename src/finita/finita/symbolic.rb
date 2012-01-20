@@ -112,7 +112,7 @@ end # Field
 
 class SymbolCollector < Symbolic::Traverser
   attr_reader :symbols
-  def initialize()
+  def initialize
     @symbols = Set.new
   end
   def symbol(obj)
@@ -125,49 +125,19 @@ class SymbolCollector < Symbolic::Traverser
 end # SymbolCollector
 
 
-class Ref < Symbolic::UnaryFunction
+class Index
 
-  CoordSymbols = Set.new([:x, :y, :z])
+  Coords = Set.new [:x, :y, :z]
 
-  class Offsets < Hash
+  class Hash < ::Hash
     def []=(key, value)
-      raise 'invalid offset symbol' unless CoordSymbols.include?(key)
-      raise 'duplicate offset symbol' if include?(key)
+      raise 'invalid index symbol' unless Index::Coords.include?(key)
+      raise 'duplicate index symbol' if include?(key)
       super
     end
-  end # Offsets
+  end # Hash
 
-  attr_reader :xref, :yref, :zref
-
-  def initialize(op, *args)
-    super(op)
-    offs = Offsets.new
-    if args.size == 1 && args.first.is_a?(Hash)
-      # Offset symbols are specified explicitly
-      args.first.each do |key, value|
-        Ref.extract_offset(value) # This is used for validation purposes
-        offs[key] = value
-      end
-      raise 'all three offsets must be specified' unless offs.size == 3
-      @xref, @yref, @zref = offs[:x], offs[:y], offs[:z]
-    else
-      # Offset symbols are to be extracted from the offsets themselves
-      args.each do |arg|
-        offset = Ref.extract_offset(arg)
-        raise 'relative offset expected' unless offset.is_a?(Array)
-        offs[offset.first] = offset.last
-      end
-      @xref = offs.include?(:x) ? Symbolic.collect(:x + offs[:x]) : :x
-      @yref = offs.include?(:y) ? Symbolic.collect(:y + offs[:y]) : :y
-      @zref = offs.include?(:z) ? Symbolic.collect(:z + offs[:z]) : :z
-    end
-  end
-
-  def apply(obj)
-    obj.ref(self)
-  end
-
-  def self.extract_offset(arg)
+  def self.extract(arg)
     # TODO more informative error messages
     ex = Symbolic.expand(Symbolic.coerce(arg))
     if ex.is_a?(Symbolic::Add)
@@ -175,27 +145,27 @@ class Ref < Symbolic::UnaryFunction
       coords = Set.new
       rest = []
       ex.args.each do |op|
-        if CoordSymbols.include?(op)
-          raise 'duplicate coordinate symbol found within offset expression' if coords.include?(op)
+        if Coords.include?(op)
+          raise 'duplicate coordinate symbol found within index expression' if coords.include?(op)
           coords << op
         else
-          raise 'unexpected symbols found within offset expression' unless detect_symbols(op).empty?
+          raise 'unexpected symbols found within index expression' unless detect_symbols(op).empty?
           rest << op
         end
       end
       if coords.size == 0
-        raise 'unexpected symbols found within offset expression' unless detect_symbols(ex).empty?
+        raise 'unexpected symbols found within index expression' unless detect_symbols(ex).empty?
         ex # No offset symbols found - consider argument is an absolute coordinate reference
       elsif coords.size == 1
         [coords.to_a.first, Symbolic::Add.make(*rest)]
       else
-        raise 'unsupported offset form'
+        raise 'invalid index form'
       end
     else
-      if CoordSymbols.include?(ex)
+      if Coords.include?(ex)
         [ex, 0]
       else
-        raise 'unexpected symbols found within offset expression' unless detect_symbols(ex).empty?
+        raise 'unexpected symbols found within index expression' unless detect_symbols(ex).empty?
         ex
       end
     end
@@ -207,7 +177,157 @@ class Ref < Symbolic::UnaryFunction
     sc.symbols
   end
 
+  attr_reader :base, :delta, :index
+
+  def initialize(arg)
+    if arg.is_a?(Index)
+      @base = arg.base
+      @delta = arg.delta
+      @index = arg.index
+    else
+      idx = Index.extract(arg)
+      if idx.is_a?(Array)
+        @base, @delta = idx
+      else
+        @base = idx
+        @delta = nil
+      end
+      @index = Symbolic.simplify(arg)
+    end
+  end
+
+  def to_s
+    @index.to_s
+  end
+
+  def absolute?
+    @delta.nil?
+  end
+
+  def relative?
+    not @delta.nil?
+  end
+
+  X = Index.new(:x)
+  Y = Index.new(:y)
+  Z = Index.new(:z)
+
+end # Index
+
+
+class Ref < Symbolic::UnaryFunction
+
+  attr_reader :xindex, :yindex, :zindex
+
+  def initialize(op, *args)
+    super(op)
+    ids = Index::Hash.new
+    if args.size == 1 && args.first.is_a?(Hash)
+      args.first.each do |k, v|
+        ids[k] = Index.new(v) unless v.nil?
+      end
+    else
+      args.each do |arg|
+        idx = Index.new(arg)
+        raise 'relative index expected' unless idx.relative?
+        ids[idx.base] = idx
+      end
+    end
+    @xindex = ids.include?(:x) ? ids[:x] : Index::X
+    @yindex = ids.include?(:y) ? ids[:y] : Index::Y
+    @zindex = ids.include?(:z) ? ids[:z] : Index::Z
+  end
+
+  def apply(obj)
+    obj.ref(self)
+  end
+
+  def convert
+    Ref.new(arg.convert, indices_hash)
+  end
+
+  def indices_hash
+    {:x=>xindex, :y=>yindex, :z=>zindex}
+  end
+
 end # Ref
+
+
+class RefMerger
+
+  attr_reader :result
+
+  def initialize(xindex = nil, yindex = nil, zindex = nil)
+    @xindex = xindex
+    @yindex = yindex
+    @zindex = zindex
+  end
+
+  def indices_hash
+    {:x=>@xindex, :y=>@yindex, :z=>@zindex}
+  end
+
+  def numeric(obj)
+    @result = obj
+  end
+
+  def scalar(obj)
+    @result = obj
+  end
+
+  def field(obj)
+    @result = Ref.new(obj, indices_hash)
+  end
+
+  def ref(obj)
+    ids = Index::Hash.new
+    [[:x,obj.xindex,@xindex], [:y,obj.yindex,@yindex], [:z,obj.zindex,@zindex]].each do |base, obj_index, self_index|
+      if self_index.nil?
+        ids[base] = obj_index
+      else
+        raise 'both indices must be relative' unless obj_index.relative? && self_index.relative?
+        raise 'bases do not coincide' unless base == obj_index.base && base == self_index.base
+        ids[base] = Index.new(Symbolic.simplify(base + self_index.delta + obj_index.delta))
+      end
+    end
+    merger = RefMerger.new(ids[:x], ids[:y], ids[:z])
+    obj.arg.apply(merger)
+    @result = merger.result
+  end
+
+  def add(obj)
+    merge_nary(obj)
+  end
+
+  def multiply(obj)
+    merge_nary(obj)
+  end
+
+  def exp(obj)
+    merge_unary(obj)
+  end
+
+  def log(obj)
+    merge_unary(obj)
+  end
+
+  private
+
+  def merge_unary(obj)
+    obj.arg.apply(self)
+    @result = obj.class.new(@result)
+  end
+
+  def merge_nary(obj)
+    ary = []
+    obj.args.each do |arg|
+      arg.apply(self)
+      ary << @result
+    end
+    @result = obj.class.new(*ary)
+  end
+
+end # RefMerger
 
 
 #
@@ -250,7 +370,7 @@ class Emitter < Symbolic::CEmitter
     obj.arg.apply(self)
     @out << ')' if embrace_arg
     @out << '('
-    @out << [obj.xref, obj.yref, obj.zref].join(',')
+    @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
     @out << '}'
   end
 end # Emitter

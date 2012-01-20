@@ -20,5 +20,8 @@ Problem.new("Problem") {|p|
   }
 }
 
-puts (:ZZZ+1)[:x=>:x-3, :y=>:y, :z=>:x-A]
-puts (F-G)[]
+z=(F+G)[:x=>:x+1,:y=>11]
+im = RefMerger.new()
+z.convert.apply(im)
+
+puts im.result
