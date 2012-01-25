@@ -24,12 +24,14 @@ def self.to_c(obj)
 end
 
 
+#
 module ExpressionMethodStubs
   def convert; self end
   def expand; self end
   def collect; self end
   def revert; self end
 end
+
 
 #
 class Scalar < Symbolic::Expression
@@ -46,22 +48,28 @@ class Scalar < Symbolic::Expression
   end # Code
 
   attr_reader :name, :type
+
   def initialize(name, type)
     @name = Finita.to_c(name)
     @type = type
   end
+
+  def hash
+    name.hash ^ (type.hash<<1)
+  end
+
   def ==(other)
     self.class == other.class && name == other.name && type == other.type
   end
-  def hash
-    name.hash ^ type.hash
-  end
+
   def apply(obj)
     obj.scalar(self)
   end
+
   def bind(gtor)
     Code.new(self, gtor)
   end
+
 end # Scalar
 
 
@@ -94,37 +102,42 @@ class Field < Symbolic::Expression
     @type = type
     @grid = grid
   end
+
+  def hash
+    name.hash ^ (type.hash<<1) ^ (grid.hash<<2)
+  end
+
   def ==(other)
     self.class == other.class && name == other.name && type == other.type && grid == other.grid
   end
-  def hash
-    name.hash ^ type.hash ^ grid.hash
-  end
+
   def apply(obj)
     obj.field(self)
   end
+
   def bind(gtor)
     grid.bind(gtor)
     Code.new(self, gtor)
   end
+
 end # Field
 
 
-class SymbolCollector < Symbolic::Traverser
-  attr_reader :symbols
-  def initialize
-    @symbols = Set.new
-  end
-  def symbol(obj)
-    @symbols << obj
-  end
-  def ref(op)
+#
+class Traverser < Symbolic::Traverser
+
+  def ref(obj)
     traverse_unary(obj)
   end
-  def method_missing(*args) end
-end # SymbolCollector
+
+  def diff(obj)
+    traverse_unary(obj)
+  end
+
+end # Traverser
 
 
+#
 class Index
 
   Coords = Set.new [:x, :y, :z]
@@ -177,7 +190,7 @@ class Index
     sc.symbols
   end
 
-  attr_reader :base, :delta, :index
+  attr_reader :hash, :base, :delta, :index
 
   def initialize(arg)
     if arg.is_a?(Index)
@@ -194,6 +207,11 @@ class Index
       end
       @index = Symbolic.simplify(arg)
     end
+    @hash = @index.hash
+  end
+
+  def ==(other)
+    self.class == other.class && base == other.base && delta == other.delta
   end
 
   def to_s
@@ -215,9 +233,14 @@ class Index
 end # Index
 
 
+#
 class Ref < Symbolic::UnaryFunction
 
   attr_reader :xindex, :yindex, :zindex
+
+  def indices_hash
+    {:x=>xindex, :y=>yindex, :z=>zindex}
+  end
 
   def initialize(op, *args)
     super(op)
@@ -238,21 +261,174 @@ class Ref < Symbolic::UnaryFunction
     @zindex = ids.include?(:z) ? ids[:z] : Index::Z
   end
 
+  def hash
+    super ^ (xindex.hash<<1) ^ (yindex.hash<<2) ^ (zindex.hash<<3)
+  end
+
+  def ==(other)
+    super && xindex == other.xindex && yindex == other.yindex && zindex == other.zindex
+  end
+
   def apply(obj)
     obj.ref(self)
   end
 
-  def convert
-    Ref.new(arg.convert, indices_hash)
-  end
+  private
 
-  def indices_hash
-    {:x=>xindex, :y=>yindex, :z=>zindex}
+  def new_instance(arg)
+    self.class.new(arg, indices_hash)
   end
 
 end # Ref
 
 
+#
+class Diff < Symbolic::UnaryFunction
+
+  attr_reader :diffs
+
+  def initialize(arg, diffs)
+    super(arg)
+    @diffs = diffs.is_a?(Hash) ? diffs : {diffs=>1}
+  end
+
+  def apply(obj)
+    obj.diff(self)
+  end
+
+  def hash
+    super ^ (diffs.hash<<1)
+  end
+
+  def ==(other)
+    super && diffs == other.diffs
+  end
+
+  private
+
+  def new_instance(arg)
+    self.class.new(arg, diffs)
+  end
+
+end # Diff
+
+
+# Visitor class which performs full symbolic differentiation.
+class Differ
+
+  attr_reader :diffs, :result
+
+  def initialize(diffs = {})
+    @diffs = diffs
+  end
+
+  def numeric(obj)
+    @result = diffs.empty? ? obj : 0
+  end
+
+  def scalar(obj)
+    @result = diffs.empty? ? obj : 0
+  end
+
+  def field(obj)
+    @result = diffs.empty? ? obj : Diff.new(obj, diffs)
+  end
+
+  def add(obj)
+    # (a+b)' --> a' + b'
+    @result = Symbolic::Add.make(*obj.args.collect {|arg| apply(arg)}).convert
+  end
+
+  def multiply(obj)
+    # (a*b)' --> a'*b + a*b'
+    rest = obj.args.dup
+    term = rest.shift
+    lt = apply(term)*Symbolic::Multiply.make(*rest)
+    rt = term*(rest.size > 1 ? apply(Symbolic::Multiply.new(*rest)) : apply(rest.first))
+    @result = Symbolic::Add.new(lt, rt).convert
+  end
+
+  def power(obj)
+    raise 'expected Power instance in a canonicalized form' unless obj.args.size == 2
+    base, power = obj.args
+    @result = (obj*(apply(power)*Symbolic::Log.new(base) + apply(base)*power/base)).convert
+  end
+
+  def exp(obj)
+    @result = (obj*apply(obj.arg)).convert
+  end
+
+  def log(obj)
+    @result = (apply(obj.arg)/obj).convert
+  end
+
+  def ref(obj)
+    @result = Ref.new(apply(obj.arg), obj.indices_hash).convert
+  end
+
+  def diff(obj)
+    @result = self.class.new(diffs_merge_with(obj.diffs)).apply(obj.arg)
+  end
+
+  def self.run(obj)
+    self.new.apply(obj.convert)
+  end
+
+  def apply(obj)
+    obj.apply(self)
+    @result
+  end
+
+  private
+
+  def diffs_merge_with(diffs)
+    set = self.diffs.dup # self is important!
+    diffs.each do |k,v|
+      set[k] = set.include?(k) ? set[k]+v : v
+    end
+    set
+  end
+
+end # Differ
+
+
+#
+class PartialDiffer < Differ
+
+  # FIXME traversal interruption via throwing the exception is a kind of hack
+  # Should find a more graceful way to do this
+
+  class DetectException < Exception; end
+
+  class DiffDetector < Traverser
+    include Singleton
+    def diff(obj)
+      raise(DetectException)
+    end
+    def method_missing(*args) end
+    def self.contains?(obj)
+      begin
+        obj.apply(self.instance)
+      rescue DetectException
+        true
+      else
+        false
+      end
+    end
+  end # DiffDetector
+
+  def apply(obj)
+    if DiffDetector.contains?(obj)
+      super
+    else
+      diffs.empty? ? obj : Diff.new(obj, diffs)
+    end
+  end
+
+end # PartialDiffer
+
+
+#
 class RefMerger
 
   attr_reader :result
@@ -331,28 +507,46 @@ end # RefMerger
 
 
 #
-class ExpressionCollector < Symbolic::Traverser
-  attr_reader :instances
+class SymbolCollector < Traverser
+
+  attr_reader :symbols
+
+  def initialize
+    @symbols = Set.new
+  end
+
+  def symbol(obj)
+    @symbols << obj
+  end
+
+  def method_missing(*args) end
+
+end # SymbolCollector
+
+
+#
+class ExpressionCollector < Traverser
+  attr_reader :expressions
   def initialize(*exprs)
-    @instances = Set.new
+    @expressions = Set.new
     exprs.each {|e| Symbolic.coerce(e).apply(self)}
   end
   def numeric(obj) end
   def field(obj)
-    instances << obj
+    expressions << obj
   end
   def scalar(obj)
-    instances << obj
+    expressions << obj
   end
 end
 
 
 #
 class PrecedenceComputer < Symbolic::PrecedenceComputer
-  def offset(obj) 100 end
   def field(obj) 100 end
   def scalar(obj) 100 end
   def ref(obj) 100 end
+  def diff(obj) 100 end
 end # PrecedenceComputer
 
 
@@ -361,7 +555,6 @@ class Emitter < Symbolic::CEmitter
   def initialize(pc = PrecedenceComputer.new)
     super
   end
-  def offset(obj) @out << obj.to_s end
   def field(obj) @out << obj.name.to_s end
   def scalar(obj) @out << obj.name.to_s end
   def ref(obj)
@@ -372,6 +565,17 @@ class Emitter < Symbolic::CEmitter
     @out << '('
     @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
     @out << '}'
+  end
+  def diff(obj)
+    @out << 'D'
+    ary = []
+    obj.diffs.each do |k,v|
+      ary << (v > 1 ? "#{k}^#{v}" : k)
+    end
+    @out << "{#{ary.join(',')}}"
+    @out << '('
+    obj.arg.apply(self)
+    @out << ')'
   end
 end # Emitter
 

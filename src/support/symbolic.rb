@@ -180,13 +180,28 @@ class UnaryFunction < Expression
   attr_reader :arg, :hash
   def initialize(arg)
     @arg = Symbolic.coerce(arg)
-    @hash = self.class.hash ^ @arg.hash
+    @hash = arg.hash
   end
   def ==(other)
     self.class == other.class && arg == other.arg
   end
+  def convert
+    new_instance(arg.convert)
+  end
+  def revert
+    new_instance(arg.revert)
+  end
   def expand
-    self.class.new(arg.expand)
+    new_instance(arg.expand)
+  end
+  def collect
+    new_instance(arg.collect)
+  end
+  private
+  def new_instance(arg)
+    # to be overriden in descendant classes which require additional arguments
+    # to be passed to the respective constructors
+    self.class.new(arg)
   end
 end
 
@@ -195,16 +210,26 @@ end
 class NaryFunction < Expression
   attr_reader :args, :contents, :hash
   def initialize(*args)
-    @args = args.collect {|obj| Symbolic.coerce(obj)}; @args.freeze
-    @contents = Hash.new; @contents.default = 0
-    @args.each {|arg| @contents[arg] += 1}
-    @hash = self.class.hash ^ @contents.hash
+    @args = args.collect {|obj| Symbolic.coerce(obj)}; args.freeze
+    @contents = Hash.new; contents.default = 0
+    args.each {|arg| contents[arg] += 1}
+    @hash = contents.hash
+  end
+  def convert
+    new_instance(*args.collect{|arg| arg.convert})
+  end
+  def revert
+    new_instance(*args.collect{|arg| arg.convert})
   end
   def expand
-    self.class.new(*args.collect{|arg| arg.expand})
+    new_instance(*args.collect{|arg| arg.expand})
   end
   def collect
-    self.class.new(*args.collect{|arg| arg.collect})
+    new_instance(*args.collect{|arg| arg.collect})
+  end
+  private
+  def new_instance(*args)
+    self.class.new(*args)
   end
 end
 
@@ -322,27 +347,30 @@ class Add < NaryFunction
       ops
     end
     add_muls.flatten.each do |try|
-      # try is a term which can possibly be moved out of the braces
-      found = []; not_found = []
-      add_muls.each do |mul|
-        # attempt to split the product into the try*rest
-        rest = Symbolic.split_args(mul, try)
-        if rest.nil?
-          not_found << mul # try was not found in product at all
-        elsif rest.empty?
-          found << 1 # the product consists of the only term, try, hence: try --> try*1
-        else
-          found << rest # try was found and successfully eliminated
+      # it makes no sense factoring out the unit value
+      unless try == 1
+        # try is a term which can possibly be factored out
+        found = []; not_found = []
+        add_muls.each do |mul|
+          # attempt to split the product into the try*rest
+          rest = Symbolic.split_args(mul, try)
+          if rest.nil?
+            not_found << mul # try was not found in product at all
+          elsif rest.empty?
+            found << 1 # the product consists of the only term, try, hence: try --> try*1
+          else
+            found << rest # try was found and successfully eliminated
+          end
+        end
+        if found.size > 1
+          # it is only worth to move try out of the braces if it is found in more than two add operands
+          # [found]*try + [not_found]
+          obj = try*Add.make(*found.collect{|mul| Multiply.make(*mul)}).collect
+          return not_found.empty? ? obj : obj + Add.make(*not_found.collect{|mul| Multiply.make(*mul)}).collect
         end
       end
-      if found.size > 1
-        # it is only worth to move try out of the braces if it is found in more than two add operands
-        # [found]*try + [not_found]
-        obj = try*Add.make(*found.collect{|mul| Multiply.make(*mul)}).collect
-        return not_found.empty? ? obj : obj + Add.make(*not_found.collect{|mul| Multiply.make(*mul)}).collect
-      end
     end
-    super
+    super # nothing could be done at this level; collect the arguments
   end
 end
 
@@ -532,6 +560,7 @@ class Power < NaryFunction
     end
     super # expand the args as the last resort
   end
+  # TODO where is #collect ???
 end
 
 
@@ -622,7 +651,7 @@ class Emitter
   def power(obj) ncomm_op('**', obj) end
   def exp(obj) unary_func('exp', obj) end
   def log(obj) unary_func('log', obj) end
-  #
+  private
   def prec(obj) obj.apply(@pc) end
   def unary_op(op, obj)
     @out << op << '('
@@ -673,7 +702,6 @@ class Emitter
       @out << ')'
     end
   end
-private :prec, :unary_op, :op, :comm_op, :ncomm_op, :comm_arg, :ncomm_arg
 end
 
 
@@ -692,6 +720,7 @@ class RubyEmitter < Emitter
   def power(obj)
     power_op(obj, *obj.args)
   end
+  private
   def power_op(obj, *ops)
     if ops.size > 1
       @out << '('
@@ -704,7 +733,6 @@ class RubyEmitter < Emitter
     ops.last.apply(self)
     @out << ')' if braces
   end
-private :power_op
 end
 
 
@@ -724,6 +752,7 @@ class CEmitter < Emitter
   def power(obj)
     power_op(obj, *obj.args)
   end
+  private
   def power_op(obj, *ops)
     if ops.size > 1
       @out << 'pow('
@@ -735,7 +764,6 @@ class CEmitter < Emitter
       ops.last.apply(self)
     end
   end
-private :power_op
 end
 
 
