@@ -121,7 +121,7 @@ class Area
 
   def bind(gtor)
     Code.new(self, gtor)
-    ExpressionCollector.new(*([xrange,yrange,zrange].compact.collect {|r| [r.from,r.to]}.flatten)).instances.each {|e| e.bind(gtor)}
+    ExpressionCollector.new(*([xrange,yrange,zrange].compact.collect {|r| [r.from,r.to]}.flatten)).expressions.each {|e| e.bind(gtor)}
   end
 
   Planes = {:x=>[:left,:right], :y=>[:up,:down], :z=>[:forth,:back]}
