@@ -584,6 +584,119 @@ class Log < UnaryFunction
 end
 
 
+# Visitor class which performs full symbolic differentiation of expression.
+class Differ
+
+  attr_reader :diffs, :result
+
+  def initialize(diffs = {})
+    @diffs = diffs.is_a?(Hash) ? diffs : {diffs=>1}
+    @zero = @diffs.empty?
+    ary = @diffs.flatten; @unit = (ary.size == 2 && ary.last == 1) # true in case of {???=>1} and false otherwise
+  end
+
+  def zero?; @zero end
+
+  def unit?; @unit end
+
+  def symbol(obj)
+    if zero?
+      @result = obj
+    elsif unit?
+      @result = ({obj=>1} == diffs ? 1 : 0)
+    else
+      diff_seq(obj)
+    end
+  end
+
+  def numeric(obj)
+    @result = zero? ? obj : 0
+  end
+
+  def add(obj)
+    # (a+b)' --> a' + b'
+    @result = Add.make(*obj.args.collect {|arg| apply(arg)}).convert
+    # no need process the arguments with self.class.run() explicitly
+  end
+
+  def multiply(obj)
+    if zero?
+      @result = Multiply.new(*obj.args.collect {|arg| apply(arg)}).convert
+    elsif unit?
+      # (a*b)' --> a'*b + a*b'
+      rest = obj.args.dup
+      term = rest.shift
+      rest_mul = Multiply.make(*rest)
+      lt = apply(term)*self.class.new.apply(rest_mul)
+      rt = self.class.new.apply(term)*(rest.size > 1 ? apply(rest_mul) : apply(rest.first))
+      @result = Add.new(lt, rt).convert
+    else
+      diff_seq(obj)
+    end
+  end
+
+  def power(obj)
+    if zero?
+      @result = Power.new(*obj.args.collect {|arg| apply(arg)}).convert
+    elsif unit?
+      raise 'expected Power instance in a canonicalized form' unless obj.args.size == 2
+      base, power = obj.args
+      # (a^b)' --> a^b*(ln(a)*b' + b/a*a')
+      @result = (obj*(apply(power)*Log.new(base) + apply(base)*power/base)).convert
+    else
+      diff_seq(obj)
+    end
+  end
+
+  def exp(obj)
+    if zero?
+      @result = Exp.new(apply(obj.arg)).convert
+    elsif unit?
+      # exp(a)' --> exp(a)*a'
+      @result = (obj*apply(obj.arg)).convert
+    else
+      diff_seq(obj)
+    end
+  end
+
+  def log(obj)
+    if zero?
+      @result = Log.new(apply(obj.arg)).convert
+    elsif unit?
+      # ln(a)' --> a'/a
+      @result = (apply(obj.arg)/obj).convert
+    else
+      diff_seq(obj)
+    end
+  end
+
+  def apply(obj)
+    obj.apply(self)
+    @result
+  end
+
+  private
+
+  def diffs_merge_with(diffs)
+    set = self.diffs.dup # self is important!
+    diffs.each do |k,v|
+      set[k] = set.include?(k) ? set[k]+v : v
+    end
+    set
+  end
+
+  def diff_seq(obj)
+    @result = obj
+    diffs.each do |k,v|
+      (1..v).each do
+        @result = self.class.new(k).apply(@result)
+      end
+    end
+  end
+
+end # Differ
+
+
 #
 class Traverser
   def traverse_unary(obj)
