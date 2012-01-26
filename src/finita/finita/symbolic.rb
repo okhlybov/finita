@@ -313,24 +313,8 @@ class Diff < Symbolic::UnaryFunction
 end # Diff
 
 
-# Visitor class which performs full symbolic differentiation of expression.
-class Differ
-
-  attr_reader :diffs, :result
-
-  def initialize(diffs = {})
-    @diffs = diffs.is_a?(Hash) ? diffs : {diffs=>1}
-    @zero = @diffs.empty?
-    ary = @diffs.flatten; @unit = (ary.size == 2 && ary.last == 1) # true in case of {???=>1} and false otherwise
-  end
-
-  def zero?; @zero end
-
-  def unit?; @unit end
-
-  def numeric(obj)
-    @result = zero? ? obj : 0
-  end
+#
+class Differ < Symbolic::Differ
 
   def scalar(obj)
     @result = zero? ? obj : 0
@@ -340,109 +324,12 @@ class Differ
     @result = zero? ? obj : Diff.new(obj, diffs)
   end
 
-  def add(obj)
-    # (a+b)' --> a' + b'
-    @result = Symbolic::Add.make(*obj.args.collect {|arg| apply(arg)}).convert
-    # no need process the arguments with self.class.run() explicitly
-  end
-
-  def multiply(obj)
-    if zero?
-      @result = Symbolic::Multiply.new(*obj.args.collect {|arg| apply(arg)}).convert
-    elsif unit?
-      # (a*b)' --> a'*b + a*b'
-      rest = obj.args.dup
-      term = rest.shift
-      rest_mul = Symbolic::Multiply.make(*rest)
-      lt = apply(term)*self.class.run(rest_mul)
-      rt = self.class.run(term)*(rest.size > 1 ? apply(rest_mul) : apply(rest.first))
-      @result = Symbolic::Add.new(lt, rt).convert
-    else
-      @result = obj
-      diffs_each do |diff|
-        @result = self.class.new(diff).apply(@result)
-      end
-    end
-  end
-
-  def power(obj)
-    if zero?
-      @result = Symbolic::Power.new(*obj.args.collect {|arg| apply(arg)}).convert
-    elsif unit?
-      raise 'expected Power instance in a canonicalized form' unless obj.args.size == 2
-      base, power = obj.args
-      # (a^b)' --> a^b*(ln(a)*b' + b/a*a')
-      @result = (obj*(apply(power)*Symbolic::Log.new(base) + apply(base)*power/base)).convert
-    else
-      @result = obj
-      diffs_each do |diff|
-        @result = self.class.new(diff).apply(@result)
-      end
-    end
-  end
-
-  def exp(obj)
-    if zero?
-      @result = Symbolic::Exp.new(apply(obj.arg)).convert
-    elsif unit?
-      # exp(a)' --> exp(a)*a'
-      @result = (obj*apply(obj.arg)).convert
-    else
-      @result = obj
-      diffs_each do |diff|
-        @result = self.class.new(diff).apply(@result)
-      end
-    end
-  end
-
-  def log(obj)
-    @result = (zero? ? Symbolic::Log.new(apply(obj.arg)) : apply(obj.arg)/obj).convert
-    if zero?
-      @result = Symbolic::Log.new(apply(obj.arg)).convert
-    elsif unit?
-      # ln(a)' --> a'/a
-      @result = (apply(obj.arg)/obj).convert
-    else
-      @result = obj
-      diffs_each do |diff|
-        @result = self.class.new(diff).apply(@result)
-      end
-    end
-  end
-
   def ref(obj)
     @result = Ref.new(apply(obj.arg), obj.indices_hash).convert
   end
 
   def diff(obj)
     @result = self.class.new(diffs_merge_with(obj.diffs)).apply(obj.arg).convert
-  end
-
-  def self.run(obj)
-    self.new.apply(obj.convert)
-  end
-
-  def apply(obj)
-    obj.apply(self)
-    @result
-  end
-
-  private
-
-  def diffs_merge_with(diffs)
-    set = self.diffs.dup # self is important!
-    diffs.each do |k,v|
-      set[k] = set.include?(k) ? set[k]+v : v
-    end
-    set
-  end
-
-  def diffs_each
-    diffs.each do |k,v|
-      (1..v).each do
-        yield(k)
-      end
-    end
   end
 
 end # Differ

@@ -30,14 +30,16 @@ end
 
 
 
-puts Symbolic.simplify(PartialDiffer.run(G*Diff.new(F**3*G, :x)))
-puts (PartialDiffer.run(G*Diff.new(F**3*G, :x)))
+puts Symbolic.simplify(PartialDiffer.new.apply(G*Diff.new(F**3*G, :x)))
+puts (PartialDiffer.new.apply(G*Diff.new(F**3*G, :x)))
 
-puts Differ.run(Diff.new(G*Diff.new(F+G, :x), :x))
+puts Differ.new.apply(Diff.new(G*Diff.new(F+G, :x), :x))
 
-puts PartialDiffer.run(Diff.new(Diff.new(F+G, :x)*H, :x))
+puts PartialDiffer.new.apply(Diff.new(Diff.new(F+G, :x)*H, :x))
 
 
-puts Symbolic.simplify(Differ.run(Diff.new(Symbolic::Exp.new(F), :x=>1, :y=>2)))
+puts Symbolic.simplify(Differ.new.apply(Diff.new(Symbolic::Exp.new(F), :x=>1, :y=>2)))
 
-puts Symbolic.simplify PartialDiffer.run(Diff.new(F*G + Diff.new(H**2, :x), :x))
+puts Symbolic.simplify PartialDiffer.new.apply(Diff.new(F*G + Diff.new(H**2, :x), :x))
+
+puts Symbolic.simplify Differ.new(:x=>2, :y=>1).apply(:x**3)
