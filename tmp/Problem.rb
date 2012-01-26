@@ -36,3 +36,8 @@ puts (PartialDiffer.run(G*Diff.new(F**3*G, :x)))
 puts Differ.run(Diff.new(G*Diff.new(F+G, :x), :x))
 
 puts PartialDiffer.run(Diff.new(Diff.new(F+G, :x)*H, :x))
+
+
+puts Symbolic.simplify(Differ.run(Diff.new(Symbolic::Exp.new(F), :x=>1, :y=>2)))
+
+puts Symbolic.simplify PartialDiffer.run(Diff.new(F*G + Diff.new(H**2, :x), :x))
