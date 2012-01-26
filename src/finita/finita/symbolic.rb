@@ -313,53 +313,70 @@ class Diff < Symbolic::UnaryFunction
 end # Diff
 
 
-# Visitor class which performs full symbolic differentiation.
+# Visitor class which performs full symbolic differentiation of expression.
 class Differ
 
   attr_reader :diffs, :result
 
   def initialize(diffs = {})
-    @diffs = diffs
+    @diffs = diffs.is_a?(Hash) ? diffs : {diffs=>1}
+    @zero = @diffs.empty?
+    ary = @diffs.flatten; @unit = (ary.size == 2 && ary.last == 1) # true in case of {???=>1} and false otherwise
   end
 
+  def zero?; @zero end
+
+  def unit?; @unit end
+
   def numeric(obj)
-    @result = diffs.empty? ? obj : 0
+    @result = zero? ? obj : 0
   end
 
   def scalar(obj)
-    @result = diffs.empty? ? obj : 0
+    @result = zero? ? obj : 0
   end
 
   def field(obj)
-    @result = diffs.empty? ? obj : Diff.new(obj, diffs)
+    @result = zero? ? obj : Diff.new(obj, diffs)
   end
 
   def add(obj)
     # (a+b)' --> a' + b'
     @result = Symbolic::Add.make(*obj.args.collect {|arg| apply(arg)}).convert
+    # no need process the arguments with self.class.run() explicitly
   end
 
   def multiply(obj)
-    # (a*b)' --> a'*b + a*b'
-    rest = obj.args.dup
-    term = rest.shift
-    lt = apply(term)*Symbolic::Multiply.make(*rest)
-    rt = term*(rest.size > 1 ? apply(Symbolic::Multiply.new(*rest)) : apply(rest.first))
-    @result = Symbolic::Add.new(lt, rt).convert
+    if zero?
+      @result = Symbolic::Multiply.new(*obj.args.collect {|arg| apply(arg)}).convert
+    else
+      # (a*b)' --> a'*b + a*b'
+      rest = obj.args.dup
+      term = rest.shift
+      rest_mul = Symbolic::Multiply.make(*rest)
+      lt = apply(term)*self.class.run(rest_mul)
+      rt = self.class.run(term)*(rest.size > 1 ? apply(rest_mul) : apply(rest.first))
+      @result = Symbolic::Add.new(lt, rt).convert
+    end
   end
 
   def power(obj)
-    raise 'expected Power instance in a canonicalized form' unless obj.args.size == 2
-    base, power = obj.args
-    @result = (obj*(apply(power)*Symbolic::Log.new(base) + apply(base)*power/base)).convert
+    if zero?
+      @result = Symbolic::Power.new(*obj.args.collect {|arg| apply(arg)}).convert
+    else
+      raise 'expected Power instance in a canonicalized form' unless obj.args.size == 2
+      base, power = obj.args
+      # (a^b)' --> a^b*(ln(a)*b' + b/a*a')
+      @result = (obj*(apply(power)*Symbolic::Log.new(base) + apply(base)*power/base)).convert
+    end
   end
 
   def exp(obj)
-    @result = (obj*apply(obj.arg)).convert
+    @result = (zero? ? Symbolic::Exp.new(apply(obj.arg)) : (obj*apply(obj.arg))).convert
   end
 
   def log(obj)
-    @result = (apply(obj.arg)/obj).convert
+    @result = (zero? ? Symbolic::Log.new(apply(obj.arg)) : apply(obj.arg)/obj).convert
   end
 
   def ref(obj)
@@ -367,7 +384,7 @@ class Differ
   end
 
   def diff(obj)
-    @result = self.class.new(diffs_merge_with(obj.diffs)).apply(obj.arg)
+    @result = self.class.new(diffs_merge_with(obj.diffs)).apply(obj.arg).convert
   end
 
   def self.run(obj)
@@ -377,6 +394,14 @@ class Differ
   def apply(obj)
     obj.apply(self)
     @result
+  end
+
+  def self.diffs_each(diffs)
+    diffs.each do |k,v|
+      (1..v).each do
+        yield(k)
+      end
+    end
   end
 
   private
@@ -392,7 +417,7 @@ class Differ
 end # Differ
 
 
-#
+# Visitor class which performs partial (read incomplete) symbolic differentiation of expression.
 class PartialDiffer < Differ
 
   # FIXME traversal interruption via throwing the exception is a kind of hack
@@ -526,19 +551,25 @@ end # SymbolCollector
 
 #
 class ExpressionCollector < Traverser
+
   attr_reader :expressions
+
   def initialize(*exprs)
     @expressions = Set.new
     exprs.each {|e| Symbolic.coerce(e).apply(self)}
   end
+
   def numeric(obj) end
+
   def field(obj)
     expressions << obj
   end
+
   def scalar(obj)
     expressions << obj
   end
-end
+
+end # ExpressionCollector
 
 
 #
@@ -552,11 +583,15 @@ end # PrecedenceComputer
 
 #
 class Emitter < Symbolic::CEmitter
+
   def initialize(pc = PrecedenceComputer.new)
     super
   end
+
   def field(obj) @out << obj.name.to_s end
+
   def scalar(obj) @out << obj.name.to_s end
+
   def ref(obj)
     embrace_arg = prec(obj.arg) < prec(obj)
     @out << '(' if embrace_arg
@@ -566,6 +601,7 @@ class Emitter < Symbolic::CEmitter
     @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
     @out << '}'
   end
+
   def diff(obj)
     @out << 'D'
     ary = []
@@ -577,6 +613,7 @@ class Emitter < Symbolic::CEmitter
     obj.arg.apply(self)
     @out << ')'
   end
+
 end # Emitter
 
 

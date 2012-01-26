@@ -10,6 +10,7 @@ inner = whole.interior
 
 F = Field.new(:F, Float, whole)
 G = Field.new(:G, Integer, inner)
+H = Field.new(:H, Float, whole)
 
 p = s = nil
 Problem.new("Problem") {|p|
@@ -29,5 +30,9 @@ end
 
 
 
-puts Symbolic.simplify(Differ.run(G*Diff.new(F**3*G, :x)))
-puts Symbolic::Add.new(:a+:a).collect.convert
+puts Symbolic.simplify(PartialDiffer.run(G*Diff.new(F**3*G, :x)))
+puts (PartialDiffer.run(G*Diff.new(F**3*G, :x)))
+
+puts Differ.run(Diff.new(G*Diff.new(F+G, :x), :x))
+
+puts PartialDiffer.run(Diff.new(Diff.new(F+G, :x)*H, :x))
