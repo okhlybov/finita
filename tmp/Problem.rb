@@ -1,6 +1,9 @@
 require 'finita'
 include Finita
 
+#require 'ruby-prof'
+#RubyProf.start
+
 A = Scalar.new(:A, Integer)
 B = Scalar.new(:B, Integer)
 
@@ -13,9 +16,9 @@ G = Field.new(:G, Integer, inner)
 H = Field.new(:H, Float, whole)
 
 p = s = nil
-Problem.new("Problem") {|p|
+Problem.new(:Problem) {|p|
   p.backend = SuperLU.new
-  System.new("System") {|s|
+  System.new(:System) {|s|
     Equation.new(F-1, F, whole)
     Equation.new(G-F, G, inner)
   }
@@ -40,6 +43,11 @@ puts PartialDiffer.new.apply(Diff.new(Diff.new(F+G, :x)*H, :x))
 
 puts Symbolic.simplify(Differ.new.apply(Diff.new(Symbolic::Exp.new(F), :x=>1, :y=>2)))
 
-puts Symbolic.simplify PartialDiffer.new.apply(Diff.new(F*G + Diff.new(H**2, :x), :x))
+puts Symbolic.simplify Differ.new.apply(Diff.new(F*G + Diff.new(H**2, :x), :x))
 
 puts Symbolic.simplify Differ.new(:x=>2, :y=>1).apply(:x**3)
+
+#result = RubyProf.stop
+#RubyProf::GraphPrinter.new(result).print(STDOUT, 0)
+
+puts DU2.new.discretize(Diff.new(F+G, :x=>1), whole)

@@ -138,6 +138,20 @@ end # Traverser
 
 
 #
+class Applicator < Symbolic::Applicator
+
+  def ref(obj)
+    traverse_unary(obj)
+  end
+
+  def diff(obj)
+    traverse_unary(obj)
+  end
+
+end # Applicator
+
+
+#
 class Index
 
   Coords = Set.new [:x, :y, :z]
@@ -273,8 +287,6 @@ class Ref < Symbolic::UnaryFunction
     obj.ref(self)
   end
 
-  private
-
   def new_instance(arg)
     self.class.new(arg, indices_hash)
   end
@@ -303,8 +315,6 @@ class Diff < Symbolic::UnaryFunction
   def ==(other)
     super && diffs == other.diffs
   end
-
-  private
 
   def new_instance(arg)
     self.class.new(arg, diffs)
@@ -430,6 +440,11 @@ class RefMerger
     merge_unary(obj)
   end
 
+  def apply(obj)
+    obj.apply(self)
+    @result
+  end
+
   private
 
   def merge_unary(obj)
@@ -506,9 +521,9 @@ class Emitter < Symbolic::CEmitter
     super
   end
 
-  def field(obj) @out << obj.name.to_s end
+  def field(obj) @out << obj.name end
 
-  def scalar(obj) @out << obj.name.to_s end
+  def scalar(obj) @out << obj.name end
 
   def ref(obj)
     embrace_arg = prec(obj.arg) < prec(obj)
