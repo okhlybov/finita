@@ -197,7 +197,6 @@ class UnaryFunction < Expression
   def collect
     new_instance(arg.collect)
   end
-  private
   def new_instance(arg)
     # to be overriden in descendant classes which require additional arguments
     # to be passed to the respective constructors
@@ -210,7 +209,7 @@ end
 class NaryFunction < Expression
   attr_reader :args, :contents, :hash
   def initialize(*args)
-    @args = args.collect {|obj| Symbolic.coerce(obj)}; args.freeze
+    @args = args.collect {|obj| Symbolic.coerce(obj)}
     @contents = Hash.new; contents.default = 0
     args.each {|arg| contents[arg] += 1}
     @hash = contents.hash
@@ -227,7 +226,6 @@ class NaryFunction < Expression
   def collect
     new_instance(*args.collect{|arg| arg.collect})
   end
-  private
   def new_instance(*args)
     self.class.new(*args)
   end
@@ -717,7 +715,24 @@ protected :traverse_unary, :traverse_nary
   def multiply(obj) traverse_nary(obj) end
   def divide(obj) traverse_nary(obj) end
   def power(obj) traverse_nary(obj) end
-end
+end # Traverser
+
+
+#
+class Applicator < Traverser
+  attr_reader :result
+  def traverse_unary(obj)
+    obj.arg.apply(self)
+    @result = obj.new_instance(@result)
+  end
+  def traverse_nary(obj)
+    args = obj.args.collect do |arg|
+      arg.apply(self)
+      @result
+    end
+    @result = obj.new_instance(*args)
+  end
+end # Applicator
 
 
 # Default precedence computer.
@@ -737,7 +752,7 @@ class PrecedenceComputer
   def power(obj) 30 end
   def exp(obj) 100 end
   def log(obj) 100 end
-end
+end # PrecedenceComputer
 
 
 # Default symbolic expression renderer.
@@ -762,8 +777,8 @@ class Emitter
   def multiply(obj) comm_op('*', obj) end
   def divide(obj) ncomm_op('/', obj) end
   def power(obj) ncomm_op('**', obj) end
-  def exp(obj) unary_func('exp', obj) end
-  def log(obj) unary_func('log', obj) end
+  def exp(obj) unary_op('exp', obj) end
+  def log(obj) unary_op('log', obj) end
   private
   def prec(obj) obj.apply(@pc) end
   def unary_op(op, obj)
@@ -815,7 +830,7 @@ class Emitter
       @out << ')'
     end
   end
-end
+end # Emitter
 
 
 #
@@ -846,7 +861,7 @@ class RubyEmitter < Emitter
     ops.last.apply(self)
     @out << ')' if braces
   end
-end
+end # RubyEmitter
 
 
 #
@@ -877,7 +892,7 @@ class CEmitter < Emitter
       ops.last.apply(self)
     end
   end
-end
+end # CEmitter
 
 
 end # Symbolic
