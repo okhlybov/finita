@@ -6,36 +6,6 @@ require 'finita/symbolic'
 module Finita
 
 
-class Dx < Diff
-  def initialize(arg)
-    super(arg, :x)
-  end
-  def new_instance(arg)
-    Dx.new(arg)
-  end
-end # Dx
-
-
-class Dy < Diff
-  def initialize(arg)
-    super(arg, :y)
-  end
-  def new_instance(arg)
-    Dy.new(arg)
-  end
-end # Dy
-
-
-class Dz < Diff
-  def initialize(arg)
-    super(arg, :z)
-  end
-  def new_instance(arg)
-    Dz.new(arg)
-  end
-end # Dz
-
-
 class CoordinateTransform
 
   def adapt!(ctr)
@@ -50,21 +20,16 @@ end # CoordinateTransform
 class Trivial < CoordinateTransform
 
   class Coord < Field
-
     include Singleton
-
     class Code < BoundCodeTemplate
       def write_intf(stream) stream << "\n#define #{master.name}(x,y,z) (#{master.name})\n" end
     end # Code
-
     def initialize(name)
       super(name, Integer, nil)
     end
-
     def bind(gtor)
       Code.new(self, gtor)
     end
-
   end # Coord
 
   class X < Coord
@@ -161,8 +126,34 @@ class CoordinateTransformer < Transformer
     result
   end
 
+  # def symbol(obj) # Symbols are not allowed here
+
+  def numeric(obj)
+    @result = obj
+  end
+
+  def scalar(obj)
+    @result = obj
+  end
+
   def field(obj)
     @result = obj
+  end
+
+  def diff(obj)
+    recurse_arg(obj)
+    Differ.diffs_each(obj.diffs) do |diff|
+      @result = case diff
+                  when :x
+                    coords.dx(@result)
+                  when :y
+                    coords.dy(@result)
+                  when :z
+                    coords.dz(@result)
+                  else
+                    raise
+                end
+    end
   end
 
   def nabla(obj)
