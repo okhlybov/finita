@@ -301,7 +301,7 @@ class Diff < Symbolic::UnaryFunction
 
   def initialize(arg, diffs)
     super(arg)
-    @diffs = diffs.is_a?(Hash) ? diffs : {diffs=>1}
+    @diffs = Differ.coerce(diffs)
   end
 
   def apply(obj)
@@ -321,6 +321,26 @@ class Diff < Symbolic::UnaryFunction
   end
 
 end # Diff
+
+
+#
+class Nabla < Symbolic::UnaryFunction
+
+  def apply(obj)
+    obj.nabla(self)
+  end
+
+end # Nabla
+
+
+#
+class Delta < Symbolic::UnaryFunction
+
+  def apply(obj)
+    obj.delta(self)
+  end
+
+end # Delta
 
 
 #
@@ -346,7 +366,7 @@ end # Differ
 
 
 # Visitor class which performs partial (read incomplete) symbolic differentiation of expression.
-class PartialDiffer < Differ
+class IncompleteDiffer < Differ
 
   # FIXME traversal interruption via throwing the exception is a kind of hack
   # Should find a more graceful way to do this
@@ -378,7 +398,7 @@ class PartialDiffer < Differ
     end
   end
 
-end # PartialDiffer
+end # IncompleteDiffer
 
 
 #
@@ -462,24 +482,6 @@ class RefMerger
   end
 
 end # RefMerger
-
-
-class Nabla < Symbolic::UnaryFunction
-
-  def apply(obj)
-    obj.nabla(self)
-  end
-
-end # Nabla
-
-
-class Delta < Symbolic::UnaryFunction
-
-  def apply(obj)
-    obj.delta(self)
-  end
-
-end # Delta
 
 
 #

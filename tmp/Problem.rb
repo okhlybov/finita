@@ -33,12 +33,12 @@ end
 
 
 
-puts Symbolic.simplify(PartialDiffer.new.apply(G*Diff.new(F**3*G, :x)))
-puts (PartialDiffer.new.apply(G*Diff.new(F**3*G, :x)))
+puts Symbolic.simplify(IncompleteDiffer.new.apply(G*Diff.new(F**3*G, :x)))
+puts (IncompleteDiffer.new.apply(G*Diff.new(F**3*G, :x)))
 
 puts Differ.new.apply(Diff.new(G*Diff.new(F+G, :x), :x))
 
-puts PartialDiffer.new.apply(Diff.new(Diff.new(F+G, :x)*H, :x))
+puts IncompleteDiffer.new.apply(Diff.new(Diff.new(F+G, :x)*H, :x))
 
 
 puts Symbolic.simplify(Differ.new.apply(Diff.new(Symbolic::Exp.new(F), :x=>1, :y=>2)))
@@ -53,4 +53,6 @@ puts Symbolic.simplify Differ.new(:x=>2, :y=>1).apply(:x**3)
 #puts DU2.new.discretize!(Diff.new(F+G, :x=>1), whole)
 
 
-puts CoordinateTransformer.new(Cylindrical.new, Trivial.new).transform!(Delta.new(F+Dy.new(G)))
+puts Differ.new.apply!(CoordinateTransformer.new(Cylindrical.new, Trivial.new).transform!((Delta.new(F-Diff.new(G, :z))*A)))
+
+puts

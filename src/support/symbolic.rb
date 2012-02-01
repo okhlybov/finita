@@ -588,7 +588,7 @@ class Differ
   attr_reader :diffs, :result
 
   def initialize(diffs = {})
-    @diffs = diffs.is_a?(Hash) ? diffs : {diffs=>1}
+    @diffs = Differ.coerce(diffs)
     @zero = @diffs.empty?
     ary = @diffs.flatten; @unit = (ary.size == 2 && ary.last == 1) # true in case of {???=>1} and false otherwise
   end
@@ -597,13 +597,18 @@ class Differ
 
   def unit?; @unit end
 
+  def apply!(obj)
+    obj.convert.apply(self)
+    result
+  end
+
   def symbol(obj)
     if zero?
       @result = obj
     elsif unit?
       @result = ({obj=>1} == diffs ? 1 : 0)
     else
-      diff_seq(obj)
+      diffs_seq(obj)
     end
   end
 
@@ -629,7 +634,7 @@ class Differ
       rt = self.class.new.apply(term)*(rest.size > 1 ? apply(rest_mul) : apply(rest.first))
       @result = Add.new(lt, rt).convert
     else
-      diff_seq(obj)
+      diffs_seq(obj)
     end
   end
 
@@ -642,7 +647,7 @@ class Differ
       # (a^b)' --> a^b*(ln(a)*b' + b/a*a')
       @result = (obj*(apply(power)*Log.new(base) + apply(base)*power/base)).convert
     else
-      diff_seq(obj)
+      diffs_seq(obj)
     end
   end
 
@@ -653,7 +658,7 @@ class Differ
       # exp(a)' --> exp(a)*a'
       @result = (obj*apply(obj.arg)).convert
     else
-      diff_seq(obj)
+      diffs_seq(obj)
     end
   end
 
@@ -664,13 +669,25 @@ class Differ
       # ln(a)' --> a'/a
       @result = (apply(obj.arg)/obj).convert
     else
-      diff_seq(obj)
+      diffs_seq(obj)
     end
   end
 
   def apply(obj)
     obj.apply(self)
     @result
+  end
+
+  def self.coerce(diffs)
+    diffs.is_a?(Hash) ? diffs : {diffs=>1} # TODO validity check
+  end
+
+  def self.diffs_each(diffs, &block)
+    diffs.each do |k,v|
+      (1..v).each do
+        yield(k)
+      end
+    end
   end
 
   private
@@ -683,12 +700,10 @@ class Differ
     set
   end
 
-  def diff_seq(obj)
+  def diffs_seq(obj)
     @result = obj
-    diffs.each do |k,v|
-      (1..v).each do
-        @result = self.class.new(k).apply(@result)
-      end
+    Differ.diffs_each(diffs) do |diff|
+      @result = self.class.new(diff).apply(@result)
     end
   end
 
