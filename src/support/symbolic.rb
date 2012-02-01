@@ -24,7 +24,7 @@ def self.coerce(obj)
   elsif obj.is_a?(Symbol)
     obj
   else
-    raise TypeError.new("#{obj} can't be coerced into Symbolic::Expression")
+    raise(TypeError, "#{obj}:#{obj.class} can't be coerced into Symbolic::Expression")
   end
 end
 
@@ -425,7 +425,7 @@ class Multiply < NaryFunction
             rest << arg
           else
             negate = !negate
-            rest << abs if abs != 1
+            rest << abs unless abs == 1
           end
         rescue NoMethodError
           rest << arg
@@ -482,7 +482,7 @@ class Multiply < NaryFunction
     args.each do |arg|
       if !found && !arg.is_a?(Complex) && arg.is_a?(Numeric) && arg < 0 # TODO reimplement with Numeric#extract_minus_one
         found = true
-        rest << arg.abs if arg != -1
+        rest << arg.abs unless arg == -1
       else
         rest << arg
       end
@@ -719,7 +719,7 @@ end # Traverser
 
 
 #
-class Applicator < Traverser
+class Transformer < Traverser
   attr_reader :result
   def traverse_unary(obj)
     obj.arg.apply(self)
@@ -732,7 +732,7 @@ class Applicator < Traverser
     end
     @result = obj.new_instance(*args)
   end
-end # Applicator
+end # Transformer
 
 
 # Default precedence computer.

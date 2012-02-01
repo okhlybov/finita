@@ -5,7 +5,7 @@ module Finita
 
 
 # Finite-difference second-order discretizer over the unit grid.
-class DU2 < Applicator
+class DU2 < Transformer
 
   # TODO 2nd order mixed derivatives
 
@@ -74,15 +74,15 @@ class DU2 < Applicator
     @result = func.call(obj.arg, @domain)
   end
 
-  def discretize(obj, domain)
-    spawn = dup.adapt(domain)
-    obj.apply(spawn)
-    spawn.result
+  def discretize!(obj, domain)
+    adapt!(domain)
+    obj.apply(self)
+    result
   end
 
   protected
 
-  def adapt(domain)
+  def adapt!(domain)
     @domain = domain
     self
   end

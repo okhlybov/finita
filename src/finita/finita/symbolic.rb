@@ -138,7 +138,7 @@ end # Traverser
 
 
 #
-class Applicator < Symbolic::Applicator
+class Transformer < Symbolic::Transformer
 
   def ref(obj)
     traverse_unary(obj)
@@ -148,7 +148,7 @@ class Applicator < Symbolic::Applicator
     traverse_unary(obj)
   end
 
-end # Applicator
+end # Transformer
 
 
 #
@@ -440,7 +440,7 @@ class RefMerger
     merge_unary(obj)
   end
 
-  def apply(obj)
+  def merge!(obj)
     obj.apply(self)
     @result
   end
@@ -462,6 +462,24 @@ class RefMerger
   end
 
 end # RefMerger
+
+
+class Nabla < Symbolic::UnaryFunction
+
+  def apply(obj)
+    obj.nabla(self)
+  end
+
+end # Nabla
+
+
+class Delta < Symbolic::UnaryFunction
+
+  def apply(obj)
+    obj.delta(self)
+  end
+
+end # Delta
 
 
 #

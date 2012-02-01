@@ -50,4 +50,7 @@ puts Symbolic.simplify Differ.new(:x=>2, :y=>1).apply(:x**3)
 #result = RubyProf.stop
 #RubyProf::GraphPrinter.new(result).print(STDOUT, 0)
 
-puts DU2.new.discretize(Diff.new(F+G, :x=>1), whole)
+#puts DU2.new.discretize!(Diff.new(F+G, :x=>1), whole)
+
+
+puts CoordinateTransformer.new(Cylindrical.new, Trivial.new).transform!(Delta.new(F+Dy.new(G)))
