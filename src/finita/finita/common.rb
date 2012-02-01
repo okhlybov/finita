@@ -6,6 +6,19 @@ require 'c_data_struct'
 module Finita
 
 
+module Forwarder
+
+  def set_forward_obj(obj)
+    @forward_obj = obj
+  end
+
+  def method_missing(symbol, *args)
+    @forward_obj.send(symbol, *args)
+  end
+
+end # Forwarder
+
+
 class Range
 
   attr_reader :from, :to
