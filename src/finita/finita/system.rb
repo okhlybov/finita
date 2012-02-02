@@ -174,7 +174,7 @@ class System
     end
   end # Code
 
-  attr_reader :problem, :equations
+  attr_reader :problem, :equations, :algebraic_equations
 
   def name
     problem.name + @name
@@ -188,6 +188,22 @@ class System
 
   def backend=(backend)
     @backend = backend
+  end
+
+  def transformer
+    @t96.nil? ? problem.transformer : @t9r
+  end
+
+  def transformer=(t9r)
+    @t9r = t9r
+  end
+
+  def discretizer
+    @d9r.nil? ? problem.discretizer : @d9r
+  end
+
+  def discretizer=(d9r)
+    @d9r = d9r
   end
 
   def initialize(name, problem = Finita::Problem.object, &block)
@@ -206,10 +222,35 @@ class System
     end
   end
 
+  def process!
+    @algebraic_equations = []
+    equations.each do |equation|
+      diffed = new_differ.apply!(transformer.apply!(equation.lhs))
+      equation.domain.decompose.each do |domain|
+        @algebraic_equations << AlgebraicEquation.new(Symbolic.simplify(new_ref_merger.apply!(discretizer.apply!(diffed, domain))), equation.unknown, domain, self)
+      end
+    end
+  end
+
+  def unknowns
+    Set.new(algebraic_equations.collect {|eqn| eqn.unknown})
+  end
+
   def bind(gtor)
     Code.new(self, gtor)
     backend.bind(gtor, self)
-    equations.each {|e| e.bind(gtor)}
+    transformer.bind(gtor)
+    algebraic_equations.each {|e| e.bind(gtor)}
+  end
+
+  private
+
+  def new_differ
+    IncompleteDiffer.new
+  end
+
+  def new_ref_merger
+    RefMerger.new
   end
 
 end # System

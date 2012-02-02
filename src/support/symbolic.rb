@@ -783,6 +783,7 @@ class Emitter
   end
   # Returns string representation of the expression to which self has been applied.
   def to_s() @out.to_s end
+  def emit!(obj) obj.apply(self); to_s end
   def numeric(obj) @out << obj.to_s end
   def symbol(obj) @out << obj.to_s end
   def plus(obj) op('+', obj) end
@@ -792,11 +793,11 @@ class Emitter
   def multiply(obj) comm_op('*', obj) end
   def divide(obj) ncomm_op('/', obj) end
   def power(obj) ncomm_op('**', obj) end
-  def exp(obj) unary_op('exp', obj) end
-  def log(obj) unary_op('log', obj) end
+  def exp(obj) unary_func('exp', obj) end
+  def log(obj) unary_func('log', obj) end
   private
   def prec(obj) obj.apply(@pc) end
-  def unary_op(op, obj)
+  def unary_func(op, obj)
     @out << op << '('
     obj.arg.apply(self)
     @out << ')'
@@ -858,8 +859,8 @@ class RubyEmitter < Emitter
       @out << obj.to_s
     end
   end
-  def exp(obj) unary_op('Math.exp', obj) end
-  def log(obj) unary_op('Math.log', obj) end
+  def exp(obj) unary_func('Math.exp', obj) end
+  def log(obj) unary_func('Math.log', obj) end
   def power(obj)
     power_op(obj, *obj.args)
   end
@@ -890,8 +891,8 @@ class CEmitter < Emitter
       @out << obj.to_s
     end
   end
-  def exp(obj) unary_op('exp', obj) end
-  def log(obj) unary_op('log', obj) end
+  def exp(obj) unary_func('exp', obj) end
+  def log(obj) unary_func('log', obj) end
   def power(obj)
     power_op(obj, *obj.args)
   end

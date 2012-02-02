@@ -460,8 +460,8 @@ class RefMerger
     merge_unary(obj)
   end
 
-  def merge!(obj)
-    obj.apply(self)
+  def apply!(obj)
+    obj.convert.apply(self)
     @result
   end
 
@@ -531,11 +531,57 @@ class PrecedenceComputer < Symbolic::PrecedenceComputer
   def scalar(obj) 100 end
   def ref(obj) 100 end
   def diff(obj) 100 end
+  def nabla(obj) 100 end
+  def delta(obj) 100 end
 end # PrecedenceComputer
 
 
 #
-class Emitter < Symbolic::CEmitter
+class Emitter < Symbolic::Emitter
+
+  def initialize(pc = PrecedenceComputer.new)
+    super
+  end
+
+  def field(obj) @out << obj.name end
+
+  def scalar(obj) @out << obj.name end
+
+  def ref(obj)
+    embrace_arg = prec(obj.arg) < prec(obj)
+    @out << '(' if embrace_arg
+    obj.arg.apply(self)
+    @out << ')' if embrace_arg
+    @out << '{'
+    @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
+    @out << '}'
+  end
+
+  def diff(obj)
+    @out << 'Diff'
+    ary = []
+    obj.diffs.each do |k,v|
+      ary << (v > 1 ? "#{k}^#{v}" : k)
+    end
+    @out << "{#{ary.join(',')}}"
+    @out << '('
+    obj.arg.apply(self)
+    @out << ')'
+  end
+
+  def nabla(obj)
+    unary_func('Nabla',obj)
+  end
+
+  def delta(obj)
+    unary_func('Delta',obj)
+  end
+
+end # Emitter
+
+
+#
+class CEmitter < Symbolic::CEmitter
 
   def initialize(pc = PrecedenceComputer.new)
     super
@@ -552,22 +598,10 @@ class Emitter < Symbolic::CEmitter
     @out << ')' if embrace_arg
     @out << '('
     @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
-    @out << '}'
-  end
-
-  def diff(obj)
-    @out << 'D'
-    ary = []
-    obj.diffs.each do |k,v|
-      ary << (v > 1 ? "#{k}^#{v}" : k)
-    end
-    @out << "{#{ary.join(',')}}"
-    @out << '('
-    obj.arg.apply(self)
     @out << ')'
   end
 
-end # Emitter
+end # CEmitter
 
 
 end # Finita

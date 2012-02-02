@@ -12,8 +12,6 @@ class CoordinateTransform
     self
   end
 
-  def bind(gtor) end
-
 end # CoordinateTransform
 
 
@@ -60,6 +58,10 @@ class Trivial < CoordinateTransform
 
   def dz(obj)
     Diff.new(obj, :z)
+  end
+
+  def bind(gtor)
+    [x,y,z].each {|c| c.bind(gtor)}
   end
 
 end # Trivial
@@ -112,8 +114,6 @@ class CoordinateTransformer < Transformer
   def initialize(coords, transform)
     @coords = coords
     @transform = transform
-    coords.adapt!(self)
-    transform.adapt!(self)
   end
 
   def bind(gtor)
@@ -121,7 +121,9 @@ class CoordinateTransformer < Transformer
     transform.bind(gtor)
   end
 
-  def transform!(obj)
+  def apply!(obj)
+    coords.adapt!(self)
+    transform.adapt!(self)
     obj.apply(self)
     result
   end
