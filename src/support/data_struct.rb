@@ -2,7 +2,7 @@ require 'singleton'
 require 'code_builder'
 
 
-module CDataStruct
+module DataStruct
 
 
 class Type
@@ -488,4 +488,4 @@ class Map < Type
 end # Map
 
 
-end
+end # DataStruct

@@ -191,7 +191,7 @@ class System
   end
 
   def initialize(name, problem = Finita::Problem.object, &block)
-    @name = name
+    @name = Finita.to_c(name)
     @equations = []
     @problem = problem
     problem.systems << self
