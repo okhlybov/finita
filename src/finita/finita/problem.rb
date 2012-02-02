@@ -50,7 +50,7 @@ class Problem
   # Initialize a new problem instance.
   # Invokes #process when optional block is supplied.
   def initialize(name, &block)
-    @name = name
+    @name = Finita.to_c(name)
     @systems = []
     if block_given?
       raise 'Problem nesting is not permitted' unless @@object.nil?

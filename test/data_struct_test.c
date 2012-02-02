@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "c_data_struct_test.auto.h"
+#include "data_struct_test.auto.h"
 
 static void IntSlistTest() {
     IntSlist is;

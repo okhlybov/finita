@@ -1,6 +1,6 @@
 require 'singleton'
 require 'code_builder'
-require 'c_data_struct'
+require 'data_struct'
 
 
 module Finita
@@ -119,12 +119,12 @@ module AdapterStubs
 end # AdapterStubs
 
 
-class ListAdapter < CDataStruct::List
+class ListAdapter < DataStruct::List
   include AdapterStubs
 end # ListAdapter
 
 
-class SetAdapter < CDataStruct::Set
+class SetAdapter < DataStruct::Set
   include AdapterStubs
   def new_bucket_list
     ListAdapter.new("#{type}Bucket", element_type, visible)
@@ -132,7 +132,7 @@ class SetAdapter < CDataStruct::Set
 end # SetAdapter
 
 
-class MapAdapter < CDataStruct::Map
+class MapAdapter < DataStruct::Map
   include AdapterStubs
   def new_pair_set
     SetAdapter.new("#{type}PairSet", "#{type}Pair", "#{type}PairHasher", "#{type}PairComparator", visible)

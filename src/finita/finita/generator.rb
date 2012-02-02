@@ -1,6 +1,6 @@
 require 'finita/common'
 require 'code_builder'
-require 'c_data_struct'
+require 'data_struct'
 
 
 module Finita
