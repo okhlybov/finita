@@ -277,11 +277,13 @@ class Domain < Area
     Planes.each do |p, d|
       r = range(p)
       unless r.nil? || r.unit?
-        f = send(d)
-        if f.dimension > 0
-          set.merge(f.decompose)
-        else
-          set << f
+        d.each do |symbol|
+          f = send(symbol)
+          if f.dimension > 0
+            set.merge(f.decompose)
+          else
+            set << f
+          end
         end
       end
     end
