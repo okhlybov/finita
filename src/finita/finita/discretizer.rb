@@ -54,6 +54,10 @@ class DU2 < Transformer
     {:z=>2} => D2(:z, :back, :forth)
   }
 
+  def numeric(obj)
+    @result = obj
+  end
+
   def scalar(obj)
     @result = obj
   end
@@ -74,7 +78,7 @@ class DU2 < Transformer
     @result = func.call(obj.arg, @domain)
   end
 
-  def discretize!(obj, domain)
+  def apply!(obj, domain)
     adapt!(domain)
     obj.apply(self)
     result

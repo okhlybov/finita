@@ -71,12 +71,19 @@ class StaticCodeTemplate < CodeTemplate
 end # StaticCodeTemplate
 
 
-class BoundCodeTemplate < CodeTemplate
+module BoundCodeStubs
   attr_reader :master, :gtor
-  def initialize(master, gtor)
+  def initialize_bound(master, gtor)
     gtor[master] = self
     @master = master
     @gtor = gtor
+  end
+end
+
+class BoundCodeTemplate < CodeTemplate
+  include BoundCodeStubs
+  def initialize(master, gtor)
+    initialize_bound(master, gtor)
   end
 end # BoundCodeTemplate
 

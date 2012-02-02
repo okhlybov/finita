@@ -47,6 +47,24 @@ class Problem
     @backend = backend
   end
 
+  def transformer
+    raise 'Problem-wise coordinate transformation is not set' if @t9r.nil?
+    @t9r
+  end
+
+  def transformer=(t9r)
+    @t9r = t9r
+  end
+
+  def discretizer
+    raise 'Problem-wise discretizer is not set' if @d9r.nil?
+    @d9r
+  end
+
+  def discretizer=(d9r)
+    @d9r = d9r
+  end
+
   # Initialize a new problem instance.
   # Invokes #process when optional block is supplied.
   def initialize(name, &block)
@@ -60,12 +78,21 @@ class Problem
       ensure
         @@object = nil
       end
-      process
+      process!
     end
   end
 
+  def unknowns
+    set = Set.new
+    systems.unknowns.each {|uns| set.merge(uns)}
+    set
+  end
+
   # Generate source code for the problem.
-  def process
+  def process!
+    systems.each do |system|
+      system.process!
+    end
     new_generator.generate
   end
 
