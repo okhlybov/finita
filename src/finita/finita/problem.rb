@@ -22,8 +22,8 @@ class Problem
     def entities; super + [Generator::StaticCode.instance, @setup, @cleanup, CoordSetCode.instance] end
     def initialize(master, gtor)
       super(master, gtor)
-      @setup = BoundFunctionCode.new("#{master.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup, gtor)
-      @cleanup = BoundFunctionCode.new("#{master.name}Cleanup", [], 'void', :write_cleanup, gtor)
+      @setup = CustomFunctionCode.new(gtor, "#{master.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup)
+      @cleanup = CustomFunctionCode.new(gtor, "#{master.name}Cleanup", [], 'void', :write_cleanup)
     end
   end # Code
 

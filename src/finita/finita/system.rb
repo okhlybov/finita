@@ -101,7 +101,7 @@ class System
     def problem_code; gtor[master.problem] end
     def initialize(master, gtor)
       super
-      @solve = BoundFunctionCode.new("#{master.name}Solve", [], 'void', :write_solve, gtor)
+      @solve = CustomFunctionCode.new(gtor, "#{master.name}Solve", [], 'void', :write_solve)
       @type = Generator::Scalar[master.type]
     end
     def write_decls(stream)

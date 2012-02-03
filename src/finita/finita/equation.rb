@@ -52,15 +52,26 @@ end # Equation
 
 class AlgebraicEquation < AbstractEquation
 
-  class Code < FunctionTemplate
-    include BoundCodeStubs
+  class ChunkCode < FunctionTemplate
     @@index = 0
-    def initialize(master, gtor, visible = true)
-      super("_#{@@index+=1}", ['int x','int y','int z'], Generator::Scalar[master.type], visible)
-      initialize_bound(master, gtor)
+    attr_reader :name
+    def initialize(master)
+      @lhs = master.lhs
+      @type = master.type
+      @name = "_#{@@index+=1}"
+      super(name, ['int x','int y','int z'], Generator::Scalar[@type], true)
     end
     def write_body(stream)
-      stream << "return #{CEmitter.new.emit!(master.lhs)};"
+      stream << "return #{CEmitter.new.emit!(@lhs)};"
+    end
+  end
+
+  class Code < BoundCodeTemplate
+    attr_reader :chunk
+    def entities; [chunk] end
+    def initialize(master, gtor)
+      super
+      @chunk = ChunkCode.new(master)
     end
   end
 
