@@ -71,19 +71,12 @@ class StaticCodeTemplate < CodeTemplate
 end # StaticCodeTemplate
 
 
-module BoundCodeStubs
+class BoundCodeTemplate < CodeTemplate
   attr_reader :master, :gtor
-  def initialize_bound(master, gtor)
+  def initialize(master, gtor)
     gtor[master] = self
     @master = master
     @gtor = gtor
-  end
-end
-
-class BoundCodeTemplate < CodeTemplate
-  include BoundCodeStubs
-  def initialize(master, gtor)
-    initialize_bound(master, gtor)
   end
 end # BoundCodeTemplate
 
@@ -91,7 +84,7 @@ end # BoundCodeTemplate
 class FunctionTemplate < CodeTemplate
   # def write_body(stream)
   attr_reader :name, :args, :result
-  def initialize(name, args, result, visible = true)
+  def initialize(name, args, result, visible)
     @name = name
     @args = args
     @result = result

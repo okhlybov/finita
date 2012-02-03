@@ -6,19 +6,18 @@ require 'data_struct'
 module Finita
 
 
-class BoundFunctionCode < FunctionTemplate
-  def entities; super << Generator::StaticCode.instance end
-  def initialize(name, args, result, write_method, gtor)
-    super(name, args, result, true)
-    @write_method = write_method
+class CustomFunctionCode < FunctionTemplate
+  def initialize(gtor, name, args, result, write_method, visible = true)
+    super(name, args, result, visible)
     @gtor = gtor
+    @write_method = write_method
   end
   def write_body(stream)
     CodeBuilder.priority_sort(Set.new(@gtor.entities)).select! {|e| e.respond_to?(@write_method)}.each do |e|
       e.send(@write_method, stream)
     end
   end
-end # BoundFunctionCode
+end # CustomFunctionCode
 
 
 class CoordSetCode < SetAdapter
@@ -133,11 +132,10 @@ class Generator
   def generate
     @bound = Hash.new
     @unbound = Array.new
-    self << StaticCode.instance
     problem.bind(self)
-    _module = new_module
-    entities.each {|e| _module << e}
-    _module.generate
+    @module = new_module
+    entities.each {|e| @module << e}
+    @module.generate
   end
 
   protected

@@ -14,13 +14,11 @@ F = Field.new(:F, Float, whole)
 G = Field.new(:G, Integer, inner)
 H = Field.new(:H, Float, whole)
 
-s1=nil
-p = s = nil
 Problem.new(:Problem) {|p|
   p.backend = SuperLU.new
   p.transformer = CoordinateTransformer.new(Cylindrical.new, Trivial.new)
   p.discretizer = DU2.new
-  s1=System.new(:System) {|s|
-    Equation.new(Nabla.new(F), F, whole)
+  System.new(:System) {|s|
+    Equation.new(Nabla.new(F)+1, F, whole)
   }
 }
