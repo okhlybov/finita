@@ -55,11 +55,11 @@ class Scalar < Symbolic::Expression
   end
 
   def hash
-    name.hash ^ (type.hash<<1)
+    self.class.hash ^ (name.hash << 1) ^ (type.hash << 2)
   end
 
   def ==(other)
-    self.class == other.class && name == other.name && type == other.type
+    equal?(other) || self.class == other.class && name == other.name && type == other.type
   end
 
   def apply(obj)
@@ -67,7 +67,7 @@ class Scalar < Symbolic::Expression
   end
 
   def bind(gtor)
-    Code.new(self, gtor)
+    Code.new(self, gtor) unless gtor.bound?(self)
   end
 
 end # Scalar
@@ -90,8 +90,8 @@ class Field < Symbolic::Expression
     def write_setup(stream)
       grid_code.write_field_setup(stream, master)
     end
-    def node_count_s
-      grid_code.node_count_s
+    def node_count
+      grid_code.node_count
     end
   end # Code
 
@@ -104,12 +104,14 @@ class Field < Symbolic::Expression
   end
 
   def hash
-    name.hash ^ (type.hash<<1) ^ (grid.hash<<2)
+    self.class.hash ^ (name.hash << 1) ^ (type.hash << 2) ^ (grid.hash << 3)
   end
 
   def ==(other)
-    self.class == other.class && name == other.name && type == other.type && grid == other.grid
+    equal?(other) || self.class == other.class && name == other.name && type == other.type && grid == other.grid
   end
+
+  alias :eql? :==
 
   def apply(obj)
     obj.field(self)
@@ -117,7 +119,7 @@ class Field < Symbolic::Expression
 
   def bind(gtor)
     grid.bind(gtor)
-    Code.new(self, gtor)
+    Code.new(self, gtor) unless gtor.bound?(self)
   end
 
 end # Field
@@ -224,9 +226,13 @@ class Index
     @hash = @index.hash
   end
 
+  # TODO hash()
+
   def ==(other)
-    self.class == other.class && base == other.base && delta == other.delta
+    equal?(other) || self.class == other.class && base == other.base && delta == other.delta
   end
+
+  alias :eql? :==
 
   def to_s
     @index.to_s
@@ -276,12 +282,14 @@ class Ref < Symbolic::UnaryFunction
   end
 
   def hash
-    super ^ (xindex.hash<<1) ^ (yindex.hash<<2) ^ (zindex.hash<<3)
+    super ^ (xindex.hash << 1) ^ (yindex.hash << 2) ^ (zindex.hash << 3)
   end
 
   def ==(other)
     super && xindex == other.xindex && yindex == other.yindex && zindex == other.zindex
   end
+
+  alias :eql? :==
 
   def apply(obj)
     obj.ref(self)
@@ -309,12 +317,14 @@ class Diff < Symbolic::UnaryFunction
   end
 
   def hash
-    super ^ (diffs.hash<<1)
+    super ^ (diffs.hash << 1)
   end
 
   def ==(other)
     super && diffs == other.diffs
   end
+
+  alias :eql? :==
 
   def new_instance(arg)
     self.class.new(arg, diffs)

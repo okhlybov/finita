@@ -1,4 +1,4 @@
-#include "Problem.h"
+#include "Problem.auto.h"
 
 void FinitaAbort() {
    abort();

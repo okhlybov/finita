@@ -10,9 +10,9 @@ class Area
 
   class StaticCode < Finita::StaticCodeTemplate
     TAG = :FinitaCellArea
-    def entities; super << Generator::StaticCode.instance end
+    def entities; super + [Generator::StaticCode.instance] end
     def write_intf(stream)
-      stream << """
+      stream << %$
           typedef struct #{TAG}_ #{TAG};
           struct #{TAG}_ {
               int x1, x2, y1, y2, z1, z2;
@@ -21,10 +21,10 @@ class Area
           void #{TAG}Ctor(#{TAG}* self, int x1, int x2, int y1, int y2, int z1, int z2);
           int #{TAG}Size(#{TAG}* self);
           int #{TAG}Encode(#{TAG}* self, int x, int y, int z);
-      """
+      $
     end
     def write_defs(stream)
-      stream << """
+      stream << %$
           #define SIZE(id) (self->id##2-self->id##1+1)
           #define OFFSET(id) (id-self->id##1)
           int #{TAG}Within(#{TAG}* self, int x, int y, int z) {
@@ -53,30 +53,29 @@ class Area
           }
           #undef SIZE
           #undef OFFSET
-      """
+      $
     end
   end # StaticCode
 
   class Code < Finita::BoundCodeTemplate
     TAG = StaticCode::TAG
-    @@count = 0
+    @@index = 0
     attr_reader :index, :name
+    def entities; super + [StaticCode.instance] end
     def initialize(master, gtor)
       super(master, gtor)
-      @@count += 1
-      @index = @@count
-      @name = "#{TAG}#{index}"
+      @name = "#{TAG}#{@@index += 1}"
     end
-    def entities; super << StaticCode.instance end
+    # TODO
+    # As for now, Area.new(10,10,10) and Domain.new(10,10,10) will yield separate code entities, which
+    # have the same contents, since the adjacency information is not captured.
+    # It might be useful implement the code sharing.
+    #
     def write_intf(stream)
-      stream << """
-        extern #{TAG} #{name};
-      """
+      stream << "extern #{TAG} #{name};"
     end
     def write_defs(stream)
-      stream << """
-        #{TAG} #{name};
-      """
+      stream << "#{TAG} #{name};"
     end
     def write_setup(stream)
       args = []
@@ -84,43 +83,39 @@ class Area
         r = master.send(m)
         args.push(*(r.nil? ? [0,0] : [r.from, r.to]))
       end
-      stream << """
-        #{TAG}Ctor(&#{name}, #{args.join(',')});
-      """
+      stream << "#{TAG}Ctor(&#{name}, #{args.join(',')});"
     end
     def write_field_intf(stream, field)
-      stream << """
+      stream << %$
         extern void* #{field.name}_;
         #define #{field.name}(x,y,z) ((#{Generator::Scalar[field.type]}*)#{field.name}_)[#{TAG}Encode(&#{name},x,y,z)]
-      """
+      $
     end
     def write_field_defs(stream, field)
-      stream << """
-        void* #{field.name}_;
-      """
+      stream << "void* #{field.name}_;"
     end
     def write_field_setup(stream, field)
-      stream << """
+      stream << %$
         #{field.name}_ = FINITA_MALLOC(sizeof(#{Generator::Scalar[field.type]})*#{TAG}Size(&#{name})); FINITA_ASSERT(#{field.name}_);
-      """
+      $
     end
     def foreach_code(stream)
-      stream << """
+      stream << %$
         {int x, y, z;
           for(x = #{name}.x1; x <= #{name}.x2; ++x)
           for(y = #{name}.y1; y <= #{name}.y2; ++y)
           for(z = #{name}.z1; z <= #{name}.z2; ++z){
-      """
+      $
       yield(self)
       stream << '}}'
     end
-    def node_count_s
+    def node_count
       "#{TAG}Size(&#{name})"
     end
   end # Code
 
   def bind(gtor)
-    Code.new(self, gtor)
+    Code.new(self, gtor) unless gtor.bound?(self)
     ExpressionCollector.new(*([xrange,yrange,zrange].compact.collect {|r| [r.from,r.to]}.flatten)).expressions.each {|e| e.bind(gtor)}
   end
 
@@ -152,12 +147,14 @@ class Area
   end
 
   def hash
-    (xrange.hash << 1) ^ (yrange.hash << 2) ^ (zrange.hash << 3)
+    self.class.hash ^ (xrange.hash << 1) ^ (yrange.hash << 2) ^ (zrange.hash << 3)
   end
 
-  def eql?(other)
-    self.class == other.class && xrange == other.xrange && yrange == other.yrange && zrange == other.zrange
+  def ==(other)
+    equal?(other) || self.class == other.class && xrange == other.xrange && yrange == other.yrange && zrange == other.zrange
   end
+
+  alias :eql? :==
 
   def interior
     Area.new(xrange.nil? ? nil : xrange.sub, yrange.nil? ? nil : yrange.sub, zrange.nil? ? nil : zrange.sub, self)
@@ -249,12 +246,14 @@ class Domain < Area
   end
 
   def hash
-    adjacent.hash ^ super
+    super ^ (adjacent.hash << 1)
   end
 
-  def eql?(other)
+  def ==(other)
     super && adjacent == other.adjacent
   end
+
+  alias :eql? :==
 
   [:up, :down, :left, :right, :forth, :back].each do |dir|
     define_method(dir) do

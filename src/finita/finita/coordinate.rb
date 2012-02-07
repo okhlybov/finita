@@ -26,7 +26,7 @@ class Trivial < CoordinateTransform
       super(name, Integer, nil)
     end
     def bind(gtor)
-      Code.new(self, gtor)
+      Code.new(self, gtor) unless gtor.bound?(self)
     end
   end # Coord
 

@@ -38,8 +38,7 @@ class Problem
   # Return problem-wise backend.
   # This backend is to be used by the systems bound to this problem for which system-specific backends are not specified.
   def backend
-    raise 'Problem-wise backend is not set' if @backend.nil?
-    @backend
+    @backend.nil? ? raise('Problem-wise backend is not set') : @backend
   end
 
   # Set problem-wise backend. See #backend.
@@ -48,8 +47,7 @@ class Problem
   end
 
   def transformer
-    raise 'Problem-wise coordinate transformation is not set' if @t9r.nil?
-    @t9r
+    @t9r.nil? ? raise('Problem-wise coordinate transformer is not set') : @t9r
   end
 
   def transformer=(t9r)
@@ -57,12 +55,19 @@ class Problem
   end
 
   def discretizer
-    raise 'Problem-wise discretizer is not set' if @d9r.nil?
-    @d9r
+    @d9r.nil? ? raise('Problem-wise discretizer is not set') : @d9r
   end
 
   def discretizer=(d9r)
     @d9r = d9r
+  end
+
+  def generator
+    @gtor.nil? ? generator = Finita::Generator.new : @gtor
+  end
+
+  def generator=(gtor)
+    @gtor = gtor
   end
 
   # Initialize a new problem instance.
@@ -93,24 +98,14 @@ class Problem
     systems.each do |system|
       system.process!
     end
-    new_generator.generate
+    generator.generate!(self)
   end
 
   # Bind code entities to specified generator.
   # Invokes bind() methods on owned sub-objects.
   def bind(gtor)
-    Code.new(self, gtor)
+    Code.new(self, gtor) unless gtor.bound?(self)
     systems.each {|s| s.bind(gtor)}
-  end
-
-  protected
-
-  # Return new instance of generator to be used for code generation.
-  # The generator is expected to be bound to this object.
-  # This implementation returns a Finita::Generator instance.
-  # Used by #process.
-  def new_generator
-    Finita::Generator.new(self)
   end
 
 end # Problem
