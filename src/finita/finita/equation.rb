@@ -23,7 +23,7 @@ class AbstractEquation
   def bind(gtor)
     unknown.bind(gtor)
     domain.bind(gtor)
-    # TODO lhs
+    ExpressionCollector.new(lhs).expressions.each {|e| e.bind(gtor)}
   end
 
 end # AbstractEquation
@@ -52,32 +52,39 @@ end # Equation
 
 class AlgebraicEquation < AbstractEquation
 
-  class ChunkCode < FunctionTemplate
+  class EvaluatorCode < FunctionTemplate
     @@index = 0
-    attr_reader :name
+    attr_reader :name, :expression, :type
     def initialize(master)
-      @lhs = master.lhs
+      @name = "_#{@@index += 1}"
+      @expression = master.lhs
       @type = master.type
-      @name = "_#{@@index+=1}"
-      super(name, ['int x','int y','int z'], Generator::Scalar[@type], true)
+      super(name, ['int x','int y','int z'], Generator::Scalar[type], true)
     end
+    def hash
+      self.class.hash ^ (expression.hash << 1) ^ (type.hash << 2)
+    end
+    def ==(other)
+      equal?(other) || self.class == other.class && expression == other.expression && type == other.type
+    end
+    alias :eql? :==
     def write_body(stream)
-      stream << "return #{CEmitter.new.emit!(@lhs)};"
+      stream << "return #{CEmitter.new.emit!(expression)};"
     end
   end
 
   class Code < BoundCodeTemplate
-    attr_reader :chunk
-    def entities; [chunk] end
+    attr_reader :evaluator
+    def entities; super + [evaluator] end
     def initialize(master, gtor)
       super
-      @chunk = ChunkCode.new(master)
+      @evaluator = gtor << EvaluatorCode.new(master)
     end
   end
 
   def bind(gtor)
     super
-    Code.new(self, gtor)
+    Code.new(self, gtor) unless gtor.bound?(self)
   end
 
 end # AlgebraicEquation

@@ -37,8 +37,9 @@ class Range
     from.hash ^ (to.hash << 1)
   end
   def ==(other)
-    self.class == other.class && from == other.from && to == other.to
+    equal?(other) || self.class == other.class && from == other.from && to == other.to
   end
+  alias :eql? :==
   def sub
    unit? ? self : Range.new(from+1, to-1)
   end
@@ -63,6 +64,7 @@ class CodeTemplate
   def write_intf(stream) end
   def write_defs(stream) end
   def write_decls(stream) end
+  # def eql?()
 end # CodeTemplate
 
 
@@ -74,10 +76,17 @@ end # StaticCodeTemplate
 class BoundCodeTemplate < CodeTemplate
   attr_reader :master, :gtor
   def initialize(master, gtor)
-    gtor[master] = self
     @master = master
     @gtor = gtor
+    gtor[@master] = self
   end
+  def hash
+    self.class.hash ^ (master.hash << 1)
+  end
+  def ==(other)
+    equal?(other) || self.class == other.class && master == other.master
+  end
+  alias :eql? :==
 end # BoundCodeTemplate
 
 

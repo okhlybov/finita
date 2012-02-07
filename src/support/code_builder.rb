@@ -12,6 +12,9 @@ module CodeBuilder
 #   def write_intf(stream)
 #   def write_defs(stream)
 #   def write_decls(stream)
+#   def hash()
+#   def ==(other)
+#   alias :eql? :==
 # end
 
 
@@ -70,7 +73,6 @@ end # Module
 
 
 def self.priority_sort(entities)
-  # TODO in-place operation???
   entities.to_a.sort_by!{|e| e.priority}.reverse!
 end # priority_sort
 
@@ -143,4 +145,4 @@ class Source < Code
 end # Source
 
 
-end # SourceCode
+end # CodeBuilder

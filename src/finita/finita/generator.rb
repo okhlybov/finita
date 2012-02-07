@@ -26,23 +26,23 @@ class CoordSetCode < SetAdapter
     super('FinitaCoordSet', 'FinitaCoord*', 'FinitaCoordHasher', 'FinitaCoordComparator', true)
   end
   def write_intf(stream)
-    stream << """
+    stream << %$
       typedef struct {
         int field, x, y, z;
         int index;
       } FinitaCoord;
-    """
+    $
     super
   end
   def write_defs(stream)
-    stream << """
+    stream << %$
       int FinitaCoordHasher(FinitaCoord* coord) {
         return coord->field ^ (coord->x<<2) ^ (coord->y<<4) ^ (coord->z<<6);
       }
       int FinitaCoordComparator(FinitaCoord* lt, FinitaCoord* rt) {
         return lt->field == rt->field && lt->x == rt->x && lt->y == rt->y && lt->z == rt->z;
       }
-    """
+    $
     super
   end
 end # CoordSetCode
@@ -56,9 +56,9 @@ class Generator
   class StaticCode < StaticCodeTemplate
     def priority; CodeBuilder::Priority::MAX end
     def write_intf(stream)
-      stream << """
+      stream << %$
           #include <malloc.h>
-          #ifdef _MSC_VER
+          #if defined _MSC_VER || __PGI
             #define __func__ __FUNCTION__
           #endif
           #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
@@ -71,7 +71,7 @@ class Generator
           #endif
           #define FINITA_MALLOC(size) malloc(size)
           #define FINITA_CALLOC(count, size) calloc(count, size)
-      """
+      $
     end
     def write_defs(stream)
       stream << %$
@@ -103,38 +103,41 @@ class Generator
   # Return problem object this generator is bound to.
   attr_reader :problem
 
-  def initialize(problem)
-    @problem = problem
+  # Attach an entity if there is no other entity which have already been attached, that is considered equal to this one.
+  # Returns an entity which is actually memorized.
+  def <<(entity)
+    @entities.has_key?(entity) ? @entities[entity] : @entities[entity] = entity
   end
 
-  # Attach unbound code entity to this generator.
-  def <<(obj)
-    @unbound << obj
-  end
-
-  # Return code entity previously attached with Generator#[]= bound to the object specified or nil if no such object was attached.
+  # Return code entity associated with specified object.
   def [](obj)
-    @bound[obj]
+    @objects[obj]
+  end
+
+  # Return true is the object has already been registered and false otherwise.
+  def bound?(obj)
+    @objects.has_key?(obj)
   end
 
   # Attach code entity bound to the object specified.
-  def []=(obj, code)
-    @bound[obj] = code
+  # Returns an entity which is actually memorized (see Generator#<<).
+  def []=(obj, entity)
+    @objects[obj] = self << entity
   end
 
-  # Return unordered list of all code entities attached to this generator.
-  # List may contains duplicates.
+  # Return a view of all code entities attached to this generator.
   def entities
-    @bound.values + @unbound
+    @entities.keys
   end
 
   # Generate source code for the problem.
-  def generate
-    @bound = Hash.new
-    @unbound = Array.new
+  def generate!(problem)
+    @problem = problem
+    @entities = Hash.new
+    @objects = Hash.new
     problem.bind(self)
     @module = new_module
-    entities.each {|e| @module << e}
+    @entities.each_key {|e| @module << e}
     @module.generate
   end
 
@@ -174,7 +177,7 @@ end # Module
 class Header < CodeBuilder::Header
 
   def name
-    "#{@module.name}.h"
+    "#{@module.name}.auto.h"
   end
 
   def tag

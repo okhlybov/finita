@@ -115,7 +115,7 @@ class System
       $
     end
     def write_defs(stream)
-      uns = Set.new(master.equations.collect {|e| e.unknown}).to_a.sort_by! {|u| u.name} # TODO code for choosing the ordering of unknowns
+      uns = Set.new(master.algebraic_equations.collect {|e| e.unknown}).to_a.sort_by! {|u| u.name} # TODO code for choosing the ordering of unknowns
       stream << %$
         FinitaOrdering #{master.name}Ordering;
         void #{master.name}Assemble() {
@@ -123,10 +123,10 @@ class System
           int approx_node_count = 0;
       $
       uns.each do |u|
-        stream << "approx_node_count += #{gtor[u].node_count_s};"
+        stream << "approx_node_count += #{gtor[u].node_count};"
       end
       stream << "FinitaOrderingCtor(&#{master.name}Ordering, approx_node_count);"
-      master.equations.each do |eqn|
+      master.algebraic_equations.each do |eqn|
         gtor[eqn.domain].foreach_code(stream) {
           stream << %$
             coord.field = #{uns.index(eqn.unknown)}; /* #{eqn.unknown} */
@@ -137,7 +137,7 @@ class System
           $
         }
       end
-      stream << %$FinitaOrderingFreeze(&#{master.name}Ordering);}$
+      stream << "FinitaOrderingFreeze(&#{master.name}Ordering);}"
       stream << %$
         void #{master.name}Set(#{@type} value, int field, int x, int y, int z) {
           switch(field) {
@@ -163,7 +163,7 @@ class System
       stream << %$default : FINITA_FAILURE("invalid field index");$
       stream << '}return 0;}'
       stream << %$
-        #{@type} #{master.name}GettLinear(int index) {
+        #{@type} #{master.name}GetLinear(int index) {
           FinitaCoord coord = FinitaOrderingCoord(&#{master.name}Ordering, index);
           return #{master.name}Get(coord.field, coord.x, coord.y, coord.z);
         }
@@ -237,7 +237,7 @@ class System
   end
 
   def bind(gtor)
-    Code.new(self, gtor)
+    Code.new(self, gtor) unless gtor.bound?(self)
     backend.bind(gtor, self)
     transformer.bind(gtor)
     algebraic_equations.each {|e| e.bind(gtor)}

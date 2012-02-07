@@ -7,7 +7,7 @@ module Finita
 class SuperLU
 
   class StaticCode < StaticCodeTemplate
-    def entities; super << Generator::StaticCode.instance end
+    def entities; super + [Generator::StaticCode.instance] end
     def write_intf(stream)
       stream << %q^
         #define FINITA_BACKEND_SUPERLU
@@ -30,7 +30,7 @@ class SuperLU
   end # Code
 
   def bind(gtor, system)
-    Code.new(self, gtor, system)
+    Code.new(self, gtor, system) unless gtor.bound?(self)
   end
 
 end # SuperLU

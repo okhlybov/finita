@@ -14,11 +14,11 @@ class Type
     def attach(source) end
     def priority; CodeBuilder::Priority::DEFAULT end
     def write_intf(stream)
-      stream << """
+      stream << %$
         #include <assert.h>
         #include <malloc.h>
         #include <stdlib.h>
-      """
+      $
     end
     def write_defs(stream) end
     def write_decls(stream) end
@@ -83,7 +83,7 @@ class List < Type
   end
   
   def write_intf_real(stream)
-    stream << """
+    stream << %$
         typedef struct #{node}_ #{node};
         struct #{node}_ {
             #{element_type} element;
@@ -107,11 +107,11 @@ class List < Type
         void #{it_ctor}(#{it}*, #{type}*);
         int #{it_has_next}(#{it}*);
         #{element_type} #{it_next}(#{it}*);
-    """
+    $
   end
   
   def write_defs(stream)
-    stream << """
+    stream << %$
         void #{ctor}(#{type}* self) {
             #{assert}(self);
             self->head_node = self->tail_node = NULL;
@@ -170,7 +170,7 @@ class List < Type
             self->next_node = self->next_node->next_node;
             return node->element;
         }
-    """
+    $
   end
 
 end # List
@@ -214,7 +214,7 @@ class Set < Type
 
   def write_intf_real(stream)
     bucket.write_intf_real(stream)
-    stream << """
+    stream << %$
         typedef struct {
             #{bucket.type}* buckets;
             int bucket_count;
@@ -236,12 +236,12 @@ class Set < Type
         void #{it_ctor}(#{it}*, #{type}*);
         int #{it_has_next}(#{it}*);
         #{element_type} #{it_next}(#{it}*);
-    """
+    $
   end
 
   def write_defs(stream)
     bucket.write_defs(stream)
-    stream << """
+    stream << %$
         void #{ctor}(#{type}* self, int bucket_count) {
             int i;
             #{assert}(self);
@@ -339,7 +339,7 @@ class Set < Type
             #{abort}(); return #{bucket.it_next}(&self->it); /* Must not reach this point */
           }
       }
-    """
+    $
   end
 
   protected
@@ -391,14 +391,14 @@ class Map < Type
   end
 
   def write_intf_real(stream)
-    stream << """
+    stream << %$
         typedef struct {
             #{key_type} key;
             #{value_type} value;
         } #{pair};
-    """
+    $
     pair_set.write_intf_real(stream)
-    stream << """
+    stream << %$
         typedef struct {
             #{pair_set.type} pairs;
         } #{type};
@@ -416,12 +416,12 @@ class Map < Type
         int #{it_has_next}(#{it}*);
         #{key_type} #{it_next_key}(#{it}*);
         #{value_type} #{it_next_value}(#{it}*);
-    """
+    $
   end
 
   def write_defs(stream)
     pair_set.write_defs(stream)
-    stream << """
+    stream << %$
         int #{pair_set.hasher}(#{pair} pair) {
             return #{hasher}(pair.key);
         }
@@ -478,7 +478,7 @@ class Map < Type
             #{assert}(self);
             return #{pair_set.it_next}(&self->it).value;
         }
-    """
+    $
   end
 
   protected
