@@ -10,7 +10,7 @@ class Area
 
   class StaticCode < Finita::StaticCodeTemplate
     TAG = :FinitaCellArea
-    def entities; super + [Generator::StaticCode.instance] end
+    def entities; super + [Finita::Generator::StaticCode.instance] end
     def write_intf(stream)
       stream << %$
           typedef struct #{TAG}_ #{TAG};
@@ -88,7 +88,7 @@ class Area
     def write_field_intf(stream, field)
       stream << %$
         extern void* #{field.name}_;
-        #define #{field.name}(x,y,z) ((#{Generator::Scalar[field.type]}*)#{field.name}_)[#{TAG}Encode(&#{name},x,y,z)]
+        #define #{field.name}(x,y,z) ((#{Finita::Generator::Scalar[field.type]}*)#{field.name}_)[#{TAG}Encode(&#{name},x,y,z)]
       $
     end
     def write_field_defs(stream, field)
@@ -96,7 +96,7 @@ class Area
     end
     def write_field_setup(stream, field)
       stream << %$
-        #{field.name}_ = FINITA_MALLOC(sizeof(#{Generator::Scalar[field.type]})*#{TAG}Size(&#{name})); FINITA_ASSERT(#{field.name}_);
+        #{field.name}_ = FINITA_MALLOC(sizeof(#{Finita::Generator::Scalar[field.type]})*#{TAG}Size(&#{name})); FINITA_ASSERT(#{field.name}_);
       $
     end
     def foreach_code(stream)
