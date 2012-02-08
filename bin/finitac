@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require 'finita'
+include Finita
+load ARGV[0]

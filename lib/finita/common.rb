@@ -6,6 +6,9 @@ require 'data_struct'
 module Finita
 
 
+VERSION = '0.1'
+
+
 module Forwarder
   def set_forward_obj(obj)
     @forward_obj = obj
