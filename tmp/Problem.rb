@@ -1,6 +1,3 @@
-require 'finita'
-include Finita
-
 #require 'ruby-prof'
 #RubyProf.start
 
@@ -21,7 +18,7 @@ p=Problem.new(:Problem) {|p|
   p.discretizer = DU2.new
   System.new(:System) {|s|
     Equation.new(F+1, F, inner)
-    Equation.new(F+1, G, whole)
+    Equation.new(G+1, G, whole)
   }
 }
 end
