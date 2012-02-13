@@ -11,6 +11,9 @@ static void IntSlistTest() {
     IntSlistAppend(&is, 3);
     IntSlistAppend(&is, 4);
     IntSlistPrepend(&is, 0);
+    IntSlistReplace(&is, 3, 33);
+    IntSlistReplace(&is, 4, 44);
+    IntSlistReplace(&is, 5, 55);
     printf("size=%d\n", IntSlistSize(&is));
     printf("first=%d last=%d\n", IntSlistFirst(&is), IntSlistLast(&is));
     {
