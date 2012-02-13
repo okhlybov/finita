@@ -9,11 +9,16 @@ class AbstractEquation
 
   attr_reader :lhs, :unknown, :domain, :system
 
-  def initialize(lhs, unknown, domain, system)
+  def initialize(lhs, unknown, domain, system, through)
     @lhs = lhs
     @unknown = unknown
     @domain = domain
     @system = system
+    @through = through
+  end
+
+  def through?
+    @through
   end
 
   def type
@@ -31,8 +36,8 @@ end # AbstractEquation
 
 class Equation < AbstractEquation
 
-  def initialize(lhs, unknown, domain, system = Finita::System.object, &block)
-    super(lhs, unknown, domain, system)
+  def initialize(lhs, unknown, domain, through, system = Finita::System.object, &block)
+    super(lhs, unknown, domain, system, through)
     system.equations << self
     if block_given?
       yield(self)

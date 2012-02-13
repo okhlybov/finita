@@ -1,0 +1,94 @@
+#!/usr/bin/env ruby
+
+
+require 'tk'
+require 'yaml'
+
+
+TITLE = 'Finita control panel'
+CONFIG_FILE = File.join(ENV['HOME'], '.finita-control-panel')
+
+
+$config = {
+  :recent=>[]
+}
+
+
+def restore_config
+  begin
+    stream = File.new(CONFIG_FILE, 'r')
+    begin
+      $config = Marshal.restore(stream)
+    rescue
+      Tk.messageBox :title=>TITLE, :message=>'Failed to load configuration, falling back to default settings', :icon=>:error
+    end
+  rescue
+  else
+    stream.close
+  end
+end
+
+
+def store_config
+  stream = File.new(CONFIG_FILE, 'w')
+  begin
+    Marshal.dump($config, stream)
+  rescue
+    Tk.messageBox :title=>TITLE, :message=>'Failed to save configuration', :icon=>:error
+  ensure
+    stream.close
+  end
+end
+
+
+restore_config
+
+
+TkRoot.new { |root|
+  title TITLE
+  if $config[:geometry].nil?
+    w = 600
+    h = 400
+    $config[:geometry] = format('%dx%d%+d%+d', w, h, (root.winfo_screenwidth-w)/2, (root.winfo_screenheight-h)/2)
+  end
+  geometry $config[:geometry]
+  Tk::Tile::Notebook.new(root) { |notebook|
+    pack :padx=>2, :pady=>2, :fill=>:both, :expand=>1
+    launch = Tk::Tile::Frame.new(notebook) { |launch|
+      pack :fill=>:both, :expand=>1
+      Tk::Tile::Frame.new(launch) { |left|
+        pack :side=>:left
+        Tk::Tile::Button.new(left) { |button|
+          text 'Run selected configuration'
+          pack :padx=>2, :pady=>2, :side=>:top, :fill=>:x
+        }
+        Tk::Tile::Button.new(left) { |button|
+          text 'Choose new configuration'
+          pack :padx=>2, :pady=>2, :side=>:top, :fill=>:x
+          button.command = -> {
+            dir = Tk.chooseDirectory
+            unless dir.empty?
+              $config[:recent].reject!{|d| d == dir}
+              $config[:recent].unshift(dir)
+            end
+          }
+        }
+      }
+      TkListbox.new(launch) {
+        pack :padx=>2, :pady=>2, :side=>:right, :fill=>:both, :expand=>1
+        selectmode :single
+        listvariable TkVariable.new($config[:recent])
+      }
+    }
+    notebook.add launch, :text=>'Launch'
+    notebook.bind :Destroy, -> {
+      $config[:geometry] = root.cget :geometry;
+    }
+  }
+}
+
+
+Tk.mainloop
+
+
+store_config

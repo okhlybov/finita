@@ -2,6 +2,7 @@ require 'set'
 require 'code_builder'
 require 'finita/common'
 require 'finita/generator'
+require 'finita/ordering'
 
 
 module Finita
@@ -19,7 +20,7 @@ class Problem
   end
 
   class Code < BoundCodeTemplate
-    def entities; super + [Generator::StaticCode.instance, @setup, @cleanup, CoordSetCode.instance] end
+    def entities; super + [Generator::StaticCode.instance, @setup, @cleanup] end
     def initialize(master, gtor)
       super(master, gtor)
       @setup = CustomFunctionCode.new(gtor, "#{master.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup)
@@ -63,11 +64,27 @@ class Problem
   end
 
   def generator
-    @gtor.nil? ? generator = Finita::Generator.new : @gtor
+    @gtor.nil? ? raise('Problem-wise generator is not set') : @gtor
   end
 
   def generator=(gtor)
     @gtor = gtor
+  end
+
+  def ordering
+    @ordering.nil? ? raise('Problem-wise ordering is not set') : @ordering
+  end
+
+  def ordering=(ordering)
+    @ordering = ordering
+  end
+
+  def parallel?
+    @parallel
+  end
+
+  def parallel=(bool)
+    @parallel = bool
   end
 
   # Initialize a new problem instance.
@@ -75,6 +92,7 @@ class Problem
   def initialize(name, &block)
     @name = Finita.to_c(name)
     @systems = []
+    parallel = false
     if block_given?
       raise 'Problem nesting is not permitted' unless @@object.nil?
       begin

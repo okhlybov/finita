@@ -9,7 +9,7 @@ module Finita::Cell
 class Area
 
   class StaticCode < Finita::StaticCodeTemplate
-    TAG = :FinitaCellArea
+    TAG = :FinitaCell
     def entities; super + [Finita::Generator::StaticCode.instance] end
     def write_intf(stream)
       stream << %$

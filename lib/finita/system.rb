@@ -1,90 +1,9 @@
 require 'finita/common'
 require 'finita/generator'
+require 'finita/ordering'
 
 
 module Finita
-
-
-class OrderingCode < StaticCodeTemplate
-  TAG = :FinitaOrdering
-  def entities; super + [Generator::StaticCode.instance, CoordSetCode.instance] end
-  def write_intf(stream)
-    stream << %$
-      typedef struct {
-        FinitaCoordSet coord_set;
-        FinitaCoord* coord_vector;
-        int coord_count;
-        int frozen;
-      } #{TAG};
-      int #{TAG}Index(#{TAG}* self, FinitaCoord coord);
-      FinitaCoord #{TAG}Coord(#{TAG}* self, int index);
-      int #{TAG}Size(#{TAG}* self);
-    $
-  end
-  def write_defs(stream)
-    stream << %$
-      void #{TAG}Ctor(#{TAG}* self, int coord_count) {
-        FINITA_ASSERT(self);
-        self->frozen = 0;
-        FinitaCoordSetCtor(&self->coord_set, coord_count);
-      }
-      int #{TAG}Put(#{TAG}* self, FinitaCoord coord) {
-        FinitaCoord* pcoord;
-        FINITA_ASSERT(self);
-        FINITA_ASSERT(!self->frozen);
-        if(!FinitaCoordSetContains(&self->coord_set, &coord)) {
-          pcoord = (FinitaCoord*) malloc(sizeof(FinitaCoord)); FINITA_ASSERT(pcoord);
-          *pcoord = coord;
-          FinitaCoordSetPut(&self->coord_set, pcoord);
-          return 1;
-        } else {
-          return 0;
-        }
-      }
-      FinitaCoord* #{TAG}Get(#{TAG}* self, FinitaCoord coord) {
-        FINITA_ASSERT(self);
-        return FinitaCoordSetGet(&self->coord_set, &coord);
-      }
-      void #{TAG}Freeze(#{TAG}* self) {
-        int index = 0;
-        FinitaCoordSetIt it;
-        FINITA_ASSERT(self);
-        FINITA_ASSERT(!self->frozen);
-        self->coord_count = FinitaCoordSetSize(&self->coord_set);
-        self->coord_vector = (FinitaCoord*) malloc(self->coord_count*sizeof(FinitaCoord)); FINITA_ASSERT(self->coord_vector);
-        FinitaCoordSetItCtor(&it, &self->coord_set);
-        while(FinitaCoordSetItHasNext(&it)) {
-          FinitaCoord* pcoord = FinitaCoordSetItNext(&it);
-          self->coord_vector[index] = *pcoord;
-          self->coord_vector[index].index = pcoord->index = index;
-          ++index;
-        }
-        self->frozen = 1;
-      }
-      int #{TAG}Index(#{TAG}* self, FinitaCoord coord) {
-        FINITA_ASSERT(self);
-        FINITA_ASSERT(self->frozen);
-        return FinitaCoordSetGet(&self->coord_set, &coord)->index;
-      }
-      FinitaCoord #{TAG}Coord(#{TAG}* self, int index) {
-        FINITA_ASSERT(self);
-        FINITA_ASSERT(self->frozen);
-        FINITA_ASSERT(0 <= index && index < self->coord_count);
-        return self->coord_vector[index];
-      }
-      int #{TAG}Size(#{TAG}* self) {
-        FINITA_ASSERT(self);
-        FINITA_ASSERT(self->frozen);
-        return self->coord_count;
-      }
-    $
-  end
-  def source_size
-    str = String.new
-    write_defs(str)
-    str.size
-  end
-end
 
 
 class System
@@ -97,8 +16,9 @@ class System
   end
 
   class Code < BoundCodeTemplate
-    def entities; super + [problem_code, OrderingCode.instance, @solve] end
+    def entities; super + [problem_code, ordering_code, @solve] end
     def problem_code; gtor[master.problem] end
+    def ordering_code; gtor[master.ordering] end
     def initialize(master, gtor)
       super
       @solve = CustomFunctionCode.new(gtor, "#{master.name}Solve", [], 'void', :write_solve)
@@ -116,28 +36,31 @@ class System
     end
     def write_defs(stream)
       uns = Set.new(master.algebraic_equations.collect {|e| e.unknown}).to_a.sort_by! {|u| u.name} # TODO code for choosing the ordering of unknowns
+      # Assemble() >>>
       stream << %$
-        FinitaOrdering #{master.name}Ordering;
+        FinitaOrdering #{master.name}GlobalOrdering;
         void #{master.name}Assemble() {
-          FinitaCoord coord;
           int approx_node_count = 0;
       $
       uns.each do |u|
         stream << "approx_node_count += #{gtor[u].node_count};"
       end
-      stream << "FinitaOrderingCtor(&#{master.name}Ordering, approx_node_count);"
+      stream << "FinitaOrderingCtor(&#{master.name}GlobalOrdering, approx_node_count);"
       master.algebraic_equations.each do |eqn|
         gtor[eqn.domain].foreach_code(stream) {
           stream << %$
-            coord.field = #{uns.index(eqn.unknown)}; /* #{eqn.unknown} */
-            coord.x = x;
-            coord.y = y;
-            coord.z = z;
-            FinitaOrderingPut(&#{master.name}Ordering, coord);
+            FinitaNode node;
+            node.field = #{uns.index(eqn.unknown)};
+            node.x = x;
+            node.y = y;
+            node.z = z;
+            FinitaOrderingPut(&#{master.name}GlobalOrdering, node);
           $
+          stream << 'break;' unless eqn.through?
         }
       end
-      stream << "FinitaOrderingFreeze(&#{master.name}Ordering);}"
+      stream << "#{ordering_code.freeze}(&#{master.name}GlobalOrdering);}"
+      # <<< Assemble()
       stream << %$
         void #{master.name}Set(#{@type} value, int field, int x, int y, int z) {
           switch(field) {
@@ -149,8 +72,8 @@ class System
       stream << '}}'
       stream << %$
         void #{master.name}SetLinear(#{@type} value, int index) {
-          FinitaCoord coord = FinitaOrderingCoord(&#{master.name}Ordering, index);
-          #{master.name}Set(value, coord.field, coord.x, coord.y, coord.z);
+          FinitaNode node = FinitaOrderingNode(&#{master.name}GlobalOrdering, index);
+          #{master.name}Set(value, node.field, node.x, node.y, node.z);
         }
       $
       stream << %$
@@ -164,8 +87,8 @@ class System
       stream << '}return 0;}'
       stream << %$
         #{@type} #{master.name}GetLinear(int index) {
-          FinitaCoord coord = FinitaOrderingCoord(&#{master.name}Ordering, index);
-          return #{master.name}Get(coord.field, coord.x, coord.y, coord.z);
+          FinitaNode node = FinitaOrderingNode(&#{master.name}GlobalOrdering, index);
+          return #{master.name}Get(node.field, node.x, node.y, node.z);
         }
       $
     end
@@ -206,6 +129,14 @@ class System
     @d9r = d9r
   end
 
+  def ordering
+    @ordering.nil? ? problem.ordering : @ordering
+  end
+
+  def ordering=(ordering)
+    @ordering = ordering
+  end
+
   def initialize(name, problem = Finita::Problem.object, &block)
     @name = Finita.to_c(name)
     @equations = []
@@ -227,7 +158,7 @@ class System
     equations.each do |equation|
       diffed = new_differ.apply!(transformer.apply!(equation.lhs))
       equation.domain.decompose.each do |domain|
-        @algebraic_equations << AlgebraicEquation.new(Symbolic.simplify(new_ref_merger.apply!(discretizer.apply!(diffed, domain))), equation.unknown, domain, self)
+        @algebraic_equations << AlgebraicEquation.new(Symbolic.simplify(new_ref_merger.apply!(discretizer.apply!(diffed, domain))), equation.unknown, domain, self, equation.through?)
       end
     end
   end
@@ -239,6 +170,7 @@ class System
   def bind(gtor)
     Code.new(self, gtor) unless gtor.bound?(self)
     backend.bind(gtor, self)
+    ordering.bind(gtor)
     transformer.bind(gtor)
     algebraic_equations.each {|e| e.bind(gtor)}
   end

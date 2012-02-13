@@ -146,15 +146,15 @@ class CoordinateTransformer < Transformer
     recurse_arg(obj)
     Differ.diffs_each(obj.diffs) do |diff|
       @result = case diff
-                  when :x
-                    coords.dx(@result)
-                  when :y
-                    coords.dy(@result)
-                  when :z
-                    coords.dz(@result)
-                  else
-                    raise
-                end
+      when :x
+        coords.dx(@result)
+      when :y
+        coords.dy(@result)
+      when :z
+        coords.dz(@result)
+      else
+        raise
+      end
     end
   end
 
