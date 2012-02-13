@@ -64,7 +64,7 @@ class Problem
   end
 
   def generator
-    @gtor.nil? ? raise('Problem-wise generator is not set') : @gtor
+    @gtor.nil? ? generator = Generator::Default.new : @gtor
   end
 
   def generator=(gtor)

@@ -1,11 +1,11 @@
 require 'finita/symbolic'
 
 
-module Finita
+module Finita::Discretizer
 
 
 # Finite-difference second-order discretizer over the unit grid.
-class DU2 < Transformer
+class DU2 < Finita::Transformer
 
   # TODO 2nd order mixed derivatives
 
