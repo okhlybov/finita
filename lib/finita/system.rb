@@ -36,16 +36,50 @@ class System
     end
     def write_defs(stream)
       uns = Set.new(master.algebraic_equations.collect {|e| e.unknown}).to_a.sort_by! {|u| u.name} # TODO code for choosing the ordering of unknowns
-      # Assemble() >>>
       stream << %$
-        FinitaOrdering #{master.name}GlobalOrdering;
-        void #{master.name}Assemble() {
+        static FinitaNodeMap #{master.name}Nodes;
+        static void #{master.name}CollectNodes() {
           int approx_node_count = 0;
       $
       uns.each do |u|
         stream << "approx_node_count += #{gtor[u].node_count};"
       end
-      stream << "FinitaOrderingCtor(&#{master.name}GlobalOrdering, approx_node_count);"
+      stream << "FinitaNodeMapCtor(&#{master.name}Nodes, approx_node_count);"
+      master.algebraic_equations.each do |eqn|
+        gtor[eqn.domain].foreach_code(stream) {
+          stream << %$
+            FinitaNode node;
+            node.field = #{uns.index(eqn.unknown)};
+            node.x = x;
+            node.y = y;
+            node.z = z;
+            FinitaNodeMapPut(&#{master.name}Nodes, node, -1);
+          $
+        }
+      end
+      stream << '}'
+      stream << %$
+        FinitaOrdering #{master.name}GlobalOrdering;
+        void #{master.name}Assemble() {
+          FinitaNodeMapIt it;
+          #{master.name}CollectNodes();
+      $
+      stream << "FinitaOrderingCtor(&#{master.name}GlobalOrdering, FinitaNodeMapSize(&#{master.name}Nodes));"
+      stream << %$
+        FinitaNodeMapItCtor(&it, &#{master.name}Nodes);
+        while(FinitaNodeMapItHasNext(&it)) {
+          int field, x, y, z;
+          FinitaNode node = FinitaNodeMapItNextKey(&it);
+          field = node.field; x = node.x; y = node.y; z = node.z;
+      $
+      master.algebraic_equations.each do |eqn|
+        stream << %$
+          if(field == #{uns.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {
+            FinitaOrderingPut(&#{master.name}GlobalOrdering, node);
+        $
+        stream << (eqn.through? ? '}' : 'break;}')
+      end
+      stream << '}'
       master.algebraic_equations.each do |eqn|
         gtor[eqn.domain].foreach_code(stream) {
           stream << %$
@@ -57,9 +91,8 @@ class System
             FinitaOrderingPut(&#{master.name}GlobalOrdering, node);
           $
         }
-      end
+      end if false
       stream << "#{ordering_code.freeze}(&#{master.name}GlobalOrdering);}"
-      # <<< Assemble()
       stream << %$
         void #{master.name}Set(#{@type} value, int field, int x, int y, int z) {
           switch(field) {

@@ -47,7 +47,8 @@ class StaticCode < Finita::StaticCodeTemplate
       int #{TAG}Index(#{TAG}* self, FinitaNode node) {
         FINITA_ASSERT(self);
         FINITA_ASSERT(self->frozen);
-        return FinitaNodeMapContainsKey(&self->map, node) ? FinitaNodeMapGet(&self->map, node) : -1;
+        FINITA_ASSERT(FinitaNodeMapContainsKey(&self->map, node));
+        return FinitaNodeMapGet(&self->map, node);
       }
       FinitaNode #{TAG}Node(#{TAG}* self, int index) {
         FINITA_ASSERT(self);

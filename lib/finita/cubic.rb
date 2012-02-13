@@ -112,6 +112,9 @@ class Area
     def node_count
       "#{TAG}Size(&#{name})"
     end
+    def within_xyz
+      "#{TAG}Within(&#{name}, x, y, z)"
+    end
   end # Code
 
   def bind(gtor)
