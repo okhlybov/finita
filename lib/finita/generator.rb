@@ -20,32 +20,31 @@ class CustomFunctionCode < FunctionTemplate
 end # CustomFunctionCode
 
 
-class CoordSetCode < SetAdapter
+class NodeMapCode < MapAdapter
   include Singleton
   def initialize
-    super('FinitaCoordSet', 'FinitaCoord*', 'FinitaCoordHasher', 'FinitaCoordComparator', true)
+    super('FinitaNodeMap', 'FinitaNode', 'int', 'FinitaNodeHash', 'FinitaNodeCompare', true)
   end
-  def write_intf(stream)
+  def write_intf_real(stream)
     stream << %$
       typedef struct {
         int field, x, y, z;
-        int index;
-      } FinitaCoord;
+      } FinitaNode;
     $
     super
   end
   def write_defs(stream)
     stream << %$
-      int FinitaCoordHasher(FinitaCoord* coord) {
-        return coord->field ^ (coord->x<<2) ^ (coord->y<<4) ^ (coord->z<<6);
+      int FinitaNodeHash(FinitaNode node) {
+        return node.field ^ (node.x<<2) ^ (node.y<<4) ^ (node.z<<6);
       }
-      int FinitaCoordComparator(FinitaCoord* lt, FinitaCoord* rt) {
-        return lt->field == rt->field && lt->x == rt->x && lt->y == rt->y && lt->z == rt->z;
+      int FinitaNodeCompare(FinitaNode lt, FinitaNode rt) {
+        return lt.field == rt.field && lt.x == rt.x && lt.y == rt.y && lt.z == rt.z;
       }
     $
     super
   end
-end # CoordSetCode
+end # NodeMapCode
 
 
 # Class which emits C code for the given problem.
@@ -71,15 +70,29 @@ class Generator
           #endif
           #define FINITA_MALLOC(size) malloc(size)
           #define FINITA_CALLOC(count, size) calloc(count, size)
+          #ifdef FINITA_PARALLEL
+            extern int FinitaRank;
+            #define FINITA_HEAD if(!FinitaRank)
+            #define FINITA_NHEAD if(FinitaRank)
+          #else
+            #define FINITA_HEAD if(1)
+            #define FINITA_NHEAD if(0)
+          #endif
       $
     end
     def write_defs(stream)
       stream << %$
           #include <stdio.h>
           extern void FinitaAbort(int); /* To be defined elsewhere */
-          int FinitaRank;
+          #ifdef FINITA_PARALLEL
+            int FinitaRank;
+          #endif
           void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
-              fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaRank, func, file, line, msg);
+              #ifdef FINITA_PARALLEL
+                fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaRank, func, file, line, msg);
+              #else
+                fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
+              #endif
               FinitaAbort(EXIT_FAILURE);
           }
           #ifndef NDEBUG
@@ -136,6 +149,11 @@ class Generator
     @entities = Hash.new
     @objects = Hash.new
     problem.bind(self)
+    # A few definitions are to be placed in the header before anything else mainly to control the code
+    # in static code entities which can not be parametrized in any other way since they are singletons.
+    @defines = []
+    @defines << :FINITA_PARALLEL if problem.parallel?
+    #
     @module = new_module
     @entities.each_key {|e| @module << e}
     @module.generate
@@ -146,7 +164,7 @@ class Generator
   # Return new instance of module to be used by this generator.
   # This implementation returns a Finita::Module instance.
   def new_module
-    Module.new(@problem.name)
+    Module.new(@problem.name, @defines)
   end
 
 end # Generator
@@ -154,11 +172,12 @@ end # Generator
 
 class Module < CodeBuilder::Module
 
-  attr_reader :name
+  attr_reader :name, :defines
 
-  def initialize(name)
+  def initialize(name, defines)
     super()
     @name = name
+    @defines = defines
   end
 
   protected
@@ -186,6 +205,9 @@ class Header < CodeBuilder::Header
 
   def write(stream)
     stream << "\n#ifndef #{tag}\n#define #{tag}\n"
+    @module.defines.each do |symbol|
+      stream << "#define #{symbol}\n"
+    end
     super
     stream << "\n#endif\n"
   end

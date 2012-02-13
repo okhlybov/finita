@@ -67,7 +67,8 @@ class CodeTemplate
   def write_intf(stream) end
   def write_defs(stream) end
   def write_decls(stream) end
-  # def eql?()
+  # def ==()
+  # alias :eql? :==
 end # CodeTemplate
 
 

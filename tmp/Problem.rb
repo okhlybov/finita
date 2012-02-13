@@ -13,12 +13,15 @@ G = Field.new(:G, Float, whole)
 
 if true
 p=Problem.new(:Problem) {|p|
+  p.parallel = true
+  p.generator = Generator.new
   p.backend = SuperLU.new
   p.transformer = CoordinateTransformer.new(Cylindrical.new, Trivial.new)
   p.discretizer = DU2.new
+  p.ordering = Ordering::Naive.new
   System.new(:System) {|s|
-    Equation.new(F+1, F, inner)
-    Equation.new(G+1, G, whole)
+    Equation.new(F+1, F, inner, true)
+    Equation.new(G+1, G, inner, false)
   }
 }
 end
