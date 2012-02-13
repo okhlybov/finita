@@ -3,13 +3,13 @@ require 'finita/common'
 require 'finita/generator'
 
 
-module Finita::Cell
+module Finita::Cubic
 
 
 class Area
 
   class StaticCode < Finita::StaticCodeTemplate
-    TAG = :FinitaCell
+    TAG = :FinitaCubic
     def entities; super + [Finita::Generator::StaticCode.instance] end
     def write_intf(stream)
       stream << %$
@@ -292,4 +292,4 @@ class Domain < Area
 end # Domain
 
 
-end # Cubic
+end # Finita::Cubic

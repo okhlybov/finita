@@ -1,26 +1,27 @@
 require 'finita/common'
+require 'finita/generator'
 
 
-module Finita
+module Finita::Backend
 
 
 class SuperLU
 
-  class StaticCode < StaticCodeTemplate
-    def entities; super + [Generator::StaticCode.instance] end
+  class StaticCode < Finita::StaticCodeTemplate
+    def entities; super + [Finita::Generator::StaticCode.instance] end
     def write_intf(stream)
-      stream << %q^
+      stream << %$
         #define FINITA_BACKEND_SUPERLU
-      ^
+      $
     end
     def write_decls(stream)
-      stream << %q^
+      stream << %$
         /*#include "superlu_ddefs.h"*/
-      ^
+      $
     end
   end # StaticCode
 
-  class Code < BoundCodeTemplate
+  class Code < Finita::BoundCodeTemplate
     def entities; super + [StaticCode.instance, system_code] end
     def system_code; gtor[@system] end
     def initialize(master, gtor, system)
@@ -36,4 +37,4 @@ class SuperLU
 end # SuperLU
 
 
-end # Finita
+end # Finita::Backend

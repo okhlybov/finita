@@ -47,129 +47,6 @@ class NodeMapCode < MapAdapter
 end # NodeMapCode
 
 
-# Class which emits C code for the given problem.
-class Generator
-
-  Scalar = {Integer=>'int', Float=>'double', Complex=>'_Complex double'}
-
-  class StaticCode < StaticCodeTemplate
-    def priority; CodeBuilder::Priority::MAX end
-    def write_intf(stream)
-      stream << %$
-          #include <malloc.h>
-          #if defined _MSC_VER || __PGI
-            #define __func__ __FUNCTION__
-          #endif
-          #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
-          void FinitaFailure(const char*, const char*, int, const char*);
-          #ifndef NDEBUG
-              #define FINITA_ASSERT(test) if(!(test)) FinitaAssert(__func__, __FILE__, __LINE__, #test);
-              void FinitaAssert(const char*, const char*, int, const char*);
-          #else
-              #define FINITA_ASSERT(test)
-          #endif
-          #define FINITA_MALLOC(size) malloc(size)
-          #define FINITA_CALLOC(count, size) calloc(count, size)
-          #ifdef FINITA_PARALLEL
-            extern int FinitaRank;
-            #define FINITA_HEAD if(!FinitaRank)
-            #define FINITA_NHEAD if(FinitaRank)
-          #else
-            #define FINITA_HEAD if(1)
-            #define FINITA_NHEAD if(0)
-          #endif
-      $
-    end
-    def write_defs(stream)
-      stream << %$
-          #include <stdio.h>
-          extern void FinitaAbort(int); /* To be defined elsewhere */
-          #ifdef FINITA_PARALLEL
-            int FinitaRank;
-          #endif
-          void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
-              #ifdef FINITA_PARALLEL
-                fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaRank, func, file, line, msg);
-              #else
-                fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
-              #endif
-              FinitaAbort(EXIT_FAILURE);
-          }
-          #ifndef NDEBUG
-          #if defined _MSC_VER || __PGI
-            #define __SNPRINTF sprintf_s
-          #else
-            #define __SNPRINTF snprintf
-          #endif
-          void FinitaAssert(const char* func, const char* file, int line, const char* test) {
-              char msg[1024];
-              __SNPRINTF(msg, 1024, "assertion %s failed", test);
-              FinitaFailure(func, file, line, msg);
-              FinitaAbort(EXIT_FAILURE);
-          }
-          #undef __SNPRINTF
-          #endif
-      $
-    end
-  end # StaticCode
-
-  # Return problem object this generator is bound to.
-  attr_reader :problem
-
-  # Attach an entity if there is no other entity which have already been attached, that is considered equal to this one.
-  # Returns an entity which is actually memorized.
-  def <<(entity)
-    @entities.has_key?(entity) ? @entities[entity] : @entities[entity] = entity
-  end
-
-  # Return code entity associated with specified object.
-  def [](obj)
-    @objects[obj]
-  end
-
-  # Return true is the object has already been registered and false otherwise.
-  def bound?(obj)
-    @objects.has_key?(obj)
-  end
-
-  # Attach code entity bound to the object specified.
-  # Returns an entity which is actually memorized (see Generator#<<).
-  def []=(obj, entity)
-    @objects[obj] = self << entity
-  end
-
-  # Return a view of all code entities attached to this generator.
-  def entities
-    @entities.keys
-  end
-
-  # Generate source code for the problem.
-  def generate!(problem)
-    @problem = problem
-    @entities = Hash.new
-    @objects = Hash.new
-    problem.bind(self)
-    # A few definitions are to be placed in the header before anything else mainly to control the code
-    # in static code entities which can not be parametrized in any other way since they are singletons.
-    @defines = []
-    @defines << :FINITA_PARALLEL if problem.parallel?
-    #
-    @module = new_module
-    @entities.each_key {|e| @module << e}
-    @module.generate
-  end
-
-  protected
-
-  # Return new instance of module to be used by this generator.
-  # This implementation returns a Finita::Module instance.
-  def new_module
-    Module.new(@problem.name, @defines)
-  end
-
-end # Generator
-
-
 class Module < CodeBuilder::Module
 
   attr_reader :name, :defines
@@ -242,3 +119,134 @@ end # Source
 
 
 end # Finita
+
+
+module Finita::Generator
+
+
+Scalar = {Integer=>'int', Float=>'double', Complex=>'_Complex double'}
+
+
+class StaticCode < Finita::StaticCodeTemplate
+  def priority; CodeBuilder::Priority::MAX end
+  def write_intf(stream)
+    stream << %$
+        #include <malloc.h>
+        #if defined _MSC_VER || __PGI
+          #define __func__ __FUNCTION__
+        #endif
+        #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
+        void FinitaFailure(const char*, const char*, int, const char*);
+        #ifndef NDEBUG
+            #define FINITA_ASSERT(test) if(!(test)) FinitaAssert(__func__, __FILE__, __LINE__, #test);
+            void FinitaAssert(const char*, const char*, int, const char*);
+        #else
+            #define FINITA_ASSERT(test)
+        #endif
+        #define FINITA_MALLOC(size) malloc(size)
+        #define FINITA_CALLOC(count, size) calloc(count, size)
+        #ifdef FINITA_PARALLEL
+          extern int FinitaRank;
+          #define FINITA_HEAD if(!FinitaRank)
+          #define FINITA_NHEAD if(FinitaRank)
+        #else
+          #define FINITA_HEAD if(1)
+          #define FINITA_NHEAD if(0)
+        #endif
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+        #include <stdio.h>
+        extern void FinitaAbort(int); /* To be defined elsewhere */
+        #ifdef FINITA_PARALLEL
+          int FinitaRank;
+        #endif
+        void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
+            #ifdef FINITA_PARALLEL
+              fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaRank, func, file, line, msg);
+            #else
+              fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
+            #endif
+            FinitaAbort(EXIT_FAILURE);
+        }
+        #ifndef NDEBUG
+        #if defined _MSC_VER || __PGI
+          #define __SNPRINTF sprintf_s
+        #else
+          #define __SNPRINTF snprintf
+        #endif
+        void FinitaAssert(const char* func, const char* file, int line, const char* test) {
+            char msg[1024];
+            __SNPRINTF(msg, 1024, "assertion %s failed", test);
+            FinitaFailure(func, file, line, msg);
+            FinitaAbort(EXIT_FAILURE);
+        }
+        #undef __SNPRINTF
+        #endif
+    $
+  end
+end # StaticCode
+
+
+# Class which emits C code for the given problem.
+class Default
+
+  # Return problem object this generator is bound to.
+  attr_reader :problem
+
+  # Attach an entity if there is no other entity which have already been attached, that is considered equal to this one.
+  # Returns an entity which is actually memorized.
+  def <<(entity)
+    @entities.has_key?(entity) ? @entities[entity] : @entities[entity] = entity
+  end
+
+  # Return code entity associated with specified object.
+  def [](obj)
+    @objects[obj]
+  end
+
+  # Return true is the object has already been registered and false otherwise.
+  def bound?(obj)
+    @objects.has_key?(obj)
+  end
+
+  # Attach code entity bound to the object specified.
+  # Returns an entity which is actually memorized (see Generator#<<).
+  def []=(obj, entity)
+    @objects[obj] = self << entity
+  end
+
+  # Return a view of all code entities attached to this generator.
+  def entities
+    @entities.keys
+  end
+
+  # Generate source code for the problem.
+  def generate!(problem)
+    @problem = problem
+    @entities = Hash.new
+    @objects = Hash.new
+    problem.bind(self)
+    # A few definitions are to be placed in the header before anything else mainly to control the code
+    # in static code entities which can not be parametrized in any other way since they are singletons.
+    @defines = []
+    @defines << :FINITA_PARALLEL if problem.parallel?
+    #
+    @module = new_module
+    @entities.each_key {|e| @module << e}
+    @module.generate
+  end
+
+  protected
+
+  # Return new instance of module to be used by this generator.
+  # This implementation returns a Finita::Module instance.
+  def new_module
+    Finita::Module.new(@problem.name, @defines)
+  end
+
+end # Default
+
+
+end # Finita::Generator

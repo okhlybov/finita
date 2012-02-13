@@ -56,7 +56,6 @@ class System
             node.z = z;
             FinitaOrderingPut(&#{master.name}GlobalOrdering, node);
           $
-          stream << 'break;' unless eqn.through?
         }
       end
       stream << "#{ordering_code.freeze}(&#{master.name}GlobalOrdering);}"
