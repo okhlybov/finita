@@ -495,7 +495,7 @@ class Map < Type
           #{pair_set.ctor}(&self->pairs, bucket_count);
         }
         #{type}* #{new}(int bucket_count) {
-          #{type}* self = malloc(sizeof(#{type})); #{assert}(self);
+          #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
           return self;
         }
         int #{size}(#{type}* self) {
