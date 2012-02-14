@@ -75,6 +75,8 @@ class List < Type
 
   def replace; "#{type}Replace" end
 
+  def replace_all; "#{type}ReplaceAll" end
+
   def size; "#{type}Size" end
     
   def empty; "#{type}Empty" end
@@ -115,6 +117,7 @@ class List < Type
         int #{contains}(#{type}*, #{element_type});
         #{element_type} #{get}(#{type}*, #{element_type});
         int #{replace}(#{type}*, #{element_type}, #{element_type});
+        int #{replace_all}(#{type}*, #{element_type}, #{element_type});
         int #{size}(#{type}*);
         int #{empty}(#{type}*);
         void #{it_ctor}(#{it}*, #{type}*);
@@ -191,6 +194,19 @@ class List < Type
           #{abort}();
         }
         int #{replace}(#{type}* self, #{element_type} what, #{element_type} with) {
+          #{node}* node;
+          #{assert}(self);
+          node = self->head_node;
+          while(node) {
+            if(#{comparator}(node->element, what)) {
+              node->element = with;
+              return 1;
+            }
+            node = node->next_node;
+          }
+          return 0;
+        }
+        int #{replace_all}(#{type}* self, #{element_type} what, #{element_type} with) {
           #{node}* node;
           int count = 0;
           #{assert}(self);
