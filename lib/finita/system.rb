@@ -16,7 +16,7 @@ class System
   end
 
   class Code < BoundCodeTemplate
-    def entities; super + [problem_code, ordering_code, @solve] end
+    def entities; super + [problem_code, ordering_code, FpMatrixCode.instance, @solve] end
     def problem_code; gtor[master.problem] end
     def ordering_code; gtor[master.ordering] end
     def initialize(master, gtor)
@@ -26,106 +26,102 @@ class System
     end
     def write_decls(stream)
       stream << %$
-        extern FinitaOrdering #{master.name}Ordering;
-        void #{master.name}Assemble();
         void #{master.name}Set(#{@type}, int, int, int, int);
         void #{master.name}SetLinear(#{@type}, int);
         #{@type} #{master.name}Get(int, int, int, int);
         #{@type} #{master.name}GetLinear(int);
+        void #{master.name}Setup();
       $
     end
     def write_defs(stream)
-      uns = Set.new(master.algebraic_equations.collect {|e| e.unknown}).to_a.sort_by! {|u| u.name} # TODO code for choosing the ordering of unknowns
+      stream << "static FinitaOrdering #{master.name}Ordering; static FinitaFpMatrix #{master.name}FpMatrix;"
+      unknowns_list = Set.new(master.algebraic_equations.collect {|e| e.unknown}).to_a.sort_by! {|u| u.name} # TODO code for choosing the ordering of unknowns
+      #
+      # *SetupOrdering()
       stream << %$
-        static FinitaNodeMap #{master.name}Nodes;
-        static void #{master.name}CollectNodes() {
-          int approx_node_count = 0;
+        static void #{master.name}SetupOrdering(FinitaOrdering* self) {
+          int count = 0;
+          FINITA_ASSERT(self);
       $
-      uns.each do |u|
-        stream << "approx_node_count += #{gtor[u].node_count};"
+      unknowns_list.each do |u|
+        stream << "count += #{gtor[u].node_count};"
       end
-      stream << "FinitaNodeMapCtor(&#{master.name}Nodes, approx_node_count);"
+      stream << "FinitaOrderingCtor(self, count);"
       master.algebraic_equations.each do |eqn|
         gtor[eqn.domain].foreach_code(stream) {
-          stream << %$
-            FinitaNode node;
-            node.field = #{uns.index(eqn.unknown)};
-            node.x = x;
-            node.y = y;
-            node.z = z;
-            FinitaNodeMapPut(&#{master.name}Nodes, node, -1);
-          $
+          stream << "FinitaOrderingMerge(self, FinitaNodeNew(#{unknowns_list.index(eqn.unknown)}, x, y, z));"
         }
       end
-      stream << '}'
+      stream << "#{ordering_code.freeze}(self);}"
+      #
+      # *SetupMatrix()
       stream << %$
-        FinitaOrdering #{master.name}GlobalOrdering;
-        void #{master.name}Assemble() {
-          FinitaNodeMapIt it;
-          #{master.name}CollectNodes();
+        static void #{master.name}SetupFpMatrix(FinitaFpMatrix* self, FinitaOrdering* ordering) {
+          int index;
+          FINITA_ASSERT(self);
+          FINITA_ASSERT(ordering);
+          FinitaFpMatrixCtor(self, FinitaOrderingSize(ordering));
+          for(index = 0; index < ordering->linear_size; ++index) {
+            int x, y, z;
+            FinitaNode row = ordering->linear[index];
+            x = row.x; y = row.y; z = row.z;
       $
-      stream << "FinitaOrderingCtor(&#{master.name}GlobalOrdering, FinitaNodeMapSize(&#{master.name}Nodes));"
-      stream << %$
-        FinitaNodeMapItCtor(&it, &#{master.name}Nodes);
-        while(FinitaNodeMapItHasNext(&it)) {
-          int field, x, y, z;
-          FinitaNode node = FinitaNodeMapItNextKey(&it);
-          field = node.field; x = node.x; y = node.y; z = node.z;
-      $
+      unknowns_set = master.unknowns
       master.algebraic_equations.each do |eqn|
-        stream << %$
-          if(field == #{uns.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {
-            FinitaOrderingPut(&#{master.name}GlobalOrdering, node);
-        $
-        stream << (eqn.through? ? '}' : 'break;}')
+        evaler = gtor[eqn].evaluator.name
+        rc = RefCollector.new(unknowns_set)
+        eqn.lhs.apply(rc)
+        master.algebraic_equations.each do |eqn|
+          stream << "if(row.field == #{unknowns_list.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
+          rc.refs.each {|ref| stream << "FinitaFpMatrixMerge(self, row, FinitaNodeNew(#{unknowns_list.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex}), (FinitaFp)#{evaler});"}
+          stream << (eqn.through? ? '}' : 'break;}')
+        end
       end
-      stream << '}'
-      master.algebraic_equations.each do |eqn|
-        gtor[eqn.domain].foreach_code(stream) {
-          stream << %$
-            FinitaNode node;
-            node.field = #{uns.index(eqn.unknown)};
-            node.x = x;
-            node.y = y;
-            node.z = z;
-            FinitaOrderingPut(&#{master.name}GlobalOrdering, node);
-          $
-        }
-      end if false
-      stream << "#{ordering_code.freeze}(&#{master.name}GlobalOrdering);}"
+      stream << '}}'
+      #
+      # *Set()
       stream << %$
         void #{master.name}Set(#{@type} value, int field, int x, int y, int z) {
           switch(field) {
       $
-      uns.each do |u|
-        stream << "case #{uns.index(u)} : #{u}(x,y,z) = value; break;"
+      unknowns_list.each do |u|
+        stream << "case #{unknowns_list.index(u)} : #{u}(x,y,z) = value; break;"
       end
       stream << %$default : FINITA_FAILURE("invalid field index");$
       stream << '}}'
       stream << %$
         void #{master.name}SetLinear(#{@type} value, int index) {
-          FinitaNode node = FinitaOrderingNode(&#{master.name}GlobalOrdering, index);
+          FinitaNode node = FinitaOrderingNode(&#{master.name}Ordering, index);
           #{master.name}Set(value, node.field, node.x, node.y, node.z);
         }
       $
+      #
+      # *Get()
       stream << %$
         #{@type} #{master.name}Get(int field, int x, int y, int z) {
           switch(field) {
       $
-      uns.each do |u|
-        stream << "case #{uns.index(u)} : return #{u}(x,y,z);"
+      unknowns_list.each do |u|
+        stream << "case #{unknowns_list.index(u)} : return #{u}(x,y,z);"
       end
       stream << %$default : FINITA_FAILURE("invalid field index");$
       stream << '}return 0;}'
+      #
+      # *GetLinear()
       stream << %$
         #{@type} #{master.name}GetLinear(int index) {
-          FinitaNode node = FinitaOrderingNode(&#{master.name}GlobalOrdering, index);
+          FinitaNode node = FinitaOrderingNode(&#{master.name}Ordering, index);
           return #{master.name}Get(node.field, node.x, node.y, node.z);
         }
       $
-    end
-    def write_setup(stream)
-      stream << "#{master.name}Assemble();"
+      #
+      # *Setup()
+      stream << %$
+        void #{master.name}Setup() {
+          #{master.name}SetupOrdering(&#{master.name}Ordering);
+          #{master.name}SetupFpMatrix(&#{master.name}FpMatrix, &#{master.name}Ordering);
+        }
+      $
     end
   end # Code
 
@@ -197,6 +193,12 @@ class System
 
   def unknowns
     Set.new(algebraic_equations.collect {|eqn| eqn.unknown})
+  end
+
+  def refs
+    rc = RefCollector(unknowns)
+    algebraic_equations.each {|eqn| eqn.lhs.apply(rc)}
+    rc.refs
   end
 
   def bind(gtor)

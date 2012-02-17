@@ -462,6 +462,10 @@ class RefMerger
     merge_nary(obj)
   end
 
+  def power(obj)
+    merge_nary(obj)
+  end
+
   def exp(obj)
     merge_unary(obj)
   end
@@ -492,6 +496,26 @@ class RefMerger
   end
 
 end # RefMerger
+
+
+#
+class RefCollector < Traverser
+
+  attr_reader :refs
+
+  def initialize(unknowns)
+    @unknowns = unknowns
+    @refs = Set.new
+  end
+
+  def ref(obj)
+    raise 'unexpected reference operand' unless obj.arg.is_a?(Field)
+    @refs << obj if @unknowns.include?(obj.arg)
+  end
+
+  def method_missing(*args) end
+
+end # RefCollector
 
 
 #

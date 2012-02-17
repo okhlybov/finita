@@ -13,14 +13,13 @@ G = Field.new(:G, Float, whole)
 
 if true
 p=Problem.new(:Problem) {|p|
-  p.parallel = true
+  p.parallel = false
   p.backend = Backend::SuperLU.new
-  p.transformer = CoordinateTransform.new(Coordinate::Cylindrical.new, Transform::Trivial.new)
+  p.transformer = CoordinateTransform.new(Coordinate::Cartesian.new, Transform::Trivial.new)
   p.discretizer = Discretizer::DU2.new
   p.ordering = Ordering::Naive.new
   System.new(:System) {|s|
-    Equation.new(F+1, F, inner, true)
-    Equation.new(G+1, G, whole, false)
+    Equation.new(Delta.new(F)+G, F, inner, false)
   }
 }
 end

@@ -16,7 +16,7 @@ class StaticCode < Finita::StaticCodeTemplate
         int frozen;
       } #{TAG};
       void #{TAG}Ctor(#{TAG}* self, int node_count);
-      int #{TAG}Put(#{TAG}* self, FinitaNode node);
+      int #{TAG}Merge(#{TAG}* self, FinitaNode node);
       int #{TAG}Index(#{TAG}* self, FinitaNode node);
       FinitaNode #{TAG}Node(#{TAG}* self, int index);
       int #{TAG}Size(#{TAG}* self);
@@ -29,7 +29,7 @@ class StaticCode < Finita::StaticCodeTemplate
         self->frozen = 0;
         FinitaNodeMapCtor(&self->map, node_count);
       }
-      int #{TAG}Put(#{TAG}* self, FinitaNode node) {
+      int #{TAG}Merge(#{TAG}* self, FinitaNode node) {
         FINITA_ASSERT(self);
         FINITA_ASSERT(!self->frozen);
         if(!FinitaNodeMapContainsKey(&self->map, node)) {
@@ -38,11 +38,6 @@ class StaticCode < Finita::StaticCodeTemplate
         } else {
           return 0;
         }
-      }
-      void #{TAG}Freeze(#{TAG}* self) {
-        FINITA_ASSERT(self);
-        FINITA_ASSERT(!self->frozen);
-        self->frozen = 1;
       }
       int #{TAG}Index(#{TAG}* self, FinitaNode node) {
         FINITA_ASSERT(self);
@@ -58,7 +53,8 @@ class StaticCode < Finita::StaticCodeTemplate
       }
       int #{TAG}Size(#{TAG}* self) {
         FINITA_ASSERT(self);
-        return FinitaNodeMapSize(&self->map);
+        FINITA_ASSERT(self->frozen);
+        return self->linear_size;
       }
     $
   end
