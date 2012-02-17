@@ -14,7 +14,8 @@ G = Field.new(:G, Float, whole)
 if true
 p=Problem.new(:Problem) {|p|
   p.parallel = false
-  p.backend = Backend::SuperLU.new
+  #p.backend = Backend::SuperLU.new
+  p.solver = Solver::Explicit.new
   p.transformer = CoordinateTransform.new(Coordinate::Cartesian.new, Transform::Trivial.new)
   p.discretizer = Discretizer::DU2.new
   p.ordering = Ordering::Naive.new
@@ -23,3 +24,7 @@ p=Problem.new(:Problem) {|p|
   }
 }
 end
+
+puts NodeMapCode.instance.entities
+puts :-
+puts FpMatrixCode.instance.entities

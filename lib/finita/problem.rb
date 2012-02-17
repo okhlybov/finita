@@ -36,15 +36,15 @@ class Problem
   # The list ordering is not important.
   attr_reader :systems
 
-  # Return problem-wise backend.
-  # This backend is to be used by the systems bound to this problem for which system-specific backends are not specified.
-  def backend
-    @backend.nil? ? raise('Problem-wise backend is not set') : @backend
+  # Return problem-wise solver.
+  # This solver is to be used by the systems bound to this problem for which system-specific backends are not specified.
+  def solver
+    @solver.nil? ? raise('Problem-wise algebraic solver is not set') : @solver
   end
 
-  # Set problem-wise backend. See #backend.
-  def backend=(backend)
-    @backend = backend
+  # Set problem-wise solver. See #solver.
+  def solver=(solver)
+    @solver = solver
   end
 
   def transformer

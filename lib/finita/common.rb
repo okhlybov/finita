@@ -59,8 +59,8 @@ class CodeTemplate
   def entities; [] end
   def priority
     min = CodeBuilder::Priority::DEFAULT
-    entities.each {|e| p = e.priority; min = p-1 unless min < p}
-    min
+    entities.each {|e| p = e.priority; min = p if min > p}
+    min-1
   end
   def source_size; 0 end
   def attach(source) source << self if source.smallest? end

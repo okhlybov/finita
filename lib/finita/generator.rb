@@ -1,4 +1,5 @@
 require 'finita/common'
+require 'finita/ordering'
 require 'code_builder'
 require 'data_struct'
 
@@ -103,6 +104,49 @@ class FpMatrixCode < MapAdapter
     $
   end
 end # MatrixCode
+
+
+class FpVectorCode < StaticCodeTemplate
+  TAG = :FinitaFpVector
+  def entities; super + [Ordering::StaticCode.instance, FpMatrixCode.instance] end
+  def write_intf(stream)
+    stream << %$
+      typedef struct {
+        FinitaFpList** linear;
+        int linear_size;
+      } #{TAG};
+      void #{TAG}Ctor(#{TAG}*, FinitaOrdering*);
+      void #{TAG}Merge(#{TAG}*, int, FinitaFp);
+      FinitaFpList* #{TAG}Get(#{TAG}*, int);
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      void #{TAG}Ctor(#{TAG}* self, FinitaOrdering* ordering) {
+        int index;
+        FINITA_ASSERT(self);
+        FINITA_ASSERT(ordering);
+        FINITA_ASSERT(ordering->frozen);
+        self->linear_size = FinitaOrderingSize(ordering);
+        self->linear = FINITA_MALLOC(self->linear_size*sizeof(FinitaFpList*)); FINITA_ASSERT(self->linear);
+        for(index = 0; index < self->linear_size; ++index) {
+          self->linear[index] = FinitaFpListNew();
+        }
+      }
+      void #{TAG}Merge(#{TAG}* self, int index, FinitaFp fp) {
+        FINITA_ASSERT(self);
+        FINITA_ASSERT(fp);
+        FINITA_ASSERT(0 <= index && index < self->linear_size);
+        FinitaFpListAppend(self->linear[index], fp);
+      }
+      FinitaFpList* #{TAG}Get(#{TAG}* self, int index) {
+        FINITA_ASSERT(self);
+        FINITA_ASSERT(0 <= index && index < self->linear_size);
+        return self->linear[index];
+      }
+    $
+  end
+end # FpVectorCode
 
 
 class Module < CodeBuilder::Module

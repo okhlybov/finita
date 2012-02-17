@@ -5,24 +5,25 @@ require 'code_builder'
 module DataStruct
 
 
-class Type
+class StaticCode
+  include Singleton
+  def entities; [] end
+  def source_size; 0 end
+  def attach(source) end
+  def priority; CodeBuilder::Priority::DEFAULT end
+  def write_intf(stream)
+    stream << %$
+      #include <assert.h>
+      #include <malloc.h>
+      #include <stdlib.h>
+    $
+  end
+  def write_defs(stream) end
+  def write_decls(stream) end
+end # StaticCode
 
-  class StaticCode
-    include Singleton
-    def entities; [] end
-    def source_size; 0 end
-    def attach(source) end
-    def priority; CodeBuilder::Priority::DEFAULT end
-    def write_intf(stream)
-      stream << %$
-        #include <assert.h>
-        #include <malloc.h>
-        #include <stdlib.h>
-      $
-    end
-    def write_defs(stream) end
-    def write_decls(stream) end
-  end # StaticCode
+
+class Type
 
   def malloc; :malloc end
   def assert; :assert end
