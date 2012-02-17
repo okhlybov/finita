@@ -22,6 +22,7 @@ end # CustomFunctionCode
 
 class NodeMapCode < MapAdapter
   include Singleton
+  def entities; super + [Finita::Generator::StaticCode.instance] end
   def initialize
     super('FinitaNodeMap', 'FinitaNode', 'int', 'FinitaNodeHash', 'FinitaNodeCompare', true)
   end
@@ -30,6 +31,18 @@ class NodeMapCode < MapAdapter
       typedef struct {
         int field, x, y, z;
       } FinitaNode;
+      static FinitaNode FinitaNodeNew(int field, int x, int y, int z) {
+        #if __STDC_VERSION__ >= 199901L
+          FinitaNode node = {field, x, y, z};
+        #else
+          FinitaNode node;
+          node.field = field;
+          node.x = x;
+          node.y = y;
+          node.z = z;
+        #endif
+        return node;
+      }
     $
     super
   end
@@ -45,6 +58,51 @@ class NodeMapCode < MapAdapter
     super
   end
 end # NodeMapCode
+
+
+class FpMatrixCode < MapAdapter
+  include Singleton
+  def entities; super + [NodeMapCode.instance] end
+  def initialize
+    super('FinitaFpMatrix', 'FinitaFpMatrixNode', 'FinitaFpList*', 'FinitaFpMatrixNodeHash', 'FinitaFpMatrixNodeCompare', true)
+    @list = ListAdapter.new('FinitaFpList', 'FinitaFp', 'FinitaFpCompare', true)
+  end
+  def write_intf_real(stream)
+    stream << %$
+      typedef void (*FinitaFp)(void);
+      typedef struct {
+        FinitaNode row_node, column_node;
+      } FinitaFpMatrixNode;
+    $
+    @list.write_intf_real(stream)
+    super
+    stream << "void FinitaFpMatrixMerge(FinitaFpMatrix*, FinitaNode, FinitaNode, FinitaFp);"
+  end
+  def write_defs(stream)
+    @list.write_defs(stream)
+    super
+    stream << %$
+      int FinitaFpMatrixNodeHash(FinitaFpMatrixNode node) {
+        return FinitaNodeHash(node.row_node) ^ FinitaNodeHash(node.column_node);
+      }
+      int FinitaFpMatrixNodeCompare(FinitaFpMatrixNode lt, FinitaFpMatrixNode rt) {
+        return FinitaNodeCompare(lt.row_node, rt.row_node) && FinitaNodeCompare(lt.column_node, rt.column_node);
+      }
+      void FinitaFpMatrixMerge(FinitaFpMatrix* self, FinitaNode row, FinitaNode column, FinitaFp fp) {
+        FinitaFpMatrixNode node;
+        FINITA_ASSERT(self);
+        node.row_node = row; node.column_node = column;
+        if(FinitaFpMatrixContainsKey(self, node)) {
+          FinitaFpListAppend(FinitaFpMatrixGet(self, node), fp);
+        } else {
+          FinitaFpList* fps = FinitaFpListNew();
+          FinitaFpListAppend(fps, fp);
+          FinitaFpMatrixPut(self, node, fps);
+        }
+      }
+    $
+  end
+end # MatrixCode
 
 
 class Module < CodeBuilder::Module
