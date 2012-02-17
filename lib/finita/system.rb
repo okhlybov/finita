@@ -16,25 +16,29 @@ class System
   end
 
   class Code < BoundCodeTemplate
-    def entities; super + [problem_code, ordering_code, FpMatrixCode.instance, @solve] end
+    def entities; super + [problem_code, ordering_code, NodeMapCode.instance, FpMatrixCode.instance, FpVectorCode.instance] + evaluator_codes end
     def problem_code; gtor[master.problem] end
     def ordering_code; gtor[master.ordering] end
+    def evaluator_codes
+      master.algebraic_equations.collect {|eqn| gtor[eqn].evaluator}
+    end
     def initialize(master, gtor)
       super
-      @solve = CustomFunctionCode.new(gtor, "#{master.name}Solve", [], 'void', :write_solve)
       @type = Generator::Scalar[master.type]
     end
     def write_decls(stream)
+      stream << "FinitaOrdering #{master.name}Ordering; FinitaFpMatrix #{master.name}FpMatrix; FinitaFpVector #{master.name}FpVector;"
       stream << %$
         void #{master.name}Set(#{@type}, int, int, int, int);
-        void #{master.name}SetLinear(#{@type}, int);
+        void #{master.name}SetNode(#{@type}, FinitaNode);
+        void #{master.name}SetIndex(#{@type}, int);
         #{@type} #{master.name}Get(int, int, int, int);
-        #{@type} #{master.name}GetLinear(int);
+        #{@type} #{master.name}GetNode(FinitaNode);
+        #{@type} #{master.name}GetIndex(int);
         void #{master.name}Setup();
       $
     end
     def write_defs(stream)
-      stream << "static FinitaOrdering #{master.name}Ordering; static FinitaFpMatrix #{master.name}FpMatrix;"
       unknowns_list = Set.new(master.algebraic_equations.collect {|e| e.unknown}).to_a.sort_by! {|u| u.name} # TODO code for choosing the ordering of unknowns
       #
       # *SetupOrdering()
@@ -54,13 +58,15 @@ class System
       end
       stream << "#{ordering_code.freeze}(self);}"
       #
-      # *SetupMatrix()
+      # *SetupEvaluators()
       stream << %$
-        static void #{master.name}SetupFpMatrix(FinitaFpMatrix* self, FinitaOrdering* ordering) {
+        static void #{master.name}SetupEvaluators(FinitaFpMatrix* matrix, FinitaFpVector* vector, FinitaOrdering* ordering) {
           int index;
-          FINITA_ASSERT(self);
+          FINITA_ASSERT(matrix);
+          FINITA_ASSERT(vector);
           FINITA_ASSERT(ordering);
-          FinitaFpMatrixCtor(self, FinitaOrderingSize(ordering));
+          FinitaFpMatrixCtor(matrix, FinitaOrderingSize(ordering));
+          FinitaFpVectorCtor(vector, ordering);
           for(index = 0; index < ordering->linear_size; ++index) {
             int x, y, z;
             FinitaNode row = ordering->linear[index];
@@ -73,7 +79,8 @@ class System
         eqn.lhs.apply(rc)
         master.algebraic_equations.each do |eqn|
           stream << "if(row.field == #{unknowns_list.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
-          rc.refs.each {|ref| stream << "FinitaFpMatrixMerge(self, row, FinitaNodeNew(#{unknowns_list.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex}), (FinitaFp)#{evaler});"}
+          rc.refs.each {|ref| stream << "FinitaFpMatrixMerge(matrix, row, FinitaNodeNew(#{unknowns_list.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex}), (FinitaFp)#{evaler});"}
+          stream << "FinitaFpVectorMerge(vector, index, (FinitaFp)#{evaler});"
           stream << (eqn.through? ? '}' : 'break;}')
         end
       end
@@ -89,8 +96,17 @@ class System
       end
       stream << %$default : FINITA_FAILURE("invalid field index");$
       stream << '}}'
+      #
+      # *SetNode()
       stream << %$
-        void #{master.name}SetLinear(#{@type} value, int index) {
+        void #{master.name}SetNode(#{@type} value, FinitaNode node) {
+          #{master.name}Set(value, node.field, node.x, node.y, node.z);
+        }
+      $
+      #
+      # *SetIndex()
+      stream << %$
+        void #{master.name}SetIndex(#{@type} value, int index) {
           FinitaNode node = FinitaOrderingNode(&#{master.name}Ordering, index);
           #{master.name}Set(value, node.field, node.x, node.y, node.z);
         }
@@ -107,9 +123,16 @@ class System
       stream << %$default : FINITA_FAILURE("invalid field index");$
       stream << '}return 0;}'
       #
-      # *GetLinear()
+      # *GetNode()
       stream << %$
-        #{@type} #{master.name}GetLinear(int index) {
+        #{@type} #{master.name}GetNode(FinitaNode node) {
+          return #{master.name}Get(node.field, node.x, node.y, node.z);
+        }
+      $
+      #
+      # *GetIndex()
+      stream << %$
+        #{@type} #{master.name}GetIndex(int index) {
           FinitaNode node = FinitaOrderingNode(&#{master.name}Ordering, index);
           return #{master.name}Get(node.field, node.x, node.y, node.z);
         }
@@ -119,7 +142,7 @@ class System
       stream << %$
         void #{master.name}Setup() {
           #{master.name}SetupOrdering(&#{master.name}Ordering);
-          #{master.name}SetupFpMatrix(&#{master.name}FpMatrix, &#{master.name}Ordering);
+          #{master.name}SetupEvaluators(&#{master.name}FpMatrix, &#{master.name}FpVector, &#{master.name}Ordering);
         }
       $
     end
@@ -133,12 +156,12 @@ class System
 
   def type; Float end # TODO determine actual type from the types of unknowns
 
-  def backend
-    @backend.nil? ? problem.backend : @backend
+  def solver
+    @solver.nil? ? problem.solver : @solver
   end
 
-  def backend=(backend)
-    @backend = backend
+  def solver=(solver)
+    @solver = solver
   end
 
   def transformer
@@ -203,7 +226,7 @@ class System
 
   def bind(gtor)
     Code.new(self, gtor) unless gtor.bound?(self)
-    backend.bind(gtor, self)
+    solver.bind(gtor, self)
     ordering.bind(gtor)
     transformer.bind(gtor)
     algebraic_equations.each {|e| e.bind(gtor)}
