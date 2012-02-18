@@ -36,9 +36,9 @@ class Type
   def attach(source) source << self if source.smallest? end
   def entities; [StaticCode.instance] end
   def priority
-    result = CodeBuilder::Priority::DEFAULT
-    entities.each {|e| result = e.priority if result > e.priority}
-    result
+    min = CodeBuilder::Priority::DEFAULT
+    entities.each {|e| min = e.priority if min > e.priority}
+    min-1
   end
   def source_size
     stream = String.new
