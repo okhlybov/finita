@@ -32,18 +32,7 @@ class NodeMapCode < MapAdapter
       typedef struct {
         int field, x, y, z;
       } FinitaNode;
-      static FinitaNode FinitaNodeNew(int field, int x, int y, int z) {
-        #if __STDC_VERSION__ >= 199901L
-          FinitaNode node = {field, x, y, z};
-        #else
-          FinitaNode node;
-          node.field = field;
-          node.x = x;
-          node.y = y;
-          node.z = z;
-        #endif
-        return node;
-      }
+      FinitaNode FinitaNodeNew(int, int, int, int);
     $
     super
   end
@@ -54,6 +43,18 @@ class NodeMapCode < MapAdapter
       }
       int FinitaNodeCompare(FinitaNode lt, FinitaNode rt) {
         return lt.field == rt.field && lt.x == rt.x && lt.y == rt.y && lt.z == rt.z;
+      }
+      FinitaNode FinitaNodeNew(int field, int x, int y, int z) {
+        #if __STDC_VERSION__ >= 199901L
+          FinitaNode node = {field, x, y, z};
+        #else
+          FinitaNode node;
+          node.field = field;
+          node.x = x;
+          node.y = y;
+          node.z = z;
+        #endif
+        return node;
       }
     $
     super
@@ -83,6 +84,9 @@ class FpMatrixCode < MapAdapter
     @list.write_defs(stream)
     super
     stream << %$
+      int FinitaFpCompare(FinitaFp lt, FinitaFp rt) {
+        return lt == rt;
+      }
       int FinitaFpMatrixNodeHash(FinitaFpMatrixNode node) {
         return FinitaNodeHash(node.row_node) ^ FinitaNodeHash(node.column_node);
       }
@@ -153,10 +157,15 @@ class Module < CodeBuilder::Module
 
   attr_reader :name, :defines
 
+  def dotted_infix?
+    @dotted_infix
+  end
+
   def initialize(name, defines)
     super()
     @name = name
     @defines = defines
+    @dotted_infix = false
   end
 
   protected
@@ -175,7 +184,7 @@ end # Module
 class Header < CodeBuilder::Header
 
   def name
-    "#{@module.name}.auto.h"
+    @module.dotted_infix? ? "#{@module.name}.auto.h" : "#{@module.name}_auto.h"
   end
 
   def tag
@@ -203,7 +212,7 @@ end # Header
 class Source < CodeBuilder::Source
 
   def name
-    "#{@module.name}.auto#{@index}.c"
+    @module.dotted_infix? ? "#{@module.name}.auto#{@index}.c" : "#{@module.name}_auto#{@index}.c"
   end
 
   def write(stream)
