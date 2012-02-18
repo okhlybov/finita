@@ -535,9 +535,8 @@ class Map < Type
           #{assert}(self);
           if(!#{contains_key}(self, key)) {
             #{pair} pair;
-            int result;
             pair.key = key; pair.value = value;
-            result = #{pair_set.put}(&self->pairs, pair); #{assert}(result);
+            #{pair_set.put}(&self->pairs, pair);
               return 1;
             } else {
               return 0;

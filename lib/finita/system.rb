@@ -77,12 +77,10 @@ class System
         evaler = gtor[eqn].evaluator.name
         rc = RefCollector.new(unknowns_set)
         eqn.lhs.apply(rc)
-        master.algebraic_equations.each do |eqn|
-          stream << "if(row.field == #{unknowns_list.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
-          rc.refs.each {|ref| stream << "FinitaFpMatrixMerge(matrix, row, FinitaNodeNew(#{unknowns_list.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex}), (FinitaFp)#{evaler});"}
-          stream << "FinitaFpVectorMerge(vector, index, (FinitaFp)#{evaler});"
-          stream << (eqn.through? ? '}' : 'break;}')
-        end
+        stream << "if(row.field == #{unknowns_list.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
+        rc.refs.each {|ref| stream << "FinitaFpMatrixMerge(matrix, row, FinitaNodeNew(#{unknowns_list.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex}), (FinitaFp)#{evaler});"}
+        stream << "FinitaFpVectorMerge(vector, index, (FinitaFp)#{evaler});"
+        stream << (eqn.through? ? '}' : 'break;}')
       end
       stream << '}}'
       #
@@ -146,6 +144,11 @@ class System
         }
       $
     end
+
+    def write_setup(stream)
+      stream << "#{master.name}Setup();"
+    end
+
   end # Code
 
   attr_reader :problem, :equations, :algebraic_equations

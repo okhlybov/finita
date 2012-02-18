@@ -96,7 +96,7 @@ class Area
     end
     def write_field_setup(stream, field)
       stream << %$
-        #{field.name}_ = FINITA_MALLOC(sizeof(#{Finita::Generator::Scalar[field.type]})*#{TAG}Size(&#{name})); FINITA_ASSERT(#{field.name}_);
+        #{field.name}_ = FINITA_CALLOC(sizeof(#{Finita::Generator::Scalar[field.type]}), #{TAG}Size(&#{name})); FINITA_ASSERT(#{field.name}_);
       $
     end
     def foreach_code(stream)
