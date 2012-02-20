@@ -20,11 +20,11 @@ class Problem
   end
 
   class Code < BoundCodeTemplate
-    def entities; super + [Generator::StaticCode.instance, @setup, @cleanup] end
+    def entities; super + [@setup, @cleanup] end
     def initialize(master, gtor)
       super(master, gtor)
-      @setup = CustomFunctionCode.new(gtor, "#{master.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup)
-      @cleanup = CustomFunctionCode.new(gtor, "#{master.name}Cleanup", [], 'void', :write_cleanup)
+      @setup = CustomFunctionCode.new(gtor, "#{master.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup, false)
+      @cleanup = CustomFunctionCode.new(gtor, "#{master.name}Cleanup", [], 'void', :write_cleanup, true)
     end
   end # Code
 
@@ -64,7 +64,7 @@ class Problem
   end
 
   def generator
-    @gtor.nil? ? generator = Generator::Default.new : @gtor
+    @gtor.nil? ? raise('Problem-wise generator is not set') : @gtor
   end
 
   def generator=(gtor)
@@ -77,14 +77,6 @@ class Problem
 
   def ordering=(ordering)
     @ordering = ordering
-  end
-
-  def parallel?
-    @parallel
-  end
-
-  def parallel=(bool)
-    @parallel = bool
   end
 
   # Initialize a new problem instance.

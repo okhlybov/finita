@@ -9,7 +9,7 @@ class Explicit
 
   class Code < Finita::BoundCodeTemplate
     attr_reader :system
-    def entities; super + [Finita::Generator::StaticCode.instance, Finita::Ordering::StaticCode.instance] end
+    def entities; super + [Finita::Ordering::StaticCode.instance] end
     def initialize(master, gtor, system)
       super(master, gtor)
       @system = system
