@@ -6,8 +6,10 @@ void FinitaAbort() {
 }
 
 int main(int argc, char** argv) {
-    A = B = 10;
+//    int i;
+    A = B = 500;
     ProblemSetup(argc, argv);
+//for(i = 0; i < 1000; ++i)
     ProblemSystemSolve();
     ProblemCleanup();
     printf("%e\n", F(0,0,0));

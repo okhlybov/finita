@@ -72,8 +72,10 @@ class Module
 end # Module
 
 
-def self.priority_sort(entities)
-  entities.to_a.sort_by!{|e| e.priority}.reverse!
+def self.priority_sort(entities, reverse = false)
+  list = entities.to_a.sort_by!{|e| e.priority}
+  list.reverse! unless reverse
+  list
 end # priority_sort
 
 

@@ -6,7 +6,7 @@ module Finita::Ordering
 
 class StaticCode < Finita::StaticCodeTemplate
   TAG = :FinitaOrdering
-  def entities; super + [Finita::Generator::StaticCode.instance, Finita::NodeMapCode.instance] end
+  def entities; super + [Finita::NodeMapCode.instance] end
   def write_intf(stream)
     stream << %$
       typedef struct {
@@ -16,7 +16,7 @@ class StaticCode < Finita::StaticCodeTemplate
         int frozen;
       } #{TAG};
       void #{TAG}Ctor(#{TAG}* self, int node_count);
-      int #{TAG}Merge(#{TAG}* self, FinitaNode node);
+      void #{TAG}Merge(#{TAG}* self, FinitaNode node);
       int #{TAG}Index(#{TAG}* self, FinitaNode node);
       FinitaNode #{TAG}Node(#{TAG}* self, int index);
       int #{TAG}Size(#{TAG}* self);
@@ -29,15 +29,10 @@ class StaticCode < Finita::StaticCodeTemplate
         self->frozen = 0;
         FinitaNodeMapCtor(&self->map, node_count);
       }
-      int #{TAG}Merge(#{TAG}* self, FinitaNode node) {
+      void #{TAG}Merge(#{TAG}* self, FinitaNode node) {
         FINITA_ASSERT(self);
         FINITA_ASSERT(!self->frozen);
-        if(!FinitaNodeMapContainsKey(&self->map, node)) {
-          FinitaNodeMapPut(&self->map, node, -1);
-          return 1;
-        } else {
-          return 0;
-        }
+        FinitaNodeMapPutForce(&self->map, node, -1);
       }
       int #{TAG}Index(#{TAG}* self, FinitaNode node) {
         FINITA_ASSERT(self);
@@ -94,11 +89,6 @@ class Naive
           self->frozen = 1;
         }
       $
-    end
-    def source_size
-      str = String.new
-      write_defs(str)
-      str.size
     end
   end # StaticCode
   class Code < Finita::BoundCodeTemplate

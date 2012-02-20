@@ -10,7 +10,6 @@ class Area
 
   class StaticCode < Finita::StaticCodeTemplate
     TAG = :FinitaCubic
-    def entities; super + [Finita::Generator::StaticCode.instance] end
     def write_intf(stream)
       stream << %$
           typedef struct #{TAG}_ #{TAG};

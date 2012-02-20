@@ -58,11 +58,19 @@ end # Range
 class CodeTemplate
   def entities; [] end
   def priority
-    min = CodeBuilder::Priority::DEFAULT
-    entities.each {|e| p = e.priority; min = p if min > p}
-    min-1
+    if entities.empty?
+      CodeBuilder::Priority::DEFAULT
+    else
+      min = entities.first.priority
+      entities[1..-1].each {|e| p = e.priority; min = p if min > p}
+      min-1
+    end
   end
-  def source_size; 0 end
+  def source_size
+    stream = String.new
+    write_defs(stream)
+    stream.size
+  end
   def attach(source) source << self if source.smallest? end
   def write_intf(stream) end
   def write_defs(stream) end
@@ -117,11 +125,6 @@ class FunctionTemplate < CodeTemplate
     stream << '{'
     write_body(stream)
     stream << '}'
-  end
-  def source_size
-    str = String.new
-    write_defs(str)
-    str.size
   end
 end # FunctionTemplate
 
