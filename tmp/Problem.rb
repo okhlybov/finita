@@ -8,13 +8,13 @@ whole = Cubic::Domain.new(A,B,nil)
 whole_area = whole.to_area
 inner = whole.interior
 
-F = Field.new(:F, Float, whole_area)
+F = Field.new(:F, Float, whole)
 G = Field.new(:G, Float, whole)
 
 if true
 p=Problem.new(:Problem) {|p|
   p.generator = Generator::Default.new {|g|
-    g.environments << Environment::OpenMP.instance
+    #g.environments << Environment::OpenMP.instance
   }
   p.solver = Solver::Explicit.new
   p.transformer = CoordinateTransform.new(Coordinate::Cartesian.new, Transform::Trivial.new)
@@ -23,7 +23,7 @@ p=Problem.new(:Problem) {|p|
   System.new(:System) {|s|
     Equation.new(1, F, inner, true)
     Equation.new(2, F, whole, true)
-    Equation.new(5, G, whole, true)
+    Equation.new(Delta.new(F), G, whole, true)
   }
 }
 end

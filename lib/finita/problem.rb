@@ -84,7 +84,6 @@ class Problem
   def initialize(name, &block)
     @name = Finita.to_c(name)
     @systems = []
-    parallel = false
     if block_given?
       raise 'Problem nesting is not permitted' unless @@object.nil?
       begin
@@ -103,11 +102,13 @@ class Problem
     set
   end
 
+  def types
+    Set.new(systems.collect {|sys| sys.type})
+  end
+
   # Generate source code for the problem.
   def process!
-    systems.each do |system|
-      system.process!
-    end
+    @algebraic_systems = systems.collect {|system| system.process}
     generator.generate!(self)
   end
 
@@ -115,7 +116,7 @@ class Problem
   # Invokes bind() methods on owned sub-objects.
   def bind(gtor)
     Code.new(self, gtor) unless gtor.bound?(self)
-    systems.each {|s| s.bind(gtor)}
+    @algebraic_systems.each {|s| s.bind(gtor)}
   end
 
 end # Problem

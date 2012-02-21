@@ -1,20 +1,23 @@
+require 'forwardable'
 require 'finita/common'
 require 'finita/system'
+require 'finita/symbolic'
 require 'finita/generator'
+
 
 module Finita
 
 
-class AbstractEquation
+module EquationMixin
 
-  attr_reader :lhs, :unknown, :domain, :system
+  attr_reader :expression, :unknown, :domain, :system
 
-  def initialize(lhs, unknown, domain, system, through)
-    @lhs = lhs
+  def initialize(expression, unknown, domain, through, system)
+    @expression = expression
     @unknown = unknown
     @domain = domain
-    @system = system
     @through = through
+    @system = system
   end
 
   def through?
@@ -25,44 +28,32 @@ class AbstractEquation
     unknown.type
   end
 
-  def bind(gtor)
-    unknown.bind(gtor)
-    domain.bind(gtor)
-    ExpressionCollector.new(lhs).expressions.each {|e| e.bind(gtor)}
-  end
-
-end # AbstractEquation
+end
 
 
-class Equation < AbstractEquation
+class Equation
 
-  def initialize(lhs, unknown, domain, through, system = Finita::System.object, &block)
-    super(lhs, unknown, domain, system, through)
+  include EquationMixin
+
+  def initialize(expression, unknown, domain, through, system = Finita::System.object, &block)
+    super(expression, unknown, domain, through, system)
     system.equations << self
     if block_given?
       yield(self)
     end
   end
 
-  def discretizer
-    @d9r.nil? ? problem.discretizer : @d9r
-  end
-
-  def discretizer=(d9r)
-    @d9r = d9r
-  end
-
-end # Equation
+end
 
 
-class AlgebraicEquation < AbstractEquation
+class AlgebraicEquation
 
   class EvaluatorCode < FunctionTemplate
     @@index = 0
     attr_reader :name, :expression, :type
     def initialize(master)
       @name = "_#{@@index += 1}"
-      @expression = master.lhs
+      @expression = master.expression
       @type = master.type
       super(name, ['int x','int y','int z'], Generator::Scalar[type], true)
     end
@@ -78,21 +69,19 @@ class AlgebraicEquation < AbstractEquation
     end
   end
 
-  class Code < BoundCodeTemplate
-    attr_reader :evaluator
-    def entities; super + [evaluator] end
-    def initialize(master, gtor)
-      super
-      @evaluator = gtor << EvaluatorCode.new(master)
-    end
+  include EquationMixin
+
+  def linear?
+    false # TODO
   end
 
   def bind(gtor)
-    super
-    Code.new(self, gtor) unless gtor.bound?(self)
+    domain.bind(gtor)
+    ExpressionCollector.new(expression, unknown).expressions.each {|e| e.bind(gtor)}
+    gtor << EvaluatorCode.new(self)
   end
 
-end # AlgebraicEquation
+end
 
 
 end # Finita

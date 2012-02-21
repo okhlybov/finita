@@ -7,7 +7,7 @@ void FinitaAbort() {
 
 int main(int argc, char** argv) {
 //    int i;
-    A = B = 500;
+    A = B = 3;
     ProblemSetup(argc, argv);
 //for(i = 0; i < 1000; ++i)
     ProblemSystemSolve();
