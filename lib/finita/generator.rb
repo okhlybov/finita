@@ -250,6 +250,9 @@ class Default
     def write_intf(stream)
       stream << %$
           #include <malloc.h>
+          #ifdef FINITA_COMPLEX
+            #include <complex.h>
+          #endif
           #if defined _MSC_VER || __PGI
             #define __func__ __FUNCTION__
           #endif
@@ -317,7 +320,9 @@ class Default
 
   # Return code entity associated with specified object.
   def [](obj)
-    @objects[obj]
+    result = @objects[obj]
+    raise "#{obj} is unknown to the generator" if result.nil?
+    result
   end
 
   # Return true is the object has already been registered and false otherwise.

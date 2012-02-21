@@ -129,19 +129,19 @@ class FunctionTemplate < CodeTemplate
 end # FunctionTemplate
 
 
-module AdapterStubs
+module AdapterMixin
   def assert; :FINITA_ASSERT end
   def malloc; :FINITA_MALLOC end
 end # AdapterStubs
 
 
 class ListAdapter < DataStruct::List
-  include AdapterStubs
+  include AdapterMixin
 end # ListAdapter
 
 
 class SetAdapter < DataStruct::Set
-  include AdapterStubs
+  include AdapterMixin
   def new_bucket_list
     ListAdapter.new("#{type}Bucket", element_type, comparator, visible)
   end
@@ -149,7 +149,7 @@ end # SetAdapter
 
 
 class MapAdapter < DataStruct::Map
-  include AdapterStubs
+  include AdapterMixin
   def new_pair_set
     SetAdapter.new("#{type}PairSet", "#{type}Pair", "#{type}PairHash", "#{type}PairCompare", visible)
   end
