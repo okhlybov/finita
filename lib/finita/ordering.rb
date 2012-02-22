@@ -92,15 +92,35 @@ class Naive
     end
   end # StaticCode
   class Code < Finita::BoundCodeTemplate
+    attr_reader :name
     def entities; super + [StaticCode.instance] end
-    def initialize(ordering, gtor)
+    def initialize(ordering, gtor, system)
       super({:ordering=>ordering}, gtor)
+      @system = system
+      @name = system.name
     end
-    def freeze; "#{TAG}Freeze" end
+    def write_intf(stream)
+      stream << %$
+        extern FinitaOrdering #{name}Ordering;
+        void #{name}OrderingSetup();
+      $
+    end
+    def write_defs(stream)
+      stream << %$
+        extern int #{name}ApproxNodeCount();
+        extern void #{name}CollectNodes();
+        FinitaOrdering #{name}Ordering;
+        void #{name}OrderingSetup() {
+          FinitaOrderingCtor(&#{name}Ordering, #{name}ApproxNodeCount());
+          #{name}CollectNodes();
+          #{TAG}Freeze(&#{name}Ordering);
+        }
+      $
+    end
   end # Code
 
-  def bind(gtor)
-    Code.new(self, gtor) unless gtor.bound?(self)
+  def bind(gtor, system)
+    Code.new(self, gtor, system) unless gtor.bound?(self)
   end
 
 end # Naive

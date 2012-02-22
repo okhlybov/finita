@@ -114,16 +114,18 @@ end # System
 
 class AlgebraicSystem
 
-  class SystemCode < BoundCodeTemplate
+  class Code < BoundCodeTemplate
     extend Forwardable
     def_delegators :system, :name, :unknowns, :equations
-    def entities; super + [problem_code, ordering_code, NodeMapCode.instance] + evaluator_codes end
+    def entities; super + [problem_code, ordering_code] end
+    def initialize(system, gtor)
+      super({:system=>system}, gtor)
+    end
     def problem_code; gtor[system.problem] end
     def ordering_code; gtor[system.ordering] end
     def type; Generator::Scalar[system.type] end # TODO
     def write_decls(stream)
       stream << %$
-        FinitaOrdering #{name}Ordering;
         void #{name}Set(#{type}, int, int, int, int);
         void #{name}SetNode(#{type}, FinitaNode);
         void #{name}SetIndex(#{type}, int);
@@ -135,22 +137,28 @@ class AlgebraicSystem
     end
     def write_defs(stream)
       #
-      # *SetupOrdering()
+      # *ApproxNodeCount()
       stream << %$
-        static void #{name}SetupOrdering(FinitaOrdering* self) {
+        int #{name}ApproxNodeCount() {
           int count = 0;
-          FINITA_ASSERT(self);
+
       $
       unknowns.each do |u|
         stream << "count += #{gtor[u].node_count};"
       end
-      stream << "FinitaOrderingCtor(self, count);"
+      stream << 'return count;}'
+      #
+      # *CollectNodes()
+      stream << %$
+        void #{name}CollectNodes() {
+          FINITA_ASSERT(!#{name}Ordering.frozen);
+      $
       equations.each do |eqn|
         gtor[eqn.domain].foreach_code(stream) {
-          stream << "FinitaOrderingMerge(self, FinitaNodeNew(#{unknowns.index(eqn.unknown)}, x, y, z));"
+          stream << "FinitaOrderingMerge(&#{name}Ordering, FinitaNodeNew(#{unknowns.index(eqn.unknown)}, x, y, z));"
         }
       end
-      stream << "#{ordering_code.freeze}(self);}"
+      stream << '}'
       #
       # *Set()
       stream << %$
@@ -205,73 +213,19 @@ class AlgebraicSystem
       $
       #
       # *Setup()
-      stream << "void #{name}Setup() {"
-      write_setup_body(stream)
-      stream << '}'
+      stream << %$
+        void #{name}Setup() {
+          #{name}OrderingSetup();
+          #{name}SolverSetup();
+        }
+      $
     end
+
     def write_setup(stream)
       stream << "#{name}Setup();"
     end
-    def write_setup_body(stream)
-      stream << "#{name}SetupOrdering(&#{name}Ordering);"
-    end
 
   end # SystemCode
-
-  class LinearSystemCode < SystemCode
-    # TODO
-  end # LinearSystemCode
-
-  class NonLinearSystemCode < SystemCode
-    attr_reader :evaluator
-    def evaluator_codes; Set.new(evaluator.values).to_a end
-    def entities; super + [FpMatrixCode.instance, FpVectorCode.instance] end
-    def initialize(system, gtor)
-      super({:system=>system}, gtor)
-      @evaluator = {}
-      equations.each {|eqn| @evaluator[eqn] = eqn.bind(gtor)}
-    end
-    def write_decls(stream)
-      super
-      stream << "FinitaFpMatrix #{name}FpMatrix; FinitaFpVector #{name}FpVector;"
-    end
-    def write_defs(stream)
-      #
-      # *SetupEvaluators()
-      stream << %$
-        void #{name}SetupEvaluators(FinitaFpMatrix* matrix, FinitaFpVector* vector, FinitaOrdering* ordering) {
-          int index;
-          FINITA_ASSERT(matrix);
-          FINITA_ASSERT(vector);
-          FINITA_ASSERT(ordering);
-          FinitaFpMatrixCtor(matrix, FinitaOrderingSize(ordering));
-          FinitaFpVectorCtor(vector, ordering);
-          for(index = 0; index < ordering->linear_size; ++index) {
-            int x, y, z;
-            FinitaNode row = ordering->linear[index];
-            x = row.x; y = row.y; z = row.z;
-      $
-      unknowns_list = unknowns
-      unknowns_set = Set.new(unknowns_list)
-      equations.each do |eqn|
-        evaler = evaluator[eqn].name
-        rc = RefCollector.new(unknowns_set)
-        eqn.expression.apply(rc)
-        stream << "if(row.field == #{unknowns_list.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
-        rc.refs.each do |ref|
-          stream << "FinitaFpMatrixMerge(matrix, row, FinitaNodeNew(#{unknowns_list.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex}), (FinitaFp)#{evaler});"
-        end
-        stream << "FinitaFpVectorMerge(vector, index, (FinitaFp)#{evaler});"
-        stream << (eqn.through? ? '}' : 'break;}')
-      end
-      stream << '}}'
-      super
-    end
-    def write_setup_body(stream)
-      super
-      stream << "#{name}SetupEvaluators(&#{name}FpMatrix, &#{name}FpVector, &#{name}Ordering);"
-    end
-  end # NonLinearSystemCode
 
   include SystemMixin
 
@@ -297,9 +251,9 @@ class AlgebraicSystem
 
   def bind(gtor)
     solver.bind(gtor, self)
-    ordering.bind(gtor)
+    ordering.bind(gtor, self)
     transformer.bind(gtor)
-    (linear? ? LinearSystemCode : NonLinearSystemCode).new(self, gtor) unless gtor.bound?(self)
+    Code.new(self, gtor)
     gtor.defines << :FINITA_COMPLEX if type.equal?(Complex)
   end
 
