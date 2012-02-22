@@ -1,8 +1,8 @@
+require 'code_builder'
+require 'data_struct'
 require 'finita/common'
 require 'finita/ordering'
 require 'finita/environment'
-require 'code_builder'
-require 'data_struct'
 
 
 module Finita
@@ -165,82 +165,6 @@ class FpVectorCode < StaticCodeTemplate
 end # FpVectorCode
 
 
-class Module < CodeBuilder::Module
-
-  attr_reader :name, :defines
-
-  def dotted_infix?
-    @dotted_infix
-  end
-
-  def initialize(gtor)
-    super()
-    @name = gtor.problem.name
-    @defines = gtor.defines
-    @dotted_infix = false
-  end
-
-  protected
-
-  def new_header
-    Header.new(self)
-  end
-
-  def new_source(index)
-    Source.new(self, index)
-  end
-
-end # Module
-
-
-class Header < CodeBuilder::Header
-
-  def name
-    @module.dotted_infix? ? "#{@module.name}.auto.h" : "#{@module.name}_auto.h"
-  end
-
-  def tag
-    "__FINITA_#{@module.name.upcase}__"
-  end
-
-  def write(stream)
-    stream << "\n#ifndef #{tag}\n#define #{tag}\n"
-    @module.defines.each do |symbol|
-      stream << "#define #{symbol}\n"
-    end
-    super
-    stream << "\n#endif\n"
-  end
-
-  protected
-
-  def new_stream
-    File.new(name, 'wt')
-  end
-
-end # Header
-
-
-class Source < CodeBuilder::Source
-
-  def name
-    @module.dotted_infix? ? "#{@module.name}.auto#{@index}.c" : "#{@module.name}_auto#{@index}.c"
-  end
-
-  def write(stream)
-    stream << %{\n#include "#{@module.header.name}"\n}
-    super
-  end
-
-  protected
-
-  def new_stream
-    File.new(name, 'wt')
-  end
-
-end # Source
-
-
 end # Finita
 
 
@@ -382,10 +306,86 @@ class Default
   # Return new instance of module to be used by this generator.
   # This implementation returns a Finita::Module instance.
   def new_module
-    Finita::Module.new(self)
+    Module.new(self)
   end
 
 end # Default
+
+
+class Module < CodeBuilder::Module
+
+  attr_reader :name, :defines
+
+  def dotted_infix?
+    @dotted_infix
+  end
+
+  def initialize(gtor)
+    super()
+    @name = gtor.problem.name
+    @defines = gtor.defines
+    @dotted_infix = false
+  end
+
+  protected
+
+  def new_header
+    Header.new(self)
+  end
+
+  def new_source(index)
+    Source.new(self, index)
+  end
+
+end # Module
+
+
+class Header < CodeBuilder::Header
+
+  def name
+    @module.dotted_infix? ? "#{@module.name}.auto.h" : "#{@module.name}_auto.h"
+  end
+
+  def tag
+    "__FINITA_#{@module.name.upcase}__"
+  end
+
+  def write(stream)
+    stream << "\n#ifndef #{tag}\n#define #{tag}\n"
+    @module.defines.each do |symbol|
+      stream << "#define #{symbol}\n"
+    end
+    super
+    stream << "\n#endif\n"
+  end
+
+  protected
+
+  def new_stream
+    File.new(name, 'wt')
+  end
+
+end # Header
+
+
+class Source < CodeBuilder::Source
+
+  def name
+    @module.dotted_infix? ? "#{@module.name}.auto#{@index}.c" : "#{@module.name}_auto#{@index}.c"
+  end
+
+  def write(stream)
+    stream << %{\n#include "#{@module.header.name}"\n}
+    super
+  end
+
+  protected
+
+  def new_stream
+    File.new(name, 'wt')
+  end
+
+end # Source
 
 
 end # Finita::Generator
