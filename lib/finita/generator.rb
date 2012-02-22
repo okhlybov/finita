@@ -23,19 +23,14 @@ class CustomFunctionCode < FunctionTemplate
 end # CustomFunctionCode
 
 
-class NodeMapCode < MapAdapter
-  include Singleton
-  def initialize
-    super('FinitaNodeMap', 'FinitaNode', 'int', 'FinitaNodeHash', 'FinitaNodeCompare', true)
-  end
-  def write_intf_real(stream)
+class NodeCode < StaticCodeTemplate
+  def write_intf(stream)
     stream << %$
       typedef struct {
         int field, x, y, z;
       } FinitaNode;
       FinitaNode FinitaNodeNew(int, int, int, int);
     $
-    super
   end
   def write_defs(stream)
     stream << %$
@@ -58,32 +53,47 @@ class NodeMapCode < MapAdapter
         return node;
       }
     $
-    super
+  end
+end # NodeCode
+
+
+class NodeMapCode < MapAdapter
+  include Singleton
+  def entities; super + [NodeCode.instance] end
+  def initialize
+    super('FinitaNodeMap', 'FinitaNode', 'int', 'FinitaNodeHash', 'FinitaNodeCompare', true)
   end
 end # NodeMapCode
 
 
+class FpListCode < ListAdapter
+  include Singleton
+  def initialize
+    super('FinitaFpList', 'FinitaFp', 'FinitaFpCompare', true)
+  end
+  def write_intf(stream)
+    stream << "typedef void (*FinitaFp)(void);"
+    super
+  end
+end # FpListCode
+
+
 class FpMatrixCode < MapAdapter
   include Singleton
-  def entities; super + [NodeMapCode.instance] end
+  def entities; super + [NodeCode.instance, FpListCode.instance] end
   def initialize
     super('FinitaFpMatrix', 'FinitaFpMatrixNode', 'FinitaFpList*', 'FinitaFpMatrixNodeHash', 'FinitaFpMatrixNodeCompare', true)
-    @list = ListAdapter.new('FinitaFpList', 'FinitaFp', 'FinitaFpCompare', true)
   end
   def write_intf_real(stream)
     stream << %$
-      typedef void (*FinitaFp)(void);
       typedef struct {
         FinitaNode row_node, column_node;
       } FinitaFpMatrixNode;
     $
-    @list.write_intf_real(stream)
     super
     stream << "void FinitaFpMatrixMerge(FinitaFpMatrix*, FinitaNode, FinitaNode, FinitaFp);"
   end
   def write_defs(stream)
-    @list.write_defs(stream)
-    super
     stream << %$
       int FinitaFpCompare(FinitaFp lt, FinitaFp rt) {
         return lt == rt;
@@ -107,6 +117,7 @@ class FpMatrixCode < MapAdapter
         }
       }
     $
+    super
   end
 end # MatrixCode
 
