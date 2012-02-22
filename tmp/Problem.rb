@@ -13,7 +13,7 @@ G = Field.new(:G, Float, whole)
 
 if true
 p=Problem.new(:Problem) {|p|
-  p.generator = Generator::Default.new {|g|
+  p.generator = Finita::Generator::Default.new {|g|
     g.environments << Environment::OpenMP.instance
   }
   p.solver = Solver::Explicit.new

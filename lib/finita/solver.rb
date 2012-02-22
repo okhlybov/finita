@@ -14,7 +14,7 @@ class Explicit
       super({:solver=>solver}, gtor)
       @system = system
       @name = system.name
-      @type = Generator::Scalar[system.type]
+      @type = Finita::Generator::Scalar[system.type]
       @equations = system.equations
       @unknowns = system.unknowns
       @evaluator = {}
