@@ -21,10 +21,10 @@ class Problem
 
   class Code < BoundCodeTemplate
     def entities; super + [@setup, @cleanup] end
-    def initialize(master, gtor)
-      super(master, gtor)
-      @setup = CustomFunctionCode.new(gtor, "#{master.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup, false)
-      @cleanup = CustomFunctionCode.new(gtor, "#{master.name}Cleanup", [], 'void', :write_cleanup, true)
+    def initialize(problem, gtor)
+      super({:problem=>problem}, gtor)
+      @setup = CustomFunctionCode.new(gtor, "#{problem.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup, false)
+      @cleanup = CustomFunctionCode.new(gtor, "#{problem.name}Cleanup", [], 'void', :write_cleanup, true)
     end
   end # Code
 

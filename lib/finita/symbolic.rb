@@ -25,7 +25,7 @@ end
 
 
 #
-module ExpressionMethodStubs
+module ExpressionMethodMixin
   def convert; self end
   def expand; self end
   def collect; self end
@@ -36,14 +36,17 @@ end
 #
 class Scalar < Symbolic::Expression
 
-  include ExpressionMethodStubs
+  include ExpressionMethodMixin
 
   class Code < BoundCodeTemplate
+    def initialize(scalar, gtor)
+      super({:scalar=>scalar}, gtor)
+    end
     def write_intf(stream)
-      stream << "extern #{Generator::Scalar[master.type]} #{master.name};"
+      stream << "extern #{Generator::Scalar[scalar.type]} #{scalar.name};"
     end
     def write_defs(stream)
-      stream << "#{Generator::Scalar[master.type]} #{master.name};"
+      stream << "#{Generator::Scalar[scalar.type]} #{scalar.name};"
     end
   end # Code
 
@@ -76,19 +79,22 @@ end # Scalar
 #
 class Field < Symbolic::Expression
 
-  include ExpressionMethodStubs
+  include ExpressionMethodMixin
 
   class Code < BoundCodeTemplate
-    def grid_code; gtor[master.grid] end
+    def grid_code; gtor[field.grid] end
     def entities; [grid_code] end
+    def initialize(field, gtor)
+      super({:field=>field}, gtor)
+    end
     def write_intf(stream)
-      grid_code.write_field_intf(stream, master)
+      grid_code.write_field_intf(stream, field)
     end
     def write_defs(stream)
-      grid_code.write_field_defs(stream, master)
+      grid_code.write_field_defs(stream, field)
     end
     def write_setup(stream)
-      grid_code.write_field_setup(stream, master)
+      grid_code.write_field_setup(stream, field)
     end
     def node_count
       grid_code.node_count

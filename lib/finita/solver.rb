@@ -10,8 +10,8 @@ class Explicit
   class Code < Finita::BoundCodeTemplate
     attr_reader :system
     def entities; super + [Finita::Ordering::StaticCode.instance] end
-    def initialize(master, gtor, system)
-      super(master, gtor)
+    def initialize(solver, gtor, system)
+      super({:solver=>solver}, gtor)
       @system = system
     end
     def write_intf(stream)
