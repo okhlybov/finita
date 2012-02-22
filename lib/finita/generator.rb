@@ -243,9 +243,9 @@ Scalar = {Integer=>'int', Float=>'double', Complex=>'_Complex double'}
 class Default
 
   class Code < Finita::BoundCodeTemplate
-    def entities; super + master.environments.collect {|env| env.static_code} end
+    def entities; super + gtor.environments.collect {|env| env.static_code} end
     def initialize(gtor)
-      super(gtor, gtor)
+      super({:gtor=>gtor}, gtor)
     end
     def write_intf(stream)
       stream << %$

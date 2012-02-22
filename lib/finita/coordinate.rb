@@ -139,7 +139,10 @@ class Trivial < CoordinateTransform
   class Coord < Finita::Field
     include Singleton
     class Code < Finita::BoundCodeTemplate
-      def write_intf(stream) stream << "\n#define #{master.name}(x,y,z) (#{master.name})\n" end
+      def initialize(coord, gtor)
+        super({:coord=>coord}, gtor)
+      end
+      def write_intf(stream) stream << "\n#define #{coord.name}(x,y,z) (#{coord.name})\n" end
     end # Code
     def initialize(name)
       super(name, Integer, nil)

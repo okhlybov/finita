@@ -86,17 +86,22 @@ end # StaticCodeTemplate
 
 
 class BoundCodeTemplate < CodeTemplate
-  attr_reader :master, :gtor
-  def initialize(master, gtor)
-    @master = master
+  attr_reader :gtor, :owner
+  protected :owner
+  def initialize(hash, gtor)
     @gtor = gtor
-    gtor[@master] = self
+    tag, value = hash.flatten
+    @owner = value
+    define_singleton_method tag do
+      value
+    end
+    gtor[value] = self
   end
   def hash
-    self.class.hash ^ (master.hash << 1)
+    self.class.hash ^ (gtor.hash << 1)
   end
   def ==(other)
-    equal?(other) || self.class == other.class && master == other.master
+    equal?(other) || self.class == other.class && owner == other.owner
   end
   alias :eql? :==
 end # BoundCodeTemplate

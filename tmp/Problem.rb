@@ -23,7 +23,7 @@ p=Problem.new(:Problem) {|p|
   System.new(:System) {|s|
     Equation.new(1, F, inner, true)
     Equation.new(2, F, whole, true)
-    Equation.new(Delta.new(F), G, whole, true)
+    Equation.new(7, G, whole, true)
   }
 }
 end

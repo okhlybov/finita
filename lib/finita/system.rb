@@ -116,11 +116,11 @@ class AlgebraicSystem
 
   class SystemCode < BoundCodeTemplate
     extend Forwardable
-    def_delegators :master, :name, :unknowns, :equations
+    def_delegators :system, :name, :unknowns, :equations
     def entities; super + [problem_code, ordering_code, NodeMapCode.instance] + evaluator_codes end
-    def problem_code; gtor[master.problem] end
-    def ordering_code; gtor[master.ordering] end
-    def type; Generator::Scalar[master.type] end # TODO
+    def problem_code; gtor[system.problem] end
+    def ordering_code; gtor[system.ordering] end
+    def type; Generator::Scalar[system.type] end # TODO
     def write_decls(stream)
       stream << %$
         FinitaOrdering #{name}Ordering;
@@ -173,7 +173,7 @@ class AlgebraicSystem
       # *SetIndex()
       stream << %$
         void #{name}SetIndex(#{type} value, int index) {
-          FinitaNode node = FinitaOrderingNode(&#{master.name}Ordering, index);
+          FinitaNode node = FinitaOrderingNode(&#{name}Ordering, index);
           #{name}Set(value, node.field, node.x, node.y, node.z);
         }
       $
@@ -226,8 +226,8 @@ class AlgebraicSystem
     attr_reader :evaluator
     def evaluator_codes; Set.new(evaluator.values).to_a end
     def entities; super + [FpMatrixCode.instance, FpVectorCode.instance] end
-    def initialize(master, gtor)
-      super
+    def initialize(system, gtor)
+      super({:system=>system}, gtor)
       @evaluator = {}
       equations.each {|eqn| @evaluator[eqn] = eqn.bind(gtor)}
     end

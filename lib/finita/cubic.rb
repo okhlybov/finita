@@ -61,8 +61,8 @@ class Area
     @@index = 0
     attr_reader :index, :name
     def entities; super + [StaticCode.instance] end
-    def initialize(master, gtor)
-      super(master, gtor)
+    def initialize(area, gtor)
+      super({:area=>area}, gtor)
       @name = "#{TAG}#{@@index += 1}"
     end
     # TODO
@@ -79,7 +79,7 @@ class Area
     def write_setup(stream)
       args = []
       [:xrange, :yrange, :zrange].each do |m|
-        r = master.send(m)
+        r = area.send(m)
         args.push(*(r.nil? ? [0,0] : [r.from, r.to]))
       end
       stream << "#{TAG}Ctor(&#{name}, #{args.join(',')});"

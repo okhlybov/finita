@@ -93,11 +93,16 @@ class Naive
   end # StaticCode
   class Code < Finita::BoundCodeTemplate
     def entities; super + [StaticCode.instance] end
+    def initialize(ordering, gtor)
+      super({:ordering=>ordering}, gtor)
+    end
     def freeze; "#{TAG}Freeze" end
   end # Code
+
   def bind(gtor)
     Code.new(self, gtor) unless gtor.bound?(self)
   end
+
 end # Naive
 
 
