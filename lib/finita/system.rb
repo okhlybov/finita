@@ -82,6 +82,10 @@ class System
     @d9r = d9r
   end
 
+  def linear=(linear)
+    @want_linear = linear
+  end
+
   def initialize(name, problem = Finita::Problem.object, &block)
     super()
     @name = Finita.to_c(name)
@@ -99,14 +103,14 @@ class System
   end
 
   def process
-    system = AlgebraicSystem.new(self)
+    system = AlgebraicSystem.new(self, @want_linear)
     equations.each do |equation|
       diffed = IncompleteDiffer.new.apply!(transformer.apply!(equation.expression))
       equation.domain.decompose.each do |domain|
-        system.equations << AlgebraicEquation.new(Symbolic.simplify(RefMerger.new.apply!(discretizer.apply!(diffed, domain))), equation.unknown, domain, equation.through?, system)
+        system.equations << AlgebraicEquation.new(RefMerger.new.apply!(discretizer.apply!(diffed, domain)), equation.unknown, domain, equation.through?, system)
       end
     end
-    system
+    system.process!
   end
 
 end # System
@@ -233,20 +237,38 @@ class AlgebraicSystem
 
   def_delegators :@origin, :name, :problem, :solver, :ordering, :transformer
 
-  def initialize(origin)
+  def initialize(origin, want_linear)
     super()
     @origin = origin
+    @want_linear = want_linear
   end
 
   def linear?
-    equations.each do |eqn|
-      return false unless eqn.linear?
-    end
-    return true
+    @linear
   end
 
   def unknowns
     super.to_a.sort_by! {|u| u.name} # this must be a (stable) list
+  end
+
+  def process!
+    equations.each {|eqn| eqn.linearize!}
+    really_linear = true
+    equations.each do |eqn|
+      unless eqn.really_linear?
+        really_linear = false
+        break
+      end
+    end
+    @linear = if @want_linear.nil?
+      really_linear
+    elsif @want_linear == really_linear
+      @want_linear
+    else
+      @want_linear ? raise('can not treat effectively non-linear system as linear') : @want_linear
+    end
+    equations.each {|eqn| eqn.setup!}
+    self
   end
 
   def bind(gtor)

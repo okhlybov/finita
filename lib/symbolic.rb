@@ -379,7 +379,7 @@ class Multiply < NaryFunction
   def apply(obj) obj.multiply(self) end
   def self.make(*ops)
     if ops.empty?
-      0
+      1
     elsif ops.size == 1
       ops.first
     else

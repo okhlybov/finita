@@ -279,7 +279,7 @@ class Default
   attr_reader :environments, :defines
 
   def initialize
-    @environments = Set.new([Environment::Serial.instance])
+    @environments = Set.new
     if block_given?
       yield(self)
     end

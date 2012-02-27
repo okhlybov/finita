@@ -509,14 +509,14 @@ class RefCollector < Traverser
 
   attr_reader :refs
 
-  def initialize(unknowns)
-    @unknowns = unknowns
+  def initialize(fields)
+    @fields = fields
     @refs = Set.new
   end
 
   def ref(obj)
     raise 'unexpected reference operand' unless obj.arg.is_a?(Field)
-    @refs << obj if @unknowns.include?(obj.arg)
+    @refs << obj if @fields.include?(obj.arg)
   end
 
   def method_missing(*args) end
