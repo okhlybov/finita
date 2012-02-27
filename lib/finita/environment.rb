@@ -7,7 +7,6 @@ module Finita::Environment
 
 
 class Environment
-  include Singleton
   class StaticCode < Finita::StaticCodeTemplate
     def priority; CodeBuilder::Priority::MAX end
   end # StaticCode

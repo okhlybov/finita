@@ -12,6 +12,7 @@ class Explicit
     def entities; super + [Finita::Ordering::StaticCode.instance, FpVectorCode.instance] + evaluator.values end
     def initialize(solver, gtor, system)
       super({:solver=>solver}, gtor)
+      raise 'Explicit solver requires non-linear system' if system.linear?
       @system = system
       @name = system.name
       @type = Finita::Generator::Scalar[system.type]
@@ -19,7 +20,8 @@ class Explicit
       @unknowns = system.unknowns
       @evaluator = {}
       equations.each do |eqn|
-        evaluator[eqn] = eqn.bind(gtor)
+        eqn.bind(gtor)
+        evaluator[eqn] = gtor << EvaluatorCode.new(eqn.lhs, eqn.type)
       end
     end
     def write_intf(stream)
@@ -32,22 +34,6 @@ class Explicit
       stream << %$
         typedef #{type} (*#{name}Fp)(int, int, int);
         FinitaFpVector #{name}Evaluators;
-      $
-      stream << %$
-        void #{name}Solve() {
-          int index, size = FinitaOrderingSize(&#{name}Ordering);
-          FINITA_ASSERT(#{name}Ordering.frozen);
-          for(index = 0; index < size; ++index) {
-            FinitaFpListIt it;
-            #{type} result = 0;
-            FinitaNode node = FinitaOrderingNode(&#{name}Ordering, index);
-            FinitaFpListItCtor(&it, FinitaFpVectorGet(&#{name}Evaluators, index));
-            while(FinitaFpListItHasNext(&it)) {
-              result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
-            }
-            #{name}SetNode(result, node);
-          }
-        }
       $
       stream << %$
         void #{name}SolverSetup() {
@@ -65,6 +51,22 @@ class Explicit
         stream << (eqn.through? ? '}' : 'break;}')
       end
       stream << '}}'
+      stream << %$
+        void #{name}Solve() {
+          int index, size = FinitaOrderingSize(&#{name}Ordering);
+          FINITA_ASSERT(#{name}Ordering.frozen);
+          for(index = 0; index < size; ++index) {
+            FinitaFpListIt it;
+            #{type} result = 0;
+            FinitaNode node = FinitaOrderingNode(&#{name}Ordering, index);
+            FinitaFpListItCtor(&it, FinitaFpVectorGet(&#{name}Evaluators, index));
+            while(FinitaFpListItHasNext(&it)) {
+              result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
+            }
+            #{name}SetNode(result, node);
+          }
+        }
+      $
     end
   end # Code
 
