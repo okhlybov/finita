@@ -521,7 +521,40 @@ class RefCollector < Traverser
 
   def method_missing(*args) end
 
+  def collect!(obj)
+    obj.apply(self)
+    refs
+  end
+
 end # RefCollector
+
+
+class RefDetector < Traverser
+
+  class DetectedException < Exception;  end
+
+  # TODO user defined functions must respond yes to any ref
+
+  def initialize(*refs)
+    @refs = refs
+  end
+
+  def ref(obj)
+    raise DetectedException.new if @refs.include?(obj)
+  end
+
+  def method_missing(*args) end
+
+  def detected?(obj)
+    begin
+      obj.apply(self)
+      false
+    rescue DetectedException
+      true
+    end
+  end
+
+end # RefDetector
 
 
 #

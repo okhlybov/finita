@@ -21,7 +21,7 @@ class Explicit
       @evaluator = {}
       equations.each do |eqn|
         eqn.bind(gtor)
-        evaluator[eqn] = gtor << EvaluatorCode.new(eqn.lhs, eqn.type)
+        evaluator[eqn] = gtor << EvaluatorCode.new(eqn.rhs, eqn.type)
       end
     end
     def write_intf(stream)

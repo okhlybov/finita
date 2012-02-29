@@ -255,7 +255,7 @@ class AlgebraicSystem
     equations.each {|eqn| eqn.linearize!}
     really_linear = true
     equations.each do |eqn|
-      unless eqn.really_linear?
+      unless eqn.linear?
         really_linear = false
         break
       end

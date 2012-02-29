@@ -74,20 +74,20 @@ class AlgebraicEquation
 
   attr_reader :lhs, :rhs
 
-  def really_linear?
-    @really_linear
+  def linear?
+    @linear
   end
 
   def linearize!
     lhs = {}
     rhs = 0
-    @really_linear = true
+    @linear = true
     @unknowns = system.unknowns
     expanded = Symbolic.expand(expression)
     (expanded.is_a?(Symbolic::Add) ? expanded.args : [expanded]).each do |term|
       product = split_term(term)
       if product.nil?
-        @really_linear = false
+        @linear = false
         return
       end
       ref, rest = product
@@ -102,23 +102,30 @@ class AlgebraicEquation
   end
 
   def setup!
+    @lhs = {}
     if system.linear?
-      @lhs = {}; @lhs_.each {|k,v| @lhs[k] = Symbolic.simplify(v)}
+      @lhs_.each {|k,v| @lhs[k] = Symbolic.simplify(v)}
       @rhs = Symbolic.simplify(-@rhs_)
     else
-      @lhs = Symbolic.simplify(expression)
+      @rhs = Symbolic.simplify(expression) # this may be very time-consuming therefore consider applying the non-exhaustive simplification pass
+      refs = RefCollector.new(@unknowns).collect!(@rhs)
+      expanded = Symbolic.expand(rhs)
+      evalers = {}
+      (expanded.is_a?(Symbolic::Add) ? expanded.args : [expanded]).each do |term|
+        refs.each do |ref|
+          if RefDetector.new(ref).detected?(term)
+            evalers[ref] = evalers.has_key?(ref) ? evalers[ref] + term : term
+          end
+        end
+      end
+      evalers.each {|k,v| @lhs[k] = Symbolic.simplify(v)}
     end
   end
 
   def bind(gtor)
     domain.bind(gtor)
-    exs = [unknown]
-    if system.linear?
-      exs.concat(lhs.values)
-      exs << rhs
-    else
-      exs << lhs
-    end
+    exs = [unknown, rhs] # assuming the non-linear system contains the whole expression in rhs
+    exs.concat(lhs.values) if system.linear?
     ExpressionCollector.new(*exs).expressions.each {|e| e.bind(gtor)}
   end
 

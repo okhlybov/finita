@@ -13,14 +13,14 @@ G = Field.new(:G, Float, whole)
 
 if true
 p=Problem.new(:Problem) {|p|
-  p.generator = Generator::Default.new
+  p.generator = Finita::Generator::Default.new
   p.solver = Solver::Explicit.new
-  p.transformer = CoordinateTransform.new(Coordinate::Cartesian.new, Transform::Trivial.new)
+  p.transformer = CoordinateTransform.new(Coordinate::Cylindrical.new, Transform::Trivial.new)
   p.discretizer = Discretizer::DU2.new
   p.ordering = Ordering::Naive.new
   System.new(:System) {|s|
-    s.linear = false
-    Equation.new(Delta.new(F**2)+G, F, inner, true)
+    #s.linear = false
+    Equation.new(Delta.new(Symbolic::Exp.new(F))+G, F, inner, true)
   }
 }
 end
