@@ -1,11 +1,11 @@
 require 'finita/common'
 
 
-module Finita::Ordering
+module Finita::Orderer
 
 
 class StaticCode < Finita::StaticCodeTemplate
-  TAG = :FinitaOrdering
+  TAG = :FinitaOrderer
   def entities; super + [Finita::NodeMapCode.instance] end
   def write_intf(stream)
     stream << %$
@@ -62,15 +62,15 @@ end # StaticCode
 
 
 class Naive
-  TAG = :FinitaNaiveOrdering
+  TAG = :FinitaNaiveOrderer
   class StaticCode < Finita::StaticCodeTemplate
-    def entities; super + [Ordering::StaticCode.instance] end
+    def entities; super + [Orderer::StaticCode.instance] end
     def write_intf(stream)
-      stream << "void #{TAG}Freeze(FinitaOrdering*);"
+      stream << "void #{TAG}Freeze(FinitaOrderer*);"
     end
     def write_defs(stream)
       stream << %$
-        void #{TAG}Freeze(FinitaOrdering* self) {
+        void #{TAG}Freeze(FinitaOrderer* self) {
           int index;
           FinitaNodeMapIt it;
           FINITA_ASSERT(self);
@@ -94,26 +94,26 @@ class Naive
   class Code < Finita::BoundCodeTemplate
     attr_reader :name
     def entities; super + [StaticCode.instance] end
-    def initialize(ordering, gtor, system)
-      super({:ordering=>ordering}, gtor)
+    def initialize(orderer, gtor, system)
+      super({:orderer=>orderer}, gtor)
       @system = system
       @name = system.name
     end
     def write_intf(stream)
       stream << %$
-        extern FinitaOrdering #{name}Ordering;
-        void #{name}OrderingSetup();
+        extern FinitaOrderer #{name}Orderer;
+        void #{name}OrdererSetup();
       $
     end
     def write_defs(stream)
       stream << %$
         extern int #{name}ApproxNodeCount();
         extern void #{name}CollectNodes();
-        FinitaOrdering #{name}Ordering;
-        void #{name}OrderingSetup() {
-          FinitaOrderingCtor(&#{name}Ordering, #{name}ApproxNodeCount());
+        FinitaOrderer #{name}Orderer;
+        void #{name}OrdererSetup() {
+          FinitaOrdererCtor(&#{name}Orderer, #{name}ApproxNodeCount());
           #{name}CollectNodes();
-          #{TAG}Freeze(&#{name}Ordering);
+          #{TAG}Freeze(&#{name}Orderer);
         }
       $
     end
@@ -126,4 +126,4 @@ class Naive
 end # Naive
 
 
-end # Ordering
+end # Orderer

@@ -2,7 +2,7 @@ require 'set'
 require 'code_builder'
 require 'finita/common'
 require 'finita/generator'
-require 'finita/ordering'
+require 'finita/orderer'
 
 
 module Finita
@@ -71,12 +71,12 @@ class Problem
     @gtor = gtor
   end
 
-  def ordering
-    @ordering.nil? ? raise('Problem-wise ordering is not set') : @ordering
+  def orderer
+    @orderer.nil? ? raise('Problem-wise orderer is not set') : @orderer
   end
 
-  def ordering=(ordering)
-    @ordering = ordering
+  def orderer=(orderer)
+    @orderer = orderer
   end
 
   # Initialize a new problem instance.

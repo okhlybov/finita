@@ -2,7 +2,7 @@ require 'set'
 require 'forwardable'
 require 'finita/common'
 require 'finita/generator'
-require 'finita/ordering'
+require 'finita/orderer'
 
 
 module Finita
@@ -58,12 +58,12 @@ class System
     @solver = solver
   end
 
-  def ordering
-    @ordering.nil? ? problem.ordering : @ordering
+  def orderer
+    @orderer.nil? ? problem.orderer : @orderer
   end
 
-  def ordering=(ordering)
-    @ordering = ordering
+  def orderer=(orderer)
+    @orderer = orderer
   end
 
   def transformer
@@ -121,12 +121,12 @@ class AlgebraicSystem
   class Code < BoundCodeTemplate
     extend Forwardable
     def_delegators :system, :name, :unknowns, :equations
-    def entities; super + [problem_code, ordering_code] end
+    def entities; super + [problem_code, orderer_code] end
     def initialize(system, gtor)
       super({:system=>system}, gtor)
     end
     def problem_code; gtor[system.problem] end
-    def ordering_code; gtor[system.ordering] end
+    def orderer_code; gtor[system.orderer] end
     def type; Generator::Scalar[system.type] end # TODO
     def write_decls(stream)
       stream << %$
@@ -155,11 +155,11 @@ class AlgebraicSystem
       # *CollectNodes()
       stream << %$
         void #{name}CollectNodes() {
-          FINITA_ASSERT(!#{name}Ordering.frozen);
+          FINITA_ASSERT(!#{name}Orderer.frozen);
       $
       equations.each do |eqn|
         gtor[eqn.domain].foreach_code(stream) {
-          stream << "FinitaOrderingMerge(&#{name}Ordering, FinitaNodeNew(#{unknowns.index(eqn.unknown)}, x, y, z));"
+          stream << "FinitaOrdererMerge(&#{name}Orderer, FinitaNodeNew(#{unknowns.index(eqn.unknown)}, x, y, z));"
         }
       end
       stream << '}'
@@ -185,7 +185,7 @@ class AlgebraicSystem
       # *SetIndex()
       stream << %$
         void #{name}SetIndex(#{type} value, int index) {
-          FinitaNode node = FinitaOrderingNode(&#{name}Ordering, index);
+          FinitaNode node = FinitaOrdererNode(&#{name}Orderer, index);
           #{name}Set(value, node.field, node.x, node.y, node.z);
         }
       $
@@ -211,7 +211,7 @@ class AlgebraicSystem
       # *GetIndex()
       stream << %$
         #{type} #{name}GetIndex(int index) {
-          FinitaNode node = FinitaOrderingNode(&#{name}Ordering, index);
+          FinitaNode node = FinitaOrdererNode(&#{name}Orderer, index);
           return #{name}Get(node.field, node.x, node.y, node.z);
         }
       $
@@ -219,7 +219,7 @@ class AlgebraicSystem
       # *Setup()
       stream << %$
         void #{name}Setup() {
-          #{name}OrderingSetup();
+          #{name}OrdererSetup();
           #{name}SolverSetup();
         }
       $
@@ -235,7 +235,7 @@ class AlgebraicSystem
 
   extend Forwardable
 
-  def_delegators :@origin, :name, :problem, :solver, :ordering, :transformer
+  def_delegators :@origin, :name, :problem, :solver, :orderer, :transformer
 
   def initialize(origin, want_linear)
     super()
@@ -273,7 +273,7 @@ class AlgebraicSystem
 
   def bind(gtor)
     solver.bind(gtor, self)
-    ordering.bind(gtor, self)
+    orderer.bind(gtor, self)
     transformer.bind(gtor)
     Code.new(self, gtor)
     gtor.defines << :FINITA_COMPLEX if type.equal?(Complex)
