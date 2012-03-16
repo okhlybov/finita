@@ -9,7 +9,7 @@ class Explicit
 
   class Code < Finita::BoundCodeTemplate
     attr_reader :name, :type, :equations, :unknowns, :evaluator
-    def entities; super + [Finita::Ordering::StaticCode.instance, FpVectorCode.instance] + evaluator.values end
+    def entities; super + [Finita::Orderer::StaticCode.instance, FpVectorCode.instance] + evaluator.values end
     def initialize(solver, gtor, system)
       super({:solver=>solver}, gtor)
       raise 'Explicit solver requires non-linear system' if system.linear?
@@ -38,11 +38,11 @@ class Explicit
       stream << %$
         void #{name}SolverSetup() {
           int index;
-          FINITA_ASSERT(#{name}Ordering.frozen);
-          FinitaFpVectorCtor(&#{name}Evaluators, &#{name}Ordering);
-          for(index = 0; index < #{name}Ordering.linear_size; ++index) {
+          FINITA_ASSERT(#{name}Orderer.frozen);
+          FinitaFpVectorCtor(&#{name}Evaluators, &#{name}Orderer);
+          for(index = 0; index < #{name}Orderer.linear_size; ++index) {
             int x, y, z;
-            FinitaNode row = #{name}Ordering.linear[index];
+            FinitaNode row = #{name}Orderer.linear[index];
             x = row.x; y = row.y; z = row.z;
       $
       equations.each do |eqn|
@@ -53,12 +53,12 @@ class Explicit
       stream << '}}'
       stream << %$
         void #{name}Solve() {
-          int index, size = FinitaOrderingSize(&#{name}Ordering);
-          FINITA_ASSERT(#{name}Ordering.frozen);
+          int index, size = FinitaOrdererSize(&#{name}Orderer);
+          FINITA_ASSERT(#{name}Orderer.frozen);
           for(index = 0; index < size; ++index) {
             FinitaFpListIt it;
             #{type} result = 0;
-            FinitaNode node = FinitaOrderingNode(&#{name}Ordering, index);
+            FinitaNode node = FinitaOrdererNode(&#{name}Orderer, index);
             FinitaFpListItCtor(&it, FinitaFpVectorGet(&#{name}Evaluators, index));
             while(FinitaFpListItHasNext(&it)) {
               result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
