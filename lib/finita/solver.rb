@@ -21,7 +21,7 @@ class Explicit
       @evaluator = {}
       equations.each do |eqn|
         eqn.bind(gtor)
-        evaluator[eqn] = gtor << EvaluatorCode.new(eqn.rhs, eqn.type)
+        evaluator[eqn] = gtor << FpCode.new(eqn.rhs, eqn.type)
       end
     end
     def write_intf(stream)
@@ -37,12 +37,13 @@ class Explicit
       $
       stream << %$
         void #{name}SolverSetup() {
-          int index;
+          int index, size;
           FINITA_ASSERT(#{name}Orderer.frozen);
+          size = FinitaOrdererSize(&#{name}Orderer);
           FinitaFpVectorCtor(&#{name}Evaluators, &#{name}Orderer);
-          for(index = 0; index < #{name}Orderer.linear_size; ++index) {
+          for(index = 0; index < size; ++index) {
             int x, y, z;
-            FinitaNode row = #{name}Orderer.linear[index];
+            FinitaNode row = FinitaOrdererNode(&#{name}Orderer, index);
             x = row.x; y = row.y; z = row.z;
       $
       equations.each do |eqn|
@@ -59,7 +60,7 @@ class Explicit
             FinitaFpListIt it;
             #{type} result = 0;
             FinitaNode node = FinitaOrdererNode(&#{name}Orderer, index);
-            FinitaFpListItCtor(&it, FinitaFpVectorGet(&#{name}Evaluators, index));
+            FinitaFpListItCtor(&it, FinitaFpVectorAt(&#{name}Evaluators, index));
             while(FinitaFpListItHasNext(&it)) {
               result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
             }

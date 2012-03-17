@@ -20,6 +20,7 @@ p=Problem.new(:Problem) {|p|
   p.orderer = Orderer::Naive.new
   System.new(:System) {|s|
     Equation.new(Delta.new(Symbolic::Exp.new(F))+G, F, inner, true)
+    Equation.new(G-3, G, inner, true)
   }
 }
 end

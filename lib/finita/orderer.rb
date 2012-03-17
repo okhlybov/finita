@@ -65,12 +65,9 @@ class Naive
   TAG = :FinitaNaiveOrderer
   class StaticCode < Finita::StaticCodeTemplate
     def entities; super + [Orderer::StaticCode.instance] end
-    def write_intf(stream)
-      stream << "void #{TAG}Freeze(FinitaOrderer*);"
-    end
     def write_defs(stream)
       stream << %$
-        void #{TAG}Freeze(FinitaOrderer* self) {
+        static void #{TAG}Freeze(FinitaOrderer* self) {
           int index;
           FinitaNodeMapIt it;
           FINITA_ASSERT(self);
@@ -91,6 +88,7 @@ class Naive
       $
     end
   end # StaticCode
+
   class Code < Finita::BoundCodeTemplate
     attr_reader :name
     def entities; super + [StaticCode.instance] end
