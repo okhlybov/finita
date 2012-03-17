@@ -136,6 +136,8 @@ class AlgebraicSystem
         #{type} #{name}Get(int, int, int, int);
         #{type} #{name}GetNode(FinitaNode);
         #{type} #{name}GetIndex(int);
+        int #{name}ApproxNodeCount();
+        void #{name}CollectNodes();
         void #{name}Setup();
       $
     end

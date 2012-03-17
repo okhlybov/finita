@@ -46,7 +46,7 @@ class Equation
 end
 
 
-class EvaluatorCode < FunctionTemplate
+class FpCode < FunctionTemplate
   @@index = 0
   attr_reader :name, :expression, :type
   def initialize(expression, type)
