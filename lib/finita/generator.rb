@@ -83,13 +83,13 @@ class FpMatrixCode < MapAdapter
   include Singleton
   def entities; super + [NodeCode.instance, FpListCode.instance] end
   def initialize
-    super('FinitaFpMatrix', 'FinitaFpMatrixNode', 'FinitaFpList*', 'FinitaFpMatrixNodeHash', 'FinitaFpMatrixNodeCompare', true)
+    super('FinitaFpMatrix', 'FinitaFpMatrixKey', 'FinitaFpList*', 'FinitaFpMatrixKeyHash', 'FinitaFpMatrixKeyCompare', true)
   end
   def write_intf_real(stream)
     stream << %$
       typedef struct {
         int row_index, column_index;
-      } FinitaFpMatrixNode;
+      } FinitaFpMatrixKey;
     $
     super
     stream << %$
@@ -102,29 +102,29 @@ class FpMatrixCode < MapAdapter
       int FinitaFpCompare(FinitaFp lt, FinitaFp rt) {
         return lt == rt;
       }
-      int FinitaFpMatrixNodeHash(FinitaFpMatrixNode node) {
+      int FinitaFpMatrixKeyHash(FinitaFpMatrixKey node) {
         return node.row_index ^ node.column_index;
       }
-      int FinitaFpMatrixNodeCompare(FinitaFpMatrixNode lt, FinitaFpMatrixNode rt) {
+      int FinitaFpMatrixKeyCompare(FinitaFpMatrixKey lt, FinitaFpMatrixKey rt) {
         return lt.row_index == rt.row_index && lt.column_index == rt.column_index;
       }
       void FinitaFpMatrixMerge(FinitaFpMatrix* self, int row, int column, FinitaFp fp) {
-        FinitaFpMatrixNode node;
+        FinitaFpMatrixKey key;
         FINITA_ASSERT(self);
-        node.row_index = row; node.column_index = column;
-        if(FinitaFpMatrixContainsKey(self, node)) {
-          FinitaFpListAppend(FinitaFpMatrixGet(self, node), fp);
+        key.row_index = row; key.column_index = column;
+        if(FinitaFpMatrixContainsKey(self, key)) {
+          FinitaFpListAppend(FinitaFpMatrixGet(self, key), fp);
         } else {
           FinitaFpList* fps = FinitaFpListNew();
           FinitaFpListAppend(fps, fp);
-          FinitaFpMatrixPut(self, node, fps);
+          FinitaFpMatrixPut(self, key, fps);
         }
       }
       FinitaFpList* FinitaFpMatrixAt(FinitaFpMatrix* self, int row, int column) {
-        FinitaFpMatrixNode node;
+        FinitaFpMatrixKey key;
         FINITA_ASSERT(self);
-        node.row_index = row; node.column_index = column;
-        return FinitaFpMatrixGet(self, node);
+        key.row_index = row; key.column_index = column;
+        return FinitaFpMatrixGet(self, key);
       }
     $
     super
@@ -196,6 +196,7 @@ class Default
       stream << %$
           #include <math.h>
           #include <malloc.h>
+          #include <string.h>
           #ifdef FINITA_COMPLEX
             #include <complex.h>
           #endif
@@ -212,6 +213,7 @@ class Default
           #endif
           #define FINITA_MALLOC(size) malloc(size)
           #define FINITA_CALLOC(count, size) calloc(count, size)
+          #define FINITA_FREE(ptr) free(ptr)
           #ifdef FINITA_MPI
             extern int FinitaRank;
             #define FINITA_HEAD if(!FinitaRank)

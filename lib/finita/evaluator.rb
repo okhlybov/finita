@@ -5,20 +5,39 @@ require 'finita/orderer'
 module Finita::Evaluator
 
 
+class StaticCode < Finita::StaticCodeTemplate
+
+  def write_intf(stream)
+    stream << %$
+      typedef struct  {
+        int row, column;
+      } FinitaRowColumn;
+    $
+  end
+
+end # StaticCode
+
+
 class EvaluatorCode < Finita::CodeTemplate
 
   attr_reader :gtor, :evaluator, :name, :type, :system, :code
 
-  def initialize(gtor, evaluator, system)
+  def entities; super + [StaticCode.instance] end
+
+  def initialize(evaluator, gtor, system)
     @gtor = gtor
     @evaluator = evaluator
     @system = system
     @name = system.name
     @type = Finita::Generator::Scalar[system.type]
+    gtor << self
   end
 
   def write_intf(stream)
-    stream << "void #{name}EvaluatorSetup();"
+    stream << %$
+      void #{name}SetupEvaluator();
+      void #{name}EvaluatorRowColumn(FinitaRowColumn**, size_t*);
+  $
     system.linear? ? write_intf_linear(stream) : write_intf_nonlinear(stream)
   end
 
@@ -37,6 +56,25 @@ class EvaluatorCode < Finita::CodeTemplate
   end
 
   def write_defs(stream)
+    stream << %$
+      typedef #{type} (*#{name}Fp)(int, int, int);
+      extern FinitaOrderer #{name}Orderer;
+      static FinitaFpMatrix #{name}FpMatrix;
+      static FinitaFpVector #{name}FpVector;
+      void #{name}EvaluatorRowColumn(FinitaRowColumn** rc, size_t* size) {
+        int index = 0;
+        FinitaFpMatrixIt it;
+        *size = FinitaFpMatrixSize(&#{name}FpMatrix);
+        *rc = (FinitaRowColumn*)FINITA_MALLOC(*size*sizeof(FinitaRowColumn)); FINITA_ASSERT(*rc);
+        FinitaFpMatrixItCtor(&it, &#{name}FpMatrix);
+        while(FinitaFpMatrixItHasNext(&it)) {
+          FinitaFpMatrixKey key = FinitaFpMatrixItNextKey(&it);
+          (*rc)[index].row = key.row_index;
+          (*rc)[index].column = key.column_index;
+          ++index;
+        }
+      }
+    $
     system.linear? ? write_defs_linear(stream) : write_defs_nonlinear(stream)
   end
 
@@ -49,7 +87,7 @@ class Numeric
 
     def entities; super + [Finita::Orderer::StaticCode.instance, Finita::FpMatrixCode.instance, Finita::FpVectorCode.instance] + code.values end
 
-    def initialize(gtor, evaluator, system)
+    def initialize(evaluator, gtor, system)
       super
       @code = {}
       system.equations.each do |eqn|
@@ -62,14 +100,9 @@ class Numeric
     end
 
     def write_defs(stream)
+      super
       stream << %$
-        typedef #{type} (*#{name}Fp)(int, int, int);
-        extern FinitaOrderer #{name}Orderer;
-        static FinitaFpMatrix #{name}FpMatrix;
-        static FinitaFpVector #{name}FpVector;
-      $
-      stream << %$
-        void #{name}EvaluatorSetup() {
+        void #{name}SetupEvaluator() {
           int index, size;
           FINITA_ASSERT(#{name}Orderer.frozen);
           size = FinitaOrdererSize(&#{name}Orderer);
@@ -92,7 +125,6 @@ class Numeric
         stream << (eqn.through? ? '}' : 'break;}')
       end
       stream << '}}'
-      super
     end
 
     def write_defs_linear(stream)
@@ -101,17 +133,17 @@ class Numeric
           #{type} result = 0;
           FinitaNode node;
           FinitaFpListIt it;
-          value = #{name}GetIndex(column);
+          node = FinitaOrdererNode(&#{name}Orderer, row);
           FinitaFpListItCtor(&it, FinitaFpMatrixAt(&#{name}FpMatrix, row, column));
           while(FinitaFpListItHasNext(&it)) {
-            result += ((#{name}fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
+            result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
           }
           return result;
         }
         #{type} #{name}EvaluateRHS(int index) {
+          #{type} result = 0;
           FinitaNode node;
           FinitaFpListIt it;
-          #{type} result = 0;
           node = FinitaOrdererNode(&#{name}Orderer, index);
           FinitaFpListItCtor(&it, FinitaFpVectorAt(&#{name}FpVector, index));
           while(FinitaFpListItHasNext(&it)) {
@@ -129,8 +161,8 @@ class Numeric
           FinitaNode node;
           FinitaFpListIt it;
           value = #{name}GetIndex(column);
-          eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* From PETSc's MatFD implementation '*/
           node = FinitaOrdererNode(&#{name}Orderer, row);
+          eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* From the PETSc's MatFD implementation '*/
           FinitaFpListItCtor(&it, FinitaFpMatrixAt(&#{name}FpMatrix, row, column));
           while(FinitaFpListItHasNext(&it)) {
             #{name}Fp fp = (#{name}Fp)FinitaFpListItNext(&it);
@@ -165,7 +197,7 @@ class Numeric
   end
 
   def bind(gtor, system)
-    gtor << Code.new(gtor, self, system)
+    Code.new(self, gtor, system)
   end
 
 end # Numeric

@@ -15,11 +15,11 @@ class StaticCode < Finita::StaticCodeTemplate
         int linear_size;
         int frozen;
       } #{TAG};
-      void #{TAG}Ctor(#{TAG}* self, int node_count);
-      void #{TAG}Merge(#{TAG}* self, FinitaNode node);
-      int #{TAG}Index(#{TAG}* self, FinitaNode node);
-      FinitaNode #{TAG}Node(#{TAG}* self, int index);
-      int #{TAG}Size(#{TAG}* self);
+      void #{TAG}Ctor(#{TAG}*, int);
+      void #{TAG}Merge(#{TAG}*, FinitaNode);
+      int #{TAG}Index(#{TAG}*, FinitaNode);
+      FinitaNode #{TAG}Node(#{TAG}*, int);
+      int #{TAG}Size(#{TAG}*);
     $
   end
   def write_defs(stream)
@@ -100,7 +100,7 @@ class Naive
     def write_intf(stream)
       stream << %$
         extern FinitaOrderer #{name}Orderer;
-        void #{name}OrdererSetup();
+        void #{name}SetupOrderer();
       $
     end
     def write_defs(stream)
@@ -108,7 +108,7 @@ class Naive
         extern int #{name}ApproxNodeCount();
         extern void #{name}CollectNodes();
         FinitaOrderer #{name}Orderer;
-        void #{name}OrdererSetup() {
+        void #{name}SetupOrderer() {
           FinitaOrdererCtor(&#{name}Orderer, #{name}ApproxNodeCount());
           #{name}CollectNodes();
           #{TAG}Freeze(&#{name}Orderer);

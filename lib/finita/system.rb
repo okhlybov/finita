@@ -221,8 +221,8 @@ class AlgebraicSystem
       # *Setup()
       stream << %$
         void #{name}Setup() {
-          #{name}OrdererSetup();
-          #{name}SolverSetup();
+          #{name}SetupOrderer();
+          #{name}SetupSolver();
         }
       $
     end
