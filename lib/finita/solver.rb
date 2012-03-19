@@ -5,6 +5,29 @@ require 'finita/generator'
 module Finita::Solver
 
 
+class SolverCode < Finita::CodeTemplate
+
+  attr_reader :gtor, :solver, :system, :name, :type
+
+  def initialize(solver, gtor, system)
+    @gtor = gtor
+    @solver = solver
+    @system = system
+    @name = system.name
+    @type = Finita::Generator::Scalar[system.type]
+    gtor << self
+  end
+
+  def write_intf(stream)
+    stream << %$
+      void #{name}Solve();
+      void #{name}SetupSolver();
+    $
+  end
+
+end # SolverCode
+
+
 class Explicit
 
   class Code < Finita::BoundCodeTemplate
@@ -36,7 +59,7 @@ class Explicit
         FinitaFpVector #{name}Evaluators;
       $
       stream << %$
-        void #{name}SolverSetup() {
+        void #{name}SetupSolver() {
           int index, size;
           FINITA_ASSERT(#{name}Orderer.frozen);
           size = FinitaOrdererSize(&#{name}Orderer);
@@ -76,6 +99,89 @@ class Explicit
   end
 
 end # Explicit
+
+
+class Matrix
+
+  class Code < SolverCode
+
+    def entities; super + [@evaluator_code, @backend_code] end
+
+    def initialize(solver, gtor, system, evaluator_code, backend_code)
+      super(solver, gtor, system)
+      @evaluator_code = evaluator_code
+      @backend_code = backend_code
+    end
+
+    def write_defs(stream)
+      super
+      stream << %$
+        void #{name}SetupSolver() {
+          #{name}SetupEvaluator();
+          #{name}SetupBackend();
+        }
+      $
+      if system.linear?
+        stream << %$
+          void #{name}Solve() {
+            int i;
+            for(i = 0; i < #{name}NNZ; ++i) {
+              #{name}LHS[i].value = #{name}EvaluateLHS(#{name}LHS[i].row, #{name}LHS[i].column);
+            }
+            for(i = 0; i < #{name}NEQ; ++i) {
+              #{name}RHS[i].value = #{name}EvaluateRHS(#{name}RHS[i].row);
+            }
+            #{name}SolveLinearSystem();
+            for(i = 0; i < #{name}NEQ; ++i) {
+              #{name}SetIndex(#{name}RHS[i].value, #{name}RHS[i].row);
+            }
+          }
+        $
+      else
+        abs = :fabs if system.type == Float
+        abs = :cabs if system.type == Complex
+        stream << %$
+          void #{name}Solve() {
+            int i;
+            #{type} norm;
+            do {
+              #{type} base = 0, delta = 0;
+              for(i = 0; i < #{name}NNZ; ++i) {
+                #{name}LHS[i].value = #{name}EvaluateJacobian(#{name}LHS[i].row, #{name}LHS[i].column);
+              }
+              for(i = 0; i < #{name}NEQ; ++i) {
+                #{name}RHS[i].value = -#{name}EvaluateResidual(#{name}RHS[i].row);
+              }
+              #{name}SolveLinearSystem();
+              for(i = 0; i < #{name}NEQ; ++i) {
+                #{type} value = #{name}GetIndex(#{name}RHS[i].row);
+                base += #{abs}(value);
+                delta += #{abs}(#{name}RHS[i].value);
+                #{name}SetIndex(value + #{name}RHS[i].value, #{name}RHS[i].row);
+              }
+              norm = (base == 0 ? 1 : delta/base); if(delta == 0) norm = 0;
+            } while(norm > #{solver.relative_tolerance});
+          }
+        $
+      end
+    end
+  end # Code
+
+  attr_reader :evaluator, :backend
+
+  attr_reader :relative_tolerance
+
+  def initialize(rtol, evaluator, backend)
+    @relative_tolerance = rtol
+    @evaluator = evaluator
+    @backend = backend
+  end
+
+  def bind(gtor, system)
+    Code.new(self, gtor, system, evaluator.bind(gtor, system), backend.bind(gtor, system))
+  end
+
+end # Matrix
 
 
 end # Finita::Solver
