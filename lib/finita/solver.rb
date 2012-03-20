@@ -72,7 +72,7 @@ class Explicit
       equations.each do |eqn|
         stream << "if(row.field == #{unknowns.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
         stream << "FinitaFpVectorMerge(&#{name}Evaluators, index, (FinitaFp)#{evaluator[eqn].name});"
-        stream << (eqn.through? ? '}' : 'break;}')
+        stream << (eqn.through? ? '}' : 'continue;}')
       end
       stream << '}}'
       stream << %$
@@ -126,10 +126,10 @@ class Matrix
           void #{name}Solve() {
             int i;
             for(i = 0; i < #{name}NNZ; ++i) {
-              #{name}LHS[i].value = #{name}EvaluateLHS(#{name}LHS[i].row, #{name}LHS[i].column);
+              #{name}LHS[i].value = #{name}EvaluateMatrix(#{name}LHS[i].row, #{name}LHS[i].column);
             }
             for(i = 0; i < #{name}NEQ; ++i) {
-              #{name}RHS[i].value = #{name}EvaluateRHS(#{name}RHS[i].row);
+              #{name}RHS[i].value = -#{name}EvaluateVector(#{name}RHS[i].row);
             }
             #{name}SolveLinearSystem();
             for(i = 0; i < #{name}NEQ; ++i) {
@@ -147,10 +147,10 @@ class Matrix
             do {
               #{type} base = 0, delta = 0;
               for(i = 0; i < #{name}NNZ; ++i) {
-                #{name}LHS[i].value = #{name}EvaluateJacobian(#{name}LHS[i].row, #{name}LHS[i].column);
+                #{name}LHS[i].value = #{name}EvaluateMatrix(#{name}LHS[i].row, #{name}LHS[i].column);
               }
               for(i = 0; i < #{name}NEQ; ++i) {
-                #{name}RHS[i].value = -#{name}EvaluateResidual(#{name}RHS[i].row);
+                #{name}RHS[i].value = -#{name}EvaluateVector(#{name}RHS[i].row);
               }
               #{name}SolveLinearSystem();
               for(i = 0; i < #{name}NEQ; ++i) {

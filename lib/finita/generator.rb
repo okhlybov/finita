@@ -58,6 +58,15 @@ class NodeCode < StaticCodeTemplate
 end # NodeCode
 
 
+class NodeListCode < ListAdapter
+  include Singleton
+  def entities; super + [NodeCode.instance] end
+  def initialize
+    super('FinitaNodeList', 'FinitaNode', 'FinitaNodeCompare', true)
+  end
+end # NodeListCode
+
+
 class NodeMapCode < MapAdapter
   include Singleton
   def entities; super + [NodeCode.instance] end
@@ -241,17 +250,16 @@ class Default
           }
           #ifndef NDEBUG
           #if defined _MSC_VER || __PGI
-            #define __SNPRINTF sprintf_s
+            #define FINITA_SNPRINTF sprintf_s
           #else
-            #define __SNPRINTF snprintf
+            #define FINITA_SNPRINTF snprintf
           #endif
           void FinitaAssert(const char* func, const char* file, int line, const char* test) {
               char msg[1024];
-              __SNPRINTF(msg, 1024, "assertion %s failed", test);
+              FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
               FinitaFailure(func, file, line, msg);
               FinitaAbort(EXIT_FAILURE);
           }
-          #undef __SNPRINTF
           #endif
       $
     end
