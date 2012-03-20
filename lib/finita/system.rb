@@ -136,32 +136,37 @@ class AlgebraicSystem
         #{type} #{name}Get(int, int, int, int);
         #{type} #{name}GetNode(FinitaNode);
         #{type} #{name}GetIndex(int);
-        int #{name}ApproxNodeCount();
         void #{name}CollectNodes();
         void #{name}Setup();
+        extern FinitaNodeMap #{name}Nodes;
       $
     end
     def write_defs(stream)
       #
-      # *ApproxNodeCount()
+      # *CollectNodes()
       stream << %$
-        int #{name}ApproxNodeCount() {
+        FinitaNodeMap #{name}Nodes;
+        static void MergeNode(FinitaNodeMap* nodes, FinitaNode node) {
+          if(FinitaNodeMapContainsKey(nodes, node)) {
+            FinitaNodeMapPutForce(nodes, node, FinitaNodeMapGet(nodes, node) + 1);
+          } else {
+            FinitaNodeMapPut(nodes, node, 1);
+          }
+        }
+        void #{name}CollectNodes() {
           int count = 0;
-
       $
       unknowns.each do |u|
         stream << "count += #{gtor[u].node_count};"
       end
-      stream << 'return count;}'
-      #
-      # *CollectNodes()
       stream << %$
-        void #{name}CollectNodes() {
-          FINITA_ASSERT(!#{name}Orderer.frozen);
+          FinitaNodeMapCtor(&#{name}Nodes, pow(count, 1.1));
       $
       equations.each do |eqn|
         gtor[eqn.domain].foreach_code(stream) {
-          stream << "FinitaOrdererMerge(&#{name}Orderer, FinitaNodeNew(#{unknowns.index(eqn.unknown)}, x, y, z));"
+          stream << %$
+            MergeNode(&#{name}Nodes, FinitaNodeNew(#{unknowns.index(eqn.unknown)}, x, y, z));
+          $
         }
       end
       stream << '}'
@@ -221,6 +226,7 @@ class AlgebraicSystem
       # *Setup()
       stream << %$
         void #{name}Setup() {
+          #{name}CollectNodes();
           #{name}SetupOrderer();
           #{name}SetupSolver();
         }

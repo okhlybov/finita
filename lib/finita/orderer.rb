@@ -37,7 +37,13 @@ class StaticCode < Finita::StaticCodeTemplate
       int #{TAG}Index(#{TAG}* self, FinitaNode node) {
         FINITA_ASSERT(self);
         FINITA_ASSERT(self->frozen);
-        FINITA_ASSERT(FinitaNodeMapContainsKey(&self->map, node));
+        #ifndef NDEBUG
+        if(!FinitaNodeMapContainsKey(&self->map, node)) {
+          char buffer[1024];
+          FINITA_SNPRINTF(buffer, 1024, "request for unregistered node {.field=%d, .x=%d, .y=%d, .z=%d}", node.field, node.x, node.y, node.z);
+          FINITA_FAILURE(buffer);
+        }
+        #endif
         return FinitaNodeMapGet(&self->map, node);
       }
       FinitaNode #{TAG}Node(#{TAG}* self, int index) {
@@ -91,7 +97,7 @@ class Naive
 
   class Code < Finita::BoundCodeTemplate
     attr_reader :name
-    def entities; super + [StaticCode.instance] end
+    def entities; super + [NodeMapCode.instance, StaticCode.instance] end
     def initialize(orderer, gtor, system)
       super({:orderer=>orderer}, gtor)
       @system = system
@@ -105,12 +111,15 @@ class Naive
     end
     def write_defs(stream)
       stream << %$
-        extern int #{name}ApproxNodeCount();
-        extern void #{name}CollectNodes();
+        extern FinitaNodeMap #{name}Nodes;
         FinitaOrderer #{name}Orderer;
         void #{name}SetupOrderer() {
-          FinitaOrdererCtor(&#{name}Orderer, #{name}ApproxNodeCount());
-          #{name}CollectNodes();
+          FinitaNodeMapIt it;
+          FinitaOrdererCtor(&#{name}Orderer, FinitaNodeMapSize(&#{name}Nodes));
+          FinitaNodeMapItCtor(&it, &#{name}Nodes);
+          while(FinitaNodeMapItHasNext(&it)) {
+            FinitaOrdererMerge(&#{name}Orderer, FinitaNodeMapItNextKey(&it));
+          }
           #{TAG}Freeze(&#{name}Orderer);
         }
       $

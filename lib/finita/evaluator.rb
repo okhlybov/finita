@@ -37,22 +37,9 @@ class EvaluatorCode < Finita::CodeTemplate
     stream << %$
       void #{name}SetupEvaluator();
       void #{name}EvaluatorRowColumn(FinitaRowColumn**, size_t*);
+      #{type} #{name}EvaluateMatrix(int, int);
+      #{type} #{name}EvaluateVector(int);
   $
-    system.linear? ? write_intf_linear(stream) : write_intf_nonlinear(stream)
-  end
-
-  def write_intf_linear(stream)
-    stream << %$
-      #{type} #{name}EvaluateLHS(int, int);
-      #{type} #{name}EvaluateRHS(int);
-    $
-  end
-
-  def write_intf_nonlinear(stream)
-    stream << %$
-      #{type} #{name}EvaluateJacobian(int, int);
-      #{type} #{name}EvaluateResidual(int);
-    $
   end
 
   def write_defs(stream)
@@ -122,14 +109,14 @@ class Numeric
             FinitaFpMatrixMerge(&#{name}FpMatrix, index, FinitaOrdererIndex(&#{name}Orderer, FinitaNodeNew(#{system.unknowns.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex})), (FinitaFp)#{code[fp].name});
           $
         end
-        stream << (eqn.through? ? '}' : 'break;}')
+        stream << (eqn.through? ? '}' : 'continue;}')
       end
       stream << '}}'
     end
 
     def write_defs_linear(stream)
       stream << %$
-        #{type} #{name}EvaluateLHS(int row, int column) {
+        #{type} #{name}EvaluateMatrix(int row, int column) {
           #{type} result = 0;
           FinitaNode node;
           FinitaFpListIt it;
@@ -140,7 +127,7 @@ class Numeric
           }
           return result;
         }
-        #{type} #{name}EvaluateRHS(int index) {
+        #{type} #{name}EvaluateVector(int index) {
           #{type} result = 0;
           FinitaNode node;
           FinitaFpListIt it;
@@ -156,7 +143,7 @@ class Numeric
 
     def write_defs_nonlinear(stream)
       stream << %$
-        #{type} #{name}EvaluateJacobian(int row, int column) {
+        #{type} #{name}EvaluateMatrix(int row, int column) {
           #{type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
           FinitaNode node;
           FinitaFpListIt it;
@@ -174,7 +161,7 @@ class Numeric
           #{name}SetIndex(column, value);
           return result/(2*eta);
         }
-        #{type} #{name}EvaluateResidual(int index) {
+        #{type} #{name}EvaluateVector(int index) {
           #{type} result = 0;
           FinitaNode node;
           FinitaFpListIt it;

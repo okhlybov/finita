@@ -105,7 +105,7 @@ class AlgebraicEquation
     @lhs = {}
     if system.linear?
       @lhs_.each {|k,v| @lhs[k] = Symbolic.simplify(v)}
-      @rhs = Symbolic.simplify(-@rhs_)
+      @rhs = Symbolic.simplify(@rhs_)
     else
       @rhs = Symbolic.simplify(expression) # this may be very time-consuming therefore consider applying the non-exhaustive simplification pass
       refs = RefCollector.new(@unknowns).collect!(@rhs)
