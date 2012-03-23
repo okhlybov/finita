@@ -2,7 +2,7 @@ require 'set'
 require 'forwardable'
 require 'finita/common'
 require 'finita/generator'
-require 'finita/orderer'
+require 'finita/mapper'
 
 
 module Finita
@@ -58,12 +58,12 @@ class System
     @solver = solver
   end
 
-  def orderer
-    @orderer.nil? ? problem.orderer : @orderer
+  def mapper
+    @mapper.nil? ? problem.mapper : @mapper
   end
 
-  def orderer=(orderer)
-    @orderer = orderer
+  def mapper=(mapper)
+    @mapper = mapper
   end
 
   def transformer
@@ -121,12 +121,12 @@ class AlgebraicSystem
   class Code < BoundCodeTemplate
     extend Forwardable
     def_delegators :system, :name, :unknowns, :equations
-    def entities; super + [problem_code, orderer_code] end
+    def entities; super + [problem_code, mapper_code] end
     def initialize(system, gtor)
       super({:system=>system}, gtor)
     end
     def problem_code; gtor[system.problem] end
-    def orderer_code; gtor[system.orderer] end
+    def mapper_code; gtor[system.mapper] end
     def type; Generator::Scalar[system.type] end # TODO
     def write_decls(stream)
       stream << %$
@@ -136,42 +136,10 @@ class AlgebraicSystem
         #{type} #{name}Get(int, int, int, int);
         #{type} #{name}GetNode(FinitaNode);
         #{type} #{name}GetIndex(int);
-        void #{name}CollectNodes();
         void #{name}Setup();
-        extern FinitaNodeMap #{name}Nodes;
       $
     end
     def write_defs(stream)
-      #
-      # *CollectNodes()
-      stream << %$
-        FinitaNodeMap #{name}Nodes;
-        static void MergeNode(FinitaNodeMap* nodes, FinitaNode node) {
-          if(FinitaNodeMapContainsKey(nodes, node)) {
-            FinitaNodeMapPutForce(nodes, node, FinitaNodeMapGet(nodes, node) + 1);
-          } else {
-            FinitaNodeMapPut(nodes, node, 1);
-          }
-        }
-        void #{name}CollectNodes() {
-          int count = 0;
-      $
-      unknowns.each do |u|
-        stream << "count += #{gtor[u].node_count};"
-      end
-      stream << %$
-          FinitaNodeMapCtor(&#{name}Nodes, pow(count, 1.1));
-      $
-      equations.each do |eqn|
-        gtor[eqn.domain].foreach_code(stream) {
-          stream << %$
-            MergeNode(&#{name}Nodes, FinitaNodeNew(#{unknowns.index(eqn.unknown)}, x, y, z));
-          $
-        }
-      end
-      stream << '}'
-      #
-      # *Set()
       stream << %$
         void #{name}Set(#{type} value, int field, int x, int y, int z) {
           switch(field) {
@@ -181,23 +149,6 @@ class AlgebraicSystem
       end
       stream << %$default : FINITA_FAILURE("invalid field index");$
       stream << '}}'
-      #
-      # *SetNode()
-      stream << %$
-        void #{name}SetNode(#{type} value, FinitaNode node) {
-          #{name}Set(value, node.field, node.x, node.y, node.z);
-        }
-      $
-      #
-      # *SetIndex()
-      stream << %$
-        void #{name}SetIndex(#{type} value, int index) {
-          FinitaNode node = FinitaOrdererNode(&#{name}Orderer, index);
-          #{name}Set(value, node.field, node.x, node.y, node.z);
-        }
-      $
-      #
-      # *Get()
       stream << %$
         #{type} #{name}Get(int field, int x, int y, int z) {
           switch(field) {
@@ -207,27 +158,22 @@ class AlgebraicSystem
       end
       stream << %$default : FINITA_FAILURE("invalid field index");$
       stream << '}return 0;}'
-      #
-      # *GetNode()
       stream << %$
+        void #{name}SetNode(#{type} value, FinitaNode node) {
+          #{name}Set(value, node.field, node.x, node.y, node.z);
+        }
         #{type} #{name}GetNode(FinitaNode node) {
           return #{name}Get(node.field, node.x, node.y, node.z);
         }
-      $
-      #
-      # *GetIndex()
-      stream << %$
+        void #{name}SetIndex(#{type} value, int index) {
+          FinitaNode node = FinitaMapperNode(&#{name}Mapper, index);
+          #{name}Set(value, node.field, node.x, node.y, node.z);
+        }
         #{type} #{name}GetIndex(int index) {
-          FinitaNode node = FinitaOrdererNode(&#{name}Orderer, index);
+          FinitaNode node = FinitaMapperNode(&#{name}Mapper, index);
           return #{name}Get(node.field, node.x, node.y, node.z);
         }
-      $
-      #
-      # *Setup()
-      stream << %$
         void #{name}Setup() {
-          #{name}CollectNodes();
-          #{name}SetupOrderer();
           #{name}SetupSolver();
         }
       $
@@ -243,7 +189,7 @@ class AlgebraicSystem
 
   extend Forwardable
 
-  def_delegators :@origin, :name, :problem, :solver, :orderer, :transformer
+  def_delegators :@origin, :name, :problem, :solver, :mapper, :transformer
 
   def initialize(origin, want_linear)
     super()
@@ -281,7 +227,7 @@ class AlgebraicSystem
 
   def bind(gtor)
     solver.bind(gtor, self)
-    orderer.bind(gtor, self)
+    mapper.bind(gtor, self)
     transformer.bind(gtor)
     Code.new(self, gtor)
     gtor.defines << :FINITA_COMPLEX if type.equal?(Complex)

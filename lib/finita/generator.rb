@@ -1,7 +1,7 @@
 require 'code_builder'
 require 'data_struct'
 require 'finita/common'
-require 'finita/orderer'
+require 'finita/mapper'
 require 'finita/environment'
 
 
@@ -30,6 +30,9 @@ class NodeCode < StaticCodeTemplate
         int field, x, y, z;
       } FinitaNode;
       FinitaNode FinitaNodeNew(int, int, int, int);
+      int FinitaNodeHash(FinitaNode);
+      int FinitaNodeCompare(FinitaNode, FinitaNode);
+      void FinitaNodeOut(FinitaNode, FILE*);
     $
   end
   def write_defs(stream)
@@ -53,18 +56,21 @@ class NodeCode < StaticCodeTemplate
         FINITA_ASSERT(node.field >= 0);
         return node;
       }
+      void FinitaNodeOut(FinitaNode node, FILE* out) {
+        fprintf(out, "{field=%d x=%d y=%d z=%d}", node.field, node.x, node.y, node.z);
+      }
     $
   end
 end # NodeCode
 
 
-class NodeListCode < ListAdapter
+class NodeSetCode < SetAdapter
   include Singleton
   def entities; super + [NodeCode.instance] end
   def initialize
-    super('FinitaNodeList', 'FinitaNode', 'FinitaNodeCompare', true)
+    super('FinitaNodeSet', 'FinitaNode', 'FinitaNodeHash', 'FinitaNodeCompare', true)
   end
-end # NodeListCode
+end # NodeSetCode
 
 
 class NodeMapCode < MapAdapter
@@ -82,106 +88,106 @@ class FpListCode < ListAdapter
     super('FinitaFpList', 'FinitaFp', 'FinitaFpCompare', true)
   end
   def write_intf(stream)
-    stream << "typedef void (*FinitaFp)(void);"
-    super
-  end
-end # FpListCode
-
-
-class FpMatrixCode < MapAdapter
-  include Singleton
-  def entities; super + [NodeCode.instance, FpListCode.instance] end
-  def initialize
-    super('FinitaFpMatrix', 'FinitaFpMatrixKey', 'FinitaFpList*', 'FinitaFpMatrixKeyHash', 'FinitaFpMatrixKeyCompare', true)
-  end
-  def write_intf_real(stream)
     stream << %$
-      typedef struct {
-        int row_index, column_index;
-      } FinitaFpMatrixKey;
+      typedef void (*FinitaFp)(void);
+      int FinitaFpCompare(FinitaFp, FinitaFp);
     $
     super
-    stream << %$
-      void FinitaFpMatrixMerge(FinitaFpMatrix*, int, int, FinitaFp);
-      FinitaFpList* FinitaFpMatrixAt(FinitaFpMatrix*, int, int);
-    $
   end
   def write_defs(stream)
     stream << %$
       int FinitaFpCompare(FinitaFp lt, FinitaFp rt) {
         return lt == rt;
       }
-      int FinitaFpMatrixKeyHash(FinitaFpMatrixKey node) {
-        return node.row_index ^ node.column_index;
-      }
-      int FinitaFpMatrixKeyCompare(FinitaFpMatrixKey lt, FinitaFpMatrixKey rt) {
-        return lt.row_index == rt.row_index && lt.column_index == rt.column_index;
-      }
-      void FinitaFpMatrixMerge(FinitaFpMatrix* self, int row, int column, FinitaFp fp) {
-        FinitaFpMatrixKey key;
-        FINITA_ASSERT(self);
-        key.row_index = row; key.column_index = column;
-        if(FinitaFpMatrixContainsKey(self, key)) {
-          FinitaFpListAppend(FinitaFpMatrixGet(self, key), fp);
-        } else {
-          FinitaFpList* fps = FinitaFpListNew();
-          FinitaFpListAppend(fps, fp);
-          FinitaFpMatrixPut(self, key, fps);
-        }
-      }
-      FinitaFpList* FinitaFpMatrixAt(FinitaFpMatrix* self, int row, int column) {
-        FinitaFpMatrixKey key;
-        FINITA_ASSERT(self);
-        key.row_index = row; key.column_index = column;
-        return FinitaFpMatrixGet(self, key);
-      }
     $
     super
   end
-end # FpMatrixCode
+end # FpListCode
 
 
-class FpVectorCode < StaticCodeTemplate
-  TAG = :FinitaFpVector
-  def entities; super + [Orderer::StaticCode.instance, FpMatrixCode.instance] end
-  def write_intf(stream)
+class MatrixCode < MapAdapter
+  include Singleton
+  def entities; super + [NodeCode.instance, FpListCode.instance] end
+  def initialize
+    super('FinitaMatrix', 'FinitaMatrixKey', 'FinitaFpList*', 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
+  end
+  def write_intf_real(stream)
     stream << %$
       typedef struct {
-        FinitaFpList** linear;
-        int linear_size;
-      } #{TAG};
-      void #{TAG}Ctor(#{TAG}*, FinitaOrderer*);
-      void #{TAG}Merge(#{TAG}*, int, FinitaFp);
-      FinitaFpList* #{TAG}At(#{TAG}*, int);
+        FinitaNode row, column;
+      } FinitaMatrixKey;
+    $
+    super
+    stream << %$
+      void FinitaMatrixMerge(FinitaMatrix*, FinitaNode, FinitaNode, FinitaFp);
+      FinitaFpList* FinitaMatrixAt(FinitaMatrix*, FinitaNode, FinitaNode);
     $
   end
   def write_defs(stream)
     stream << %$
-      void #{TAG}Ctor(#{TAG}* self, FinitaOrderer* orderer) {
-        int index;
+      int FinitaMatrixKeyHash(FinitaMatrixKey key) {
+        return FinitaNodeHash(key.row) ^ FinitaNodeHash(key.column);
+      }
+      int FinitaMatrixKeyCompare(FinitaMatrixKey lt, FinitaMatrixKey rt) {
+        return FinitaNodeCompare(lt.row, rt.row) && FinitaNodeCompare(lt.column, rt.column);
+      }
+      void FinitaMatrixMerge(FinitaMatrix* self, FinitaNode row, FinitaNode column, FinitaFp fp) {
+        FinitaMatrixKey key;
         FINITA_ASSERT(self);
-        FINITA_ASSERT(orderer);
-        FINITA_ASSERT(orderer->frozen);
-        self->linear_size = FinitaOrdererSize(orderer);
-        self->linear = FINITA_MALLOC(self->linear_size*sizeof(FinitaFpList*)); FINITA_ASSERT(self->linear);
-        for(index = 0; index < self->linear_size; ++index) {
-          self->linear[index] = FinitaFpListNew();
+        key.row = row; key.column = column;
+        if(FinitaMatrixContainsKey(self, key)) {
+          FinitaFpListAppend(FinitaMatrixGet(self, key), fp);
+        } else {
+          FinitaFpList* fps = FinitaFpListNew();
+          FinitaFpListAppend(fps, fp);
+          FinitaMatrixPut(self, key, fps);
         }
       }
-      void #{TAG}Merge(#{TAG}* self, int index, FinitaFp fp) {
+      FinitaFpList* FinitaMatrixAt(FinitaMatrix* self, FinitaNode row, FinitaNode column) {
+        FinitaMatrixKey key;
         FINITA_ASSERT(self);
-        FINITA_ASSERT(fp);
-        FINITA_ASSERT(0 <= index && index < self->linear_size);
-        FinitaFpListAppend(self->linear[index], fp);
-      }
-      FinitaFpList* #{TAG}At(#{TAG}* self, int index) {
-        FINITA_ASSERT(self);
-        FINITA_ASSERT(0 <= index && index < self->linear_size);
-        return self->linear[index];
+        key.row = row; key.column = column;
+        return FinitaMatrixGet(self, key);
       }
     $
+    super
   end
-end # FpVectorCode
+end # MatrixCode
+
+
+class VectorCode < MapAdapter
+  include Singleton
+  def entities; super + [NodeCode.instance, FpListCode.instance] end
+  def initialize
+    super('FinitaVector', 'FinitaNode', 'FinitaFpList*', 'FinitaNodeHash', 'FinitaNodeCompare', true)
+  end
+  def write_intf_real(stream)
+    super
+    stream << %$
+      void FinitaVectorMerge(FinitaVector*, FinitaNode, FinitaFp);
+      FinitaFpList* FinitaVectorAt(FinitaVector*, FinitaNode);
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      void FinitaVectorMerge(FinitaVector* self, FinitaNode row, FinitaFp fp) {
+        FINITA_ASSERT(self);
+        if(FinitaVectorContainsKey(self, row)) {
+          FinitaFpListAppend(FinitaVectorGet(self, row), fp);
+        } else {
+          FinitaFpList* fps = FinitaFpListNew();
+          FinitaFpListAppend(fps, fp);
+          FinitaVectorPut(self, row, fps);
+        }
+      }
+      FinitaFpList* FinitaVectorAt(FinitaVector* self, FinitaNode row) {
+        FINITA_ASSERT(self);
+        return FinitaVectorGet(self, row);
+      }
+    $
+    super
+  end
+end # VectorCode
 
 
 end # Finita
@@ -206,6 +212,7 @@ class Default
           #include <math.h>
           #include <malloc.h>
           #include <string.h>
+          #include <stdio.h>
           #ifdef FINITA_COMPLEX
             #include <complex.h>
           #endif

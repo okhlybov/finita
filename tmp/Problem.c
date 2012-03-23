@@ -7,14 +7,14 @@ void FinitaAbort() {
 
 int main(int argc, char** argv) {
     int x, y;
-    A = B = 5;
+	FILE* f;
+    A = B = 50;
     ProblemSetup(argc, argv);
     ProblemSystemSolve();
     ProblemCleanup();
     printf("%e\n", F(0,0,0));
     printf("%e\n", F(1,1,0));
-    /*printf("%e\n", G(1,1,0));*/
-    FILE* f = fopen("F.dat", "wt");
+    f = fopen("F.dat", "wt");
     for(x = 0; x < A; ++x)
     for(y = 0; y < B; ++y)
     {

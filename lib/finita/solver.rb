@@ -32,7 +32,7 @@ class Explicit
 
   class Code < Finita::BoundCodeTemplate
     attr_reader :name, :type, :equations, :unknowns, :evaluator
-    def entities; super + [Finita::Orderer::StaticCode.instance, FpVectorCode.instance] + evaluator.values end
+    def entities; super + [Finita::Mapper::StaticCode.instance, VectorCode.instance] + evaluator.values end
     def initialize(solver, gtor, system)
       super({:solver=>solver}, gtor)
       raise 'Explicit solver requires non-linear system' if system.linear?
@@ -61,7 +61,6 @@ class Explicit
       stream << %$
         void #{name}SetupSolver() {
           int index, size;
-          FINITA_ASSERT(#{name}Orderer.frozen);
           size = FinitaOrdererSize(&#{name}Orderer);
           FinitaFpVectorCtor(&#{name}Evaluators, &#{name}Orderer);
           for(index = 0; index < size; ++index) {
@@ -98,7 +97,7 @@ class Explicit
     Code.new(self, gtor, system) unless gtor.bound?(self)
   end
 
-end # Explicit
+end if false # Explicit
 
 
 class Matrix
@@ -118,6 +117,7 @@ class Matrix
       stream << %$
         void #{name}SetupSolver() {
           #{name}SetupEvaluator();
+          #{name}SetupMapper();
           #{name}SetupBackend();
         }
       $
@@ -126,10 +126,10 @@ class Matrix
           void #{name}Solve() {
             int i;
             for(i = 0; i < #{name}NNZ; ++i) {
-              #{name}LHS[i].value = #{name}EvaluateMatrix(#{name}LHS[i].row, #{name}LHS[i].column);
+              #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
             }
             for(i = 0; i < #{name}NEQ; ++i) {
-              #{name}RHS[i].value = -#{name}EvaluateVector(#{name}RHS[i].row);
+              #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
             }
             #{name}SolveLinearSystem();
             for(i = 0; i < #{name}NEQ; ++i) {
@@ -147,10 +147,10 @@ class Matrix
             do {
               #{type} base = 0, delta = 0;
               for(i = 0; i < #{name}NNZ; ++i) {
-                #{name}LHS[i].value = #{name}EvaluateMatrix(#{name}LHS[i].row, #{name}LHS[i].column);
+                #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
               }
               for(i = 0; i < #{name}NEQ; ++i) {
-                #{name}RHS[i].value = -#{name}EvaluateVector(#{name}RHS[i].row);
+                #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
               }
               #{name}SolveLinearSystem();
               for(i = 0; i < #{name}NEQ; ++i) {

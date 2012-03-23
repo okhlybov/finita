@@ -9,7 +9,7 @@ class BackendCode < Finita::CodeTemplate
 
   attr_reader :system, :name, :type
 
-  def entities; super + [Finita::Orderer::StaticCode.instance] end
+  def entities; super + [Finita::MatrixCode.instance, Finita::VectorCode.instance, Finita::Mapper::StaticCode.instance] end
 
   def initialize(backend, gtor, system)
     @gtor = gtor
@@ -25,15 +25,14 @@ class BackendCode < Finita::CodeTemplate
       typedef struct {
         int row, column;
         #{type} value;
-      } #{name}Matrix;
+      } #{name}NumericMatrix;
       typedef struct {
         int row;
         #{type} value;
-      } #{name}Vector;
-      extern FinitaOrderer #{name}Orderer;
-      extern size_t #{name}NNZ, #{name}NEQ;
-      extern #{name}Matrix* #{name}LHS;
-      extern #{name}Vector* #{name}RHS;
+      } #{name}NumericVector;
+      extern int #{name}NNZ, #{name}NEQ;
+      extern #{name}NumericMatrix* #{name}LHS;
+      extern #{name}NumericVector* #{name}RHS;
       void #{name}SetupBackend();
       void #{name}SolveLinearSystem();
     $
@@ -41,21 +40,29 @@ class BackendCode < Finita::CodeTemplate
 
   def write_defs(stream)
     stream << %$
-      size_t #{name}NNZ, #{name}NEQ;
-      #{name}Matrix* #{name}LHS;
-      #{name}Vector* #{name}RHS;
+      extern FinitaMapper #{name}Mapper;
+      extern FinitaMatrix #{name}SymbolicMatrix;
+      extern FinitaVector #{name}SymbolicVector;
+      int #{name}NNZ, #{name}NEQ;
+      #{name}NumericMatrix* #{name}LHS;
+      #{name}NumericVector* #{name}RHS;
       static void #{name}SetupBackendStruct() {
         int i;
-        FinitaRowColumn* rc;
-        #{name}EvaluatorRowColumn(&rc, &#{name}NNZ);
-        #{name}LHS = (#{name}Matrix*)FINITA_MALLOC(sizeof(#{name}Matrix)*#{name}NNZ); FINITA_ASSERT(#{name}LHS);
-        for(i = 0; i < #{name}NNZ; ++i) {
-          #{name}LHS[i].row = rc[i].row;
-          #{name}LHS[i].column = rc[i].column;
+        FinitaMatrixIt it;
+        FINITA_ASSERT(FinitaMapperSize(&#{name}Mapper) == FinitaVectorSize(&#{name}SymbolicVector));
+        #{name}NNZ = FinitaMatrixSize(&#{name}SymbolicMatrix);
+        #{name}NEQ = FinitaMapperSize(&#{name}Mapper);
+        #{name}LHS = (#{name}NumericMatrix*)FINITA_MALLOC(sizeof(#{name}NumericMatrix)*#{name}NNZ); FINITA_ASSERT(#{name}LHS);
+        FinitaMatrixItCtor(&it, &#{name}SymbolicMatrix);
+        i = 0;
+        while(FinitaMatrixItHasNext(&it)) {
+          FinitaMatrixPair pair = FinitaMatrixItNext(&it);
+          #{name}LHS[i].row = FinitaMapperIndex(&#{name}Mapper, pair.key.row);
+          #{name}LHS[i].column = FinitaMapperIndex(&#{name}Mapper, pair.key.column);
+          ++i;
         }
-        FINITA_FREE(rc);
-        #{name}NEQ = FinitaOrdererSize(&#{name}Orderer);
-        #{name}RHS = (#{name}Vector*)FINITA_MALLOC(sizeof(#{name}Vector)*#{name}NEQ); FINITA_ASSERT(#{name}RHS);
+        FINITA_ASSERT(i == FinitaMatrixSize(&#{name}SymbolicMatrix));
+        #{name}RHS = (#{name}NumericVector*)FINITA_MALLOC(sizeof(#{name}NumericVector)*#{name}NEQ); FINITA_ASSERT(#{name}RHS);
         for(i = 0; i < #{name}NEQ; ++i) {
           #{name}RHS[i].row = i;
         }
@@ -86,8 +93,8 @@ class SuperLU
         static int* #{name}PermC;
         static int* #{name}PermR;
         static int #{name}ColumnFirstSort(const void* l, const void* r) {
-          #{name}Matrix* lt = (#{name}Matrix*)l;
-          #{name}Matrix* rt = (#{name}Matrix*)r;
+          #{name}NumericMatrix* lt = (#{name}NumericMatrix*)l;
+          #{name}NumericMatrix* rt = (#{name}NumericMatrix*)r;
           if(lt->column < rt->column)
             return -1;
           else if(lt->column > rt->column)
@@ -102,7 +109,7 @@ class SuperLU
         void #{name}SetupBackend() {
           int i, j, c;
           #{name}SetupBackendStruct();
-          qsort(#{name}LHS, #{name}NNZ, sizeof(#{name}Matrix), #{name}ColumnFirstSort);
+          qsort(#{name}LHS, #{name}NNZ, sizeof(#{name}NumericMatrix), #{name}ColumnFirstSort);
           #{name}ASub = (int*)FINITA_MALLOC(sizeof(int)*#{name}NNZ); FINITA_ASSERT(#{name}ASub);
           #{name}XA = (int*)FINITA_MALLOC(sizeof(int)*(#{name}NEQ+1)); FINITA_ASSERT(#{name}XA);
           #{name}PermC = (int*)FINITA_MALLOC(sizeof(int)*#{name}NEQ); FINITA_ASSERT(#{name}PermC);

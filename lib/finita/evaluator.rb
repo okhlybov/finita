@@ -1,5 +1,4 @@
 require 'finita/common'
-require 'finita/orderer'
 
 
 module Finita::Evaluator
@@ -35,32 +34,21 @@ class EvaluatorCode < Finita::CodeTemplate
 
   def write_intf(stream)
     stream << %$
+      extern FinitaNodeSet #{name}Nodes;
+      extern FinitaMatrix #{name}SymbolicMatrix;
+      extern FinitaVector #{name}SymbolicVector;
       void #{name}SetupEvaluator();
-      void #{name}EvaluatorRowColumn(FinitaRowColumn**, size_t*);
-      #{type} #{name}EvaluateMatrix(int, int);
-      #{type} #{name}EvaluateVector(int);
+      #{type} #{name}EvaluateMatrix(FinitaNode, FinitaNode);
+      #{type} #{name}EvaluateVector(FinitaNode);
   $
   end
 
   def write_defs(stream)
     stream << %$
       typedef #{type} (*#{name}Fp)(int, int, int);
-      extern FinitaOrderer #{name}Orderer;
-      static FinitaFpMatrix #{name}FpMatrix;
-      static FinitaFpVector #{name}FpVector;
-      void #{name}EvaluatorRowColumn(FinitaRowColumn** rc, size_t* size) {
-        int index = 0;
-        FinitaFpMatrixIt it;
-        *size = FinitaFpMatrixSize(&#{name}FpMatrix);
-        *rc = (FinitaRowColumn*)FINITA_MALLOC(*size*sizeof(FinitaRowColumn)); FINITA_ASSERT(*rc);
-        FinitaFpMatrixItCtor(&it, &#{name}FpMatrix);
-        while(FinitaFpMatrixItHasNext(&it)) {
-          FinitaFpMatrixKey key = FinitaFpMatrixItNextKey(&it);
-          (*rc)[index].row = key.row_index;
-          (*rc)[index].column = key.column_index;
-          ++index;
-        }
-      }
+      FinitaMatrix #{name}SymbolicMatrix;
+      FinitaVector #{name}SymbolicVector;
+      FinitaNodeSet #{name}Nodes;
     $
     system.linear? ? write_defs_linear(stream) : write_defs_nonlinear(stream)
   end
@@ -72,7 +60,7 @@ class Numeric
 
   class Code < EvaluatorCode
 
-    def entities; super + [Finita::Orderer::StaticCode.instance, Finita::FpMatrixCode.instance, Finita::FpVectorCode.instance] + code.values end
+    def entities; super + [Finita::NodeSetCode.instance, Finita::MatrixCode.instance, Finita::VectorCode.instance] + code.values end
 
     def initialize(evaluator, gtor, system)
       super
@@ -89,88 +77,133 @@ class Numeric
     def write_defs(stream)
       super
       stream << %$
+        extern #{type} #{name}GetNode(FinitaNode);
         void #{name}SetupEvaluator() {
-          int index, size;
-          FINITA_ASSERT(#{name}Orderer.frozen);
-          size = FinitaOrdererSize(&#{name}Orderer);
-          FinitaFpMatrixCtor(&#{name}FpMatrix, pow(size, 1.1)); /* TODO more accurate storage size calculation */
-          FinitaFpVectorCtor(&#{name}FpVector, &#{name}Orderer);
-          for(index = 0; index < size; ++index) {
-            int x, y, z;
-            FinitaNode row = FinitaOrdererNode(&#{name}Orderer, index);
-            x = row.x; y = row.y; z = row.z;
+          int size = 0;
+          FinitaNodeSet nodes;
+          FinitaNodeSetIt it;
+      $
+      system.unknowns.each do |u|
+        stream << "size += #{gtor[u].node_count};"
+      end
+      stream << "FinitaNodeSetCtor(&nodes, size);"
+      system.equations.each do |eqn|
+        gtor[eqn.domain].foreach_code(stream) {
+          stream << "FinitaNodeSetPut(&nodes, FinitaNodeNew(#{system.unknowns.index(eqn.unknown)}, x, y, z));"
+        }
+      end
+      stream << %$
+        size = FinitaNodeSetSize(&nodes);
+        FinitaMatrixCtor(&#{name}SymbolicMatrix, pow(size, 1.1));
+        FinitaVectorCtor(&#{name}SymbolicVector, size);
+        FinitaNodeSetCtor(&#{name}Nodes, size);
+        FinitaNodeSetItCtor(&it, &nodes);
+        while(FinitaNodeSetItHasNext(&it)) {
+          int x, y, z;
+          FinitaNode column, row = FinitaNodeSetItNext(&it);
+          x = row.x; y = row.y; z = row.z;
       $
       system.equations.each do |eqn|
         stream << "if(row.field == #{system.unknowns.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
-        stream << "FinitaFpVectorMerge(&#{name}FpVector, index, (FinitaFp)#{code[eqn.rhs].name});"
         eqn.lhs.each do |ref,fp|
-          # TODO make sure ref.arg is of type Field
           stream << %$
-            FinitaFpMatrixMerge(&#{name}FpMatrix, index, FinitaOrdererIndex(&#{name}Orderer, FinitaNodeNew(#{system.unknowns.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex})), (FinitaFp)#{code[fp].name});
+            column = FinitaNodeNew(#{system.unknowns.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex});
+            FinitaMatrixMerge(&#{name}SymbolicMatrix, row, column, (FinitaFp)#{code[fp].name});
+            FinitaNodeSetPut(&#{name}Nodes, column);
           $
         end
+        stream << %$
+          FinitaVectorMerge(&#{name}SymbolicVector, row, (FinitaFp)#{code[eqn.rhs].name});
+          FinitaNodeSetPut(&#{name}Nodes, row);
+        $
         stream << (eqn.through? ? '}' : 'continue;}')
       end
-      stream << '}}'
+      stream << '}'
+      stream << %$
+        FinitaNodeSetItCtor(&it, &#{name}Nodes);
+        while(FinitaNodeSetItHasNext(&it)) {
+          FinitaMatrixKey key;
+          FinitaNode node = FinitaNodeSetItNext(&it);
+          key.row = key.column = node;
+          if(!FinitaMatrixContainsKey(&#{name}SymbolicMatrix, key)) {
+            FINITA_ASSERT(!FinitaVectorContainsKey(&#{name}SymbolicVector, node));
+            FinitaMatrixPut(&#{name}SymbolicMatrix, key, NULL);
+            FinitaVectorPut(&#{name}SymbolicVector, node, NULL);
+          }
+        }
+      $
+      stream << '}'
     end
 
     def write_defs_linear(stream)
       stream << %$
-        #{type} #{name}EvaluateMatrix(int row, int column) {
-          #{type} result = 0;
-          FinitaNode node;
-          FinitaFpListIt it;
-          node = FinitaOrdererNode(&#{name}Orderer, row);
-          FinitaFpListItCtor(&it, FinitaFpMatrixAt(&#{name}FpMatrix, row, column));
-          while(FinitaFpListItHasNext(&it)) {
-            result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
+        #{type} #{name}EvaluateMatrix(FinitaNode row, FinitaNode column) {
+          FinitaFpList* list = FinitaMatrixAt(&#{name}SymbolicMatrix, row, column);
+          if(list) {
+            FinitaFpListIt it;
+            #{type} result = 0;
+            FinitaFpListItCtor(&it, list);
+            while(FinitaFpListItHasNext(&it)) {
+              result += ((#{name}Fp)FinitaFpListItNext(&it))(row.x, row.y, row.z);
+            }
+            return result;
+          } else {
+            return 1;
           }
-          return result;
         }
-        #{type} #{name}EvaluateVector(int index) {
-          #{type} result = 0;
-          FinitaNode node;
-          FinitaFpListIt it;
-          node = FinitaOrdererNode(&#{name}Orderer, index);
-          FinitaFpListItCtor(&it, FinitaFpVectorAt(&#{name}FpVector, index));
-          while(FinitaFpListItHasNext(&it)) {
-            result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
+        #{type} #{name}EvaluateVector(FinitaNode row) {
+          FinitaFpList* list = FinitaVectorAt(&#{name}SymbolicVector, row);
+          if(list) {
+            #{type} result = 0;
+            FinitaFpListIt it;
+            FinitaFpListItCtor(&it, list);
+            while(FinitaFpListItHasNext(&it)) {
+              result += ((#{name}Fp)FinitaFpListItNext(&it))(row.x, row.y, row.z);
+            }
+            return result;
+          } else {
+            return #{name}GetNode(row);
           }
-          return result;
         }
       $
     end
 
     def write_defs_nonlinear(stream)
       stream << %$
-        #{type} #{name}EvaluateMatrix(int row, int column) {
-          #{type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
-          FinitaNode node;
-          FinitaFpListIt it;
-          value = #{name}GetIndex(column);
-          node = FinitaOrdererNode(&#{name}Orderer, row);
-          eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* From the PETSc's MatFD implementation '*/
-          FinitaFpListItCtor(&it, FinitaFpMatrixAt(&#{name}FpMatrix, row, column));
-          while(FinitaFpListItHasNext(&it)) {
-            #{name}Fp fp = (#{name}Fp)FinitaFpListItNext(&it);
-            #{name}SetIndex(column, value + eta);
-            result += fp(node.x, node.y, node.z);
-            #{name}SetIndex(column, value - eta);
-            result -= fp(node.x, node.y, node.z);
+        #{type} #{name}EvaluateMatrix(FinitaNode row, FinitaNode column) {
+          FinitaFpList* list = FinitaMatrixAt(&#{name}SymbolicMatrix, row, column);
+          if(list) {
+            FinitaFpListIt it;
+            #{type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
+            value = #{name}GetNode(column);
+            eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* from the PETSc's MatFD implementation '*/
+            FinitaFpListItCtor(&it, FinitaMatrixAt(&#{name}SymbolicMatrix, row, column));
+            while(FinitaFpListItHasNext(&it)) {
+              #{name}Fp fp = (#{name}Fp)FinitaFpListItNext(&it);
+              #{name}SetNode(value + eta, column);
+              result += fp(row.x, row.y, row.z);
+              #{name}SetNode(value - eta, column);
+              result -= fp(row.x, row.y, row.z);
+            }
+            #{name}SetNode(value, column);
+            return result/(2*eta);
+          } else {
+            return 1;
           }
-          #{name}SetIndex(column, value);
-          return result/(2*eta);
         }
-        #{type} #{name}EvaluateVector(int index) {
-          #{type} result = 0;
-          FinitaNode node;
-          FinitaFpListIt it;
-          node = FinitaOrdererNode(&#{name}Orderer, index);
-          FinitaFpListItCtor(&it, FinitaFpVectorAt(&#{name}FpVector, index));
-          while(FinitaFpListItHasNext(&it)) {
-            result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
+        #{type} #{name}EvaluateVector(FinitaNode row) {
+          FinitaFpList* list = FinitaVectorAt(&#{name}SymbolicVector, row);
+          if(list) {
+            FinitaFpListIt it;
+            #{type} result = 0;
+            FinitaFpListItCtor(&it, FinitaVectorAt(&#{name}SymbolicVector, row));
+            while(FinitaFpListItHasNext(&it)) {
+              result += ((#{name}Fp)FinitaFpListItNext(&it))(row.x, row.y, row.z);
+            }
+            return result;
+          } else {
+            return #{name}GetNode(row);
           }
-          return result;
         }
       $
     end
