@@ -454,6 +454,8 @@ class Map < Type
 
   def it_next_value; "#{type}ItNextValue" end
 
+  def it_next; "#{type}ItNext" end
+
   def initialize(type, key_type, value_type, hasher, comparator, visible = true)
     super(type, visible)
     @key_type = key_type
@@ -495,6 +497,7 @@ class Map < Type
         int #{it_has_next}(#{it}*);
         #{key_type} #{it_next_key}(#{it}*);
         #{value_type} #{it_next_value}(#{it}*);
+        #{pair} #{it_next}(#{it}*);
     $
   end
 
@@ -564,6 +567,10 @@ class Map < Type
         #{value_type} #{it_next_value}(#{it}* self) {
           #{assert}(self);
           return #{pair_set.it_next}(&self->it).value;
+        }
+        #{pair} #{it_next}(#{it}* self) {
+          #{assert}(self);
+          return #{pair_set.it_next}(&self->it);
         }
     $
   end
