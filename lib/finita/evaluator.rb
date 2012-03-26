@@ -153,6 +153,21 @@ class Numeric
         void #{name}SetupEvaluator2() {
           int i;
           FinitaEvaluatorEntry entry;
+          {
+            FILE *f = fopen("#{name}SymbolicMatrix.dat", "wt");
+            FinitaMatrixLog(&#{name}SymbolicMatrix, f);
+            fclose(f);
+          }
+          {
+            FILE *f = fopen("#{name}SymbolicVector.dat", "wt");
+            FinitaVectorLog(&#{name}SymbolicVector, f);
+            fclose(f);
+          }
+          {
+            FILE *f = fopen("#{name}Nodes.dat", "wt");
+            FinitaNodeSetLog(&#{name}Nodes, f);
+            fclose(f);
+          }
           #{name}MatrixEntry = (FinitaEvaluatorEntry*)FINITA_MALLOC(sizeof(FinitaEvaluatorEntry)*#{name}NNZ); FINITA_ASSERT(#{name}MatrixEntry);
           #{name}VectorEntry = (FinitaEvaluatorEntry*)FINITA_MALLOC(sizeof(FinitaEvaluatorEntry)*#{name}NEQ); FINITA_ASSERT(#{name}VectorEntry);
           for(i = 0; i < #{name}NNZ; ++i) {

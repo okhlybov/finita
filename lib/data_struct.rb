@@ -279,6 +279,8 @@ class Set < Type
 
   def it_next; "#{type}ItNext" end
 
+  def log; "#{type}Log" end
+
   def initialize(type, element_type, hasher, comparator, visible = true)
     super(type, visible)
     @element_type = element_type
@@ -411,6 +413,13 @@ class Set < Type
             }
             #{abort}();
           }
+        }
+      void #{log}(#{type}* self, FILE* out) {
+        int i;
+        fprintf(out, "size=%d\\nbucket_count=%d\\nbucket_size[]=\\n", self->size, self->bucket_count);
+        for(i = 0; i < self->bucket_count; ++i) {
+          fprintf(out, "%d\\t%d\\n", i, #{bucket.size}(&self->buckets[i]));
+        }
       }
     $
   end
@@ -455,6 +464,8 @@ class Map < Type
   def it_next_value; "#{type}ItNextValue" end
 
   def it_next; "#{type}ItNext" end
+
+  def log; "#{type}Log" end
 
   def initialize(type, key_type, value_type, hasher, comparator, visible = true)
     super(type, visible)
@@ -572,6 +583,9 @@ class Map < Type
           #{assert}(self);
           return #{pair_set.it_next}(&self->it);
         }
+      void #{log}(#{type}* self, FILE* out) {
+        #{pair_set.log}(&self->pairs, out);
+      }
     $
   end
 
