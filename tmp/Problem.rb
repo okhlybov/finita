@@ -22,7 +22,7 @@ p=Problem.new(:Problem) {|p|
   p.mapper = Mapper::Naive.new
   System.new(:System) {|s|
     #Equation.new(Delta.new(Symbolic::Exp.new(F))+G, F, inner, true)
-    s.linear = false
+    s.linear = true
     Equation.new(F-1, F, whole_area.up, false)
     Equation.new(F-1, F, dot, false)
     Equation.new(Delta.new(F), F, inner, false)

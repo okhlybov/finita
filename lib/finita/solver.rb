@@ -116,9 +116,10 @@ class Matrix
       super
       stream << %$
         void #{name}SetupSolver() {
-          #{name}SetupEvaluator();
+          #{name}SetupEvaluator1();
           #{name}SetupMapper();
           #{name}SetupBackend();
+          #{name}SetupEvaluator2();
         }
       $
       if system.linear?
@@ -126,10 +127,12 @@ class Matrix
           void #{name}Solve() {
             int i;
             for(i = 0; i < #{name}NNZ; ++i) {
-              #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
+              FinitaEvaluatorEntry entry = #{name}MatrixEntry[i];
+              #{name}LHS[i].value = #{name}EvaluateMatrixEntry(entry.fps, entry.row, entry.column);
             }
             for(i = 0; i < #{name}NEQ; ++i) {
-              #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
+              FinitaEvaluatorEntry entry = #{name}VectorEntry[i];
+              #{name}RHS[i].value = -#{name}EvaluateVectorEntry(entry.fps, entry.row);
             }
             #{name}SolveLinearSystem();
             for(i = 0; i < #{name}NEQ; ++i) {
@@ -147,10 +150,12 @@ class Matrix
             do {
               #{type} base = 0, delta = 0;
               for(i = 0; i < #{name}NNZ; ++i) {
-                #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
+                FinitaEvaluatorEntry entry = #{name}MatrixEntry[i];
+                #{name}LHS[i].value = #{name}EvaluateMatrixEntry(entry.fps, entry.row, entry.column);
               }
               for(i = 0; i < #{name}NEQ; ++i) {
-                #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
+                FinitaEvaluatorEntry entry = #{name}VectorEntry[i];
+                #{name}RHS[i].value = -#{name}EvaluateVectorEntry(entry.fps, entry.row);
               }
               #{name}SolveLinearSystem();
               for(i = 0; i < #{name}NEQ; ++i) {
