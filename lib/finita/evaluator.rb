@@ -177,7 +177,7 @@ class Numeric
             #{type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
             value = #{name}GetNode(column);
             eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* from the PETSc's MatFD implementation '*/
-            FinitaFpListItCtor(&it, FinitaMatrixAt(&#{name}SymbolicMatrix, row, column));
+            FinitaFpListItCtor(&it, list);
             while(FinitaFpListItHasNext(&it)) {
               #{name}Fp fp = (#{name}Fp)FinitaFpListItNext(&it);
               #{name}SetNode(value + eta, column);
@@ -196,7 +196,7 @@ class Numeric
           if(list) {
             FinitaFpListIt it;
             #{type} result = 0;
-            FinitaFpListItCtor(&it, FinitaVectorAt(&#{name}SymbolicVector, row));
+            FinitaFpListItCtor(&it, list);
             while(FinitaFpListItHasNext(&it)) {
               result += ((#{name}Fp)FinitaFpListItNext(&it))(row.x, row.y, row.z);
             }
