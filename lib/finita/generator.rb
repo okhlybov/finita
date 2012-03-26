@@ -32,7 +32,7 @@ class NodeCode < StaticCodeTemplate
       FinitaNode FinitaNodeNew(int, int, int, int);
       int FinitaNodeHash(FinitaNode);
       int FinitaNodeCompare(FinitaNode, FinitaNode);
-      void FinitaNodeOut(FinitaNode, FILE*);
+      void FinitaNodeLog(FinitaNode, FILE*);
     $
   end
   def write_defs(stream)
@@ -56,7 +56,7 @@ class NodeCode < StaticCodeTemplate
         FINITA_ASSERT(node.field >= 0);
         return node;
       }
-      void FinitaNodeOut(FinitaNode node, FILE* out) {
+      void FinitaNodeLog(FinitaNode node, FILE* out) {
         fprintf(out, "{field=%d x=%d y=%d z=%d}", node.field, node.x, node.y, node.z);
       }
     $
