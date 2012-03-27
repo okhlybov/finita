@@ -5,11 +5,11 @@ void FinitaAbort() {
    abort();
 }
 int main(int argc, char** argv) {
-    int x, y;
+    int i, x, y;
 	FILE* f;
-    A = B = 100;
+    A = B = 200;
     ProblemSetup(argc, argv);
-    ProblemSystemSolve();
+    for(i = 0; i < 10; ++i) ProblemSystemSolve();
     ProblemCleanup();
     printf("%e\n", F(0,0,0));
     printf("%e\n", F(1,1,0));

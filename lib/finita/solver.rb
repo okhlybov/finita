@@ -124,15 +124,24 @@ class Matrix
       $
       if system.linear?
         stream << %$
+#define FINITA_EVAL_CACHE
           void #{name}Solve() {
             int i;
             for(i = 0; i < #{name}NNZ; ++i) {
+#ifdef FINITA_EVAL_CACHE
               FinitaEvaluatorEntry entry = #{name}MatrixEntry[i];
               #{name}LHS[i].value = #{name}EvaluateMatrixEntry(entry.fps, entry.row, entry.column);
+#else
+              #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
+#endif
             }
             for(i = 0; i < #{name}NEQ; ++i) {
+#ifdef FINITA_EVAL_CACHE
               FinitaEvaluatorEntry entry = #{name}VectorEntry[i];
               #{name}RHS[i].value = -#{name}EvaluateVectorEntry(entry.fps, entry.row);
+#else
+              #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
+#endif
             }
             #{name}SolveLinearSystem();
             for(i = 0; i < #{name}NEQ; ++i) {
@@ -150,12 +159,20 @@ class Matrix
             do {
               #{type} base = 0, delta = 0;
               for(i = 0; i < #{name}NNZ; ++i) {
+#ifdef FINITA_EVAL_CACHE
                 FinitaEvaluatorEntry entry = #{name}MatrixEntry[i];
                 #{name}LHS[i].value = #{name}EvaluateMatrixEntry(entry.fps, entry.row, entry.column);
+#else
+                #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
+#endif
               }
               for(i = 0; i < #{name}NEQ; ++i) {
+#ifdef FINITA_EVAL_CACHE
                 FinitaEvaluatorEntry entry = #{name}VectorEntry[i];
                 #{name}RHS[i].value = -#{name}EvaluateVectorEntry(entry.fps, entry.row);
+#else
+                #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
+#endif
               }
               #{name}SolveLinearSystem();
               for(i = 0; i < #{name}NEQ; ++i) {
