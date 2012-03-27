@@ -16,6 +16,7 @@ class StaticCode
       #include <assert.h>
       #include <malloc.h>
       #include <stdlib.h>
+      #include <stddef.h>
     $
   end
   def write_defs(stream) end
@@ -306,7 +307,7 @@ class Set < Type
           int bucket_index;
           #{bucket.it} it;
         } #{it};
-        extern int #{hasher}(#{element_type});
+        extern size_t #{hasher}(#{element_type});
         extern int #{comparator}(#{element_type}, #{element_type});
         void #{ctor}(#{type}*, int);
         #{type}* #{new}(int);
@@ -343,12 +344,12 @@ class Set < Type
         }
         int #{contains}(#{type}* self, #{element_type} element) {
           #{assert}(self);
-          return #{bucket.contains}(&self->buckets[abs(#{hasher}(element) % self->bucket_count)], element);
+          return #{bucket.contains}(&self->buckets[#{hasher}(element) % self->bucket_count], element);
         }
         #{element_type} #{get}(#{type}* self, #{element_type} element) {
           #{assert}(self);
           #{assert}(#{contains}(self, element));
-          return #{bucket.get}(&self->buckets[abs(#{hasher}(element) % self->bucket_count)], element);
+          return #{bucket.get}(&self->buckets[#{hasher}(element) % self->bucket_count], element);
         }
         int #{size}(#{type}* self) {
           #{assert}(self);
@@ -361,7 +362,7 @@ class Set < Type
         int #{put}(#{type}* self, #{element_type} element) {
           #{bucket.type}* bucket;
           #{assert}(self);
-          bucket = &self->buckets[abs(#{hasher}(element) % self->bucket_count)];
+          bucket = &self->buckets[#{hasher}(element) % self->bucket_count];
           if(!#{bucket.contains}(bucket, element)) {
             #{bucket.append}(bucket, element);
             ++self->size;
@@ -373,7 +374,7 @@ class Set < Type
         void #{put_force}(#{type}* self, #{element_type} element) {
           #{bucket.type}* bucket;
           #{assert}(self);
-          bucket = &self->buckets[abs(#{hasher}(element) % self->bucket_count)];
+          bucket = &self->buckets[#{hasher}(element) % self->bucket_count];
           if(!#{bucket.replace}(bucket, element, element)) {
             #{bucket.append}(bucket, element);
             ++self->size;
@@ -495,7 +496,7 @@ class Map < Type
         typedef struct {
           #{pair_set.it} it;
         } #{it};
-        extern int #{hasher}(#{key_type});
+        extern size_t #{hasher}(#{key_type});
         extern int #{comparator}(#{key_type}, #{key_type});
         void #{ctor}(#{type}*, int);
         #{type}* #{new}(int);
@@ -515,7 +516,7 @@ class Map < Type
   def write_defs(stream)
     pair_set.write_defs(stream)
     stream << %$
-        int #{pair_set.hasher}(#{pair} pair) {
+        size_t #{pair_set.hasher}(#{pair} pair) {
           return #{hasher}(pair.key);
         }
         int #{pair_set.comparator}(#{pair} lt, #{pair} rt) {
