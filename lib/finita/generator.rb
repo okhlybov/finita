@@ -30,14 +30,14 @@ class NodeCode < StaticCodeTemplate
         int field, x, y, z;
       } FinitaNode;
       FinitaNode FinitaNodeNew(int, int, int, int);
-      int FinitaNodeHash(FinitaNode);
+      size_t FinitaNodeHash(FinitaNode);
       int FinitaNodeCompare(FinitaNode, FinitaNode);
       void FinitaNodeLog(FinitaNode, FILE*);
     $
   end
   def write_defs(stream)
     stream << %$
-      int FinitaNodeHash(FinitaNode node) {
+      size_t FinitaNodeHash(FinitaNode node) {
         return node.field ^ (node.x<<2) ^ (node.y<<4) ^ (node.z<<6);
       }
       int FinitaNodeCompare(FinitaNode lt, FinitaNode rt) {
@@ -125,7 +125,7 @@ class MatrixCode < MapAdapter
   end
   def write_defs(stream)
     stream << %$
-      int FinitaMatrixKeyHash(FinitaMatrixKey key) {
+      size_t FinitaMatrixKeyHash(FinitaMatrixKey key) {
         return FinitaNodeHash(key.row) ^ FinitaNodeHash(key.column);
       }
       int FinitaMatrixKeyCompare(FinitaMatrixKey lt, FinitaMatrixKey rt) {
