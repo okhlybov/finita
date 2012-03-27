@@ -416,11 +416,14 @@ class Set < Type
           }
         }
       void #{log}(#{type}* self, FILE* out) {
-        int i;
+        int i, size, max = 0;
         fprintf(out, "size=%d\\nbucket_count=%d\\nbucket_size[]=\\n", self->size, self->bucket_count);
         for(i = 0; i < self->bucket_count; ++i) {
-          fprintf(out, "%d\\t%d\\n", i, #{bucket.size}(&self->buckets[i]));
+          size = #{bucket.size}(&self->buckets[i]);
+          if(max < size) max = size;
+          fprintf(out, "%d\\t%d\\n", i, size);
         }
+        fprintf(out, "max(bucket_size)=%d\\n", max);
       }
     $
   end

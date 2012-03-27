@@ -27,7 +27,8 @@ class NodeCode < StaticCodeTemplate
   def write_intf(stream)
     stream << %$
       typedef struct {
-        int field, x, y, z;
+        unsigned int field;
+        int x, y, z;
       } FinitaNode;
       FinitaNode FinitaNodeNew(int, int, int, int);
       size_t FinitaNodeHash(FinitaNode);
@@ -37,8 +38,17 @@ class NodeCode < StaticCodeTemplate
   end
   def write_defs(stream)
     stream << %$
+      #define MOVE_SIGN(x) ((x < 0) | (abs(x) << 1))
       size_t FinitaNodeHash(FinitaNode node) {
-        return node.field ^ (node.x<<2) ^ (node.y<<4) ^ (node.z<<6);
+        /* abs(x|y|z) < 2^9 is implied; extra bit is reserved for the sign */
+        size_t hash = (((MOVE_SIGN(node.x) & 0x3FF) | ((MOVE_SIGN(node.y) & 0x3FF) << 10) | ((MOVE_SIGN(node.z) & 0x3FF) << 20)) ^ (node.field << 30));
+        /* Thomas Wang's mixing algorithm */
+        hash = (hash ^ 61) ^ (hash >> 16);
+        hash = hash + (hash << 3);
+        hash = hash ^ (hash >> 4);
+        hash = hash * 0x27d4eb2d;
+        hash = hash ^ (hash >> 15);
+        return hash;
       }
       int FinitaNodeCompare(FinitaNode lt, FinitaNode rt) {
         return lt.field == rt.field && lt.x == rt.x && lt.y == rt.y && lt.z == rt.z;
@@ -126,7 +136,8 @@ class MatrixCode < MapAdapter
   def write_defs(stream)
     stream << %$
       size_t FinitaMatrixKeyHash(FinitaMatrixKey key) {
-        return FinitaNodeHash(key.row) ^ FinitaNodeHash(key.column);
+        FinitaNode delta = {key.column.field, key.row.x-key.column.x, key.row.y-key.column.y, key.row.z-key.column.z};
+        return FinitaNodeHash(key.row) ^ (FinitaNodeHash(delta));
       }
       int FinitaMatrixKeyCompare(FinitaMatrixKey lt, FinitaMatrixKey rt) {
         return FinitaNodeCompare(lt.row, rt.row) && FinitaNodeCompare(lt.column, rt.column);
