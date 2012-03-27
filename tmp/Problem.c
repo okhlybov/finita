@@ -4,11 +4,10 @@
 void FinitaAbort() {
    abort();
 }
-
 int main(int argc, char** argv) {
     int x, y;
 	FILE* f;
-    A = B = 50;
+    A = B = 100;
     ProblemSetup(argc, argv);
     ProblemSystemSolve();
     ProblemCleanup();
