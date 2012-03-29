@@ -99,25 +99,24 @@ end # NodeMapCode
 
 class FuncListCode < ListAdapter
   include Singleton
-  attr_reader :scalar_type, :func_type
-  def compare; "#{type}Compare" end
+  attr_reader :scalar_type
   def initialize(type, scalar, func_type)
-    super(type, func_type, compare, true)
     @scalar_type = Generator::Scalar[scalar]
-    @func_type = func_type
+    super(type, func_type, "#{type}Compare", true)
   end
   def write_intf(stream)
     stream << %$
-      typedef #{scalar_type} (*#{func_type})(int, int, int);
-      int #{compare}(#{func_type}, #{func_type});
+      typedef #{scalar_type} (*#{element_type})(int, int, int);
     $
+    super
   end
   def write_defs(stream)
     stream << %$
-      int #{compare}(#{func_type} lt, #{func_type} rt) {
+      int #{comparator}(#{element_type} lt, #{element_type} rt) {
         return lt == rt;
       }
     $
+    super
   end
 end # FuncListCode
 
@@ -174,7 +173,35 @@ class FuncMatrixCode < MapAdapter
   attr_reader :func_list_code
   def initialize(type, scalar)
     @func_list_code = FuncList::Code[scalar]
-    super(type, 'FinitaMatrixKey', func_list_code.func_type, 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
+    super(type, 'FinitaMatrixKey', "#{func_list_code.type}*", 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
+  end
+  def write_intf(stream)
+    super
+    stream << %$
+      void #{type}Merge(#{type}*, FinitaNode, FinitaNode, #{func_list_code.element_type});
+      #{func_list_code.type}* #{type}At(#{type}*, FinitaNode, FinitaNode);
+    $
+  end
+  def write_defs(stream)
+    super
+    stream << %$
+      void #{type}Merge(#{type}* self, FinitaNode row, FinitaNode column, #{func_list_code.element_type} element) {
+        FinitaMatrixKey key;
+        key.row = row; key.column = column;
+        if(#{contains_key}(self, key)) {
+          #{func_list_code.append}(#{get}(self, key), element);
+        } else {
+          #{func_list_code.type}* list = #{func_list_code.new}();
+          #{func_list_code.append}(list, element);
+          #{put}(self, key, list);
+        }
+      }
+      #{func_list_code.type}* #{type}At(#{type}* self, FinitaNode row, FinitaNode column) {
+        FinitaMatrixKey key;
+        key.row = row; key.column = column;
+        return #{get}(self, key);
+      }
+    $
   end
 end # FuncMatrixCode
 
@@ -211,7 +238,28 @@ class FuncVectorCode < MapAdapter
   attr_reader :func_list_code
   def initialize(type, scalar)
     @func_list_code = FuncList::Code[scalar]
-    super(type, 'FinitaNode', func_list_code.func_type, 'FinitaNodeHash', 'FinitaNodeCompare', true)
+    super(type, 'FinitaNode', "#{func_list_code.type}*", 'FinitaNodeHash', 'FinitaNodeCompare', true)
+  end
+  def write_intf(stream)
+    super
+    stream << %$
+      void #{type}Merge(#{type}*, FinitaNode, #{func_list_code.element_type});
+      #define #{type}At #{get}
+    $
+  end
+  def write_defs(stream)
+    super
+    stream << %$
+      void #{type}Merge(#{type}* self, FinitaNode row, #{func_list_code.element_type} element) {
+        if(#{contains_key}(self, row)) {
+          #{func_list_code.append}(#{get}(self, row), element);
+        } else {
+          #{func_list_code.type}* list = #{func_list_code.new}();
+          #{func_list_code.append}(list, element);
+          #{put}(self, row, list);
+        }
+      }
+    $
   end
 end # FuncVectorCode
 
@@ -267,7 +315,7 @@ end # FpListCode
 
 class MatrixCode < MapAdapter
   include Singleton
-  def entities; super + [NodeCode.instance, FpListCode.instance] end
+  def entities; super + [FuncMatrix::Code[Float], NodeCode.instance, FpListCode.instance] end
   def initialize
     super('FinitaMatrix', 'FinitaMatrixKey', 'FinitaFpList*', 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
   end
