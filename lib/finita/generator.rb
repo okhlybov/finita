@@ -8,6 +8,11 @@ require 'finita/environment'
 module Finita
 
 
+module Generator
+  Scalar = {Integer=>'int', Float=>'double', Complex=>'_Complex double'}
+end # Generator
+
+
 class CustomFunctionCode < FunctionTemplate
   def initialize(gtor, name, args, result, write_method, reverse, visible = true)
     super(name, args, result, visible)
@@ -90,6 +95,151 @@ class NodeMapCode < MapAdapter
     super('FinitaNodeMap', 'FinitaNode', 'int', 'FinitaNodeHash', 'FinitaNodeCompare', true)
   end
 end # NodeMapCode
+
+
+class FuncListCode < ListAdapter
+  include Singleton
+  attr_reader :scalar_type, :func_type
+  def compare; "#{type}Compare" end
+  def initialize(type, scalar, func_type)
+    super(type, func_type, compare, true)
+    @scalar_type = Generator::Scalar[scalar]
+    @func_type = func_type
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef #{scalar_type} (*#{func_type})(int, int, int);
+      int #{compare}(#{func_type}, #{func_type});
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      int #{compare}(#{func_type} lt, #{func_type} rt) {
+        return lt == rt;
+      }
+    $
+  end
+end # FuncListCode
+
+
+class IntegerFuncListCode < FuncListCode
+  def initialize
+    super('FinitaIntegerFuncList', Integer, 'FinitaIntegerFunc')
+  end
+end # IntegerFuncListCode
+
+
+class FloatFuncListCode < FuncListCode
+  def initialize
+    super('FinitaFloatFuncList', Float, 'FinitaFloatFunc')
+  end
+end # FloatFuncListCode
+
+
+class ComplexFuncListCode < FuncListCode
+  def initialize
+    super('FinitaComplexFuncList', Complex, 'FinitaComplexFunc')
+  end
+end # ComplexFuncListCode
+
+
+module FuncList
+  Code = {Integer=>IntegerFuncListCode.instance, Float=>FloatFuncListCode.instance, Complex=>ComplexFuncListCode.instance}
+end # FuncList
+
+
+class FuncMatrixCode < MapAdapter
+  include Singleton
+  class StaticCode < StaticCodeTemplate
+    def write_intf(stream)
+      stream << %$
+        typedef struct {
+          FinitaNode row, column;
+        } FinitaMatrixKey;
+      $
+    end
+    def write_defs(stream)
+      stream << %$
+        size_t FinitaMatrixKeyHash(FinitaMatrixKey key) {
+          FinitaNode delta = {key.column.field, key.row.x-key.column.x, key.row.y-key.column.y, key.row.z-key.column.z};
+          return FinitaNodeHash(key.row) ^ (FinitaNodeHash(delta));
+        }
+        int FinitaMatrixKeyCompare(FinitaMatrixKey lt, FinitaMatrixKey rt) {
+          return FinitaNodeCompare(lt.row, rt.row) && FinitaNodeCompare(lt.column, rt.column);
+        }
+      $
+    end
+  end # StaticCode
+  def entities; super + [StaticCode.instance, NodeCode.instance, func_list_code] end
+  attr_reader :func_list_code
+  def initialize(type, scalar)
+    @func_list_code = FuncList::Code[scalar]
+    super(type, 'FinitaMatrixKey', func_list_code.func_type, 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
+  end
+end # FuncMatrixCode
+
+
+class IntegerFuncMatrixCode < FuncMatrixCode
+  def initialize
+    super('FinitaIntegerFuncMatrix', Integer)
+  end
+end # IntegerFuncMatrixCode
+
+
+class FloatFuncMatrixCode < FuncMatrixCode
+  def initialize
+    super('FinitaFloatFuncMatrix', Float)
+  end
+end # FloatFuncMatrixCode
+
+
+class ComplexFuncMatrixCode < FuncMatrixCode
+  def initialize
+    super('FinitaComplexFuncMatrix', Complex)
+  end
+end # ComplexFuncMatrixCode
+
+
+module FuncMatrix
+  Code = {Integer=>IntegerFuncMatrixCode.instance, Float=>FloatFuncMatrixCode.instance, Complex=>ComplexFuncMatrixCode.instance}
+end # FuncMatrix
+
+
+class FuncVectorCode < MapAdapter
+  include Singleton
+  def entities; super + [NodeCode.instance, func_list_code] end
+  attr_reader :func_list_code
+  def initialize(type, scalar)
+    @func_list_code = FuncList::Code[scalar]
+    super(type, 'FinitaNode', func_list_code.func_type, 'FinitaNodeHash', 'FinitaNodeCompare', true)
+  end
+end # FuncVectorCode
+
+
+class IntegerFuncVectorCode < FuncVectorCode
+  def initialize
+    super('FinitaIntegerFuncVector', Integer)
+  end
+end # IntegerFuncVectorCode
+
+
+class FloatFuncVectorCode < FuncVectorCode
+  def initialize
+    super('FinitaFloatFuncVector', Float)
+  end
+end # FloatFuncVectorCode
+
+
+class ComplexFuncVectorCode < FuncVectorCode
+  def initialize
+    super('FinitaComplexFuncVector', Complex)
+  end
+end # ComplexFuncVectorCode
+
+
+module FuncVector
+  Code = {Integer=>IntegerFuncVectorCode.instance, Float=>FloatFuncVectorCode.instance, Complex=>ComplexFuncVectorCode.instance}
+end # FuncVector
 
 
 class FpListCode < ListAdapter
@@ -205,9 +355,6 @@ end # Finita
 
 
 module Finita::Generator
-
-
-Scalar = {Integer=>'int', Float=>'double', Complex=>'_Complex double'}
 
 
 # Class which emits C code for the given problem.
