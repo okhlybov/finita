@@ -7,16 +7,18 @@ module Finita::Backend
 
 class BackendCode < Finita::CodeTemplate
 
-  attr_reader :system, :name, :type
+  attr_reader :system, :name, :scalar_type, :func_matrix_code, :func_vector_code
 
-  def entities; super + [Finita::MatrixCode.instance, Finita::VectorCode.instance, Finita::Mapper::StaticCode.instance] end
+  def entities; super + [Finita::Mapper::StaticCode.instance] end
 
   def initialize(backend, gtor, system)
     @gtor = gtor
     @backend = backend
     @system = system
     @name = system.name
-    @type = Finita::Generator::Scalar[system.type]
+    @scalar_type = Finita::Generator::Scalar[system.type]
+    @func_matrix_code = Finita::FuncMatrix::Code[system.type]
+    @func_vector_code = Finita::FuncVector::Code[system.type]
     gtor << self
   end
 
@@ -24,11 +26,11 @@ class BackendCode < Finita::CodeTemplate
     stream << %$
       typedef struct {
         int row, column;
-        #{type} value;
+        #{scalar_type} value;
       } #{name}NumericMatrix;
       typedef struct {
         int row;
-        #{type} value;
+        #{scalar_type} value;
       } #{name}NumericVector;
       extern int #{name}NNZ, #{name}NEQ;
       extern #{name}NumericMatrix* #{name}LHS;
@@ -41,27 +43,27 @@ class BackendCode < Finita::CodeTemplate
   def write_defs(stream)
     stream << %$
       extern FinitaMapper #{name}Mapper;
-      extern FinitaMatrix #{name}SymbolicMatrix;
-      extern FinitaVector #{name}SymbolicVector;
+      extern #{func_matrix_code.type} #{name}SymbolicMatrix;
+      extern #{func_vector_code.type} #{name}SymbolicVector;
       int #{name}NNZ, #{name}NEQ;
       #{name}NumericMatrix* #{name}LHS;
       #{name}NumericVector* #{name}RHS;
       static void #{name}SetupBackendStruct() {
         int i;
-        FinitaMatrixIt it;
-        FINITA_ASSERT(FinitaMapperSize(&#{name}Mapper) == FinitaVectorSize(&#{name}SymbolicVector));
-        #{name}NNZ = FinitaMatrixSize(&#{name}SymbolicMatrix);
+        #{func_matrix_code.it} it;
+        FINITA_ASSERT(FinitaMapperSize(&#{name}Mapper) == #{func_vector_code.size}(&#{name}SymbolicVector));
+        #{name}NNZ = #{func_matrix_code.size}(&#{name}SymbolicMatrix);
         #{name}NEQ = FinitaMapperSize(&#{name}Mapper);
         #{name}LHS = (#{name}NumericMatrix*)FINITA_MALLOC(sizeof(#{name}NumericMatrix)*#{name}NNZ); FINITA_ASSERT(#{name}LHS);
-        FinitaMatrixItCtor(&it, &#{name}SymbolicMatrix);
+        #{func_matrix_code.it_ctor}(&it, &#{name}SymbolicMatrix);
         i = 0;
-        while(FinitaMatrixItHasNext(&it)) {
-          FinitaMatrixPair pair = FinitaMatrixItNext(&it);
+        while(#{func_matrix_code.it_has_next}(&it)) {
+          #{func_matrix_code.pair} pair = #{func_matrix_code.it_next}(&it);
           #{name}LHS[i].row = FinitaMapperIndex(&#{name}Mapper, pair.key.row);
           #{name}LHS[i].column = FinitaMapperIndex(&#{name}Mapper, pair.key.column);
           ++i;
         }
-        FINITA_ASSERT(i == FinitaMatrixSize(&#{name}SymbolicMatrix));
+        FINITA_ASSERT(i == #{func_matrix_code.size}(&#{name}SymbolicMatrix));
         #{name}RHS = (#{name}NumericVector*)FINITA_MALLOC(sizeof(#{name}NumericVector)*#{name}NEQ); FINITA_ASSERT(#{name}RHS);
         for(i = 0; i < #{name}NEQ; ++i) {
           #{name}RHS[i].row = i;
@@ -109,11 +111,11 @@ class SuperLU
         void #{name}SetupBackend() {
           int i, j, c;
           #{name}SetupBackendStruct();
-          qsort(#{name}LHS, #{name}NNZ, sizeof(#{name}NumericMatrix), #{name}ColumnFirstSort);
           #{name}ASub = (int*)FINITA_MALLOC(sizeof(int)*#{name}NNZ); FINITA_ASSERT(#{name}ASub);
           #{name}XA = (int*)FINITA_MALLOC(sizeof(int)*(#{name}NEQ+1)); FINITA_ASSERT(#{name}XA);
           #{name}PermC = (int*)FINITA_MALLOC(sizeof(int)*#{name}NEQ); FINITA_ASSERT(#{name}PermC);
           #{name}PermR = (int*)FINITA_MALLOC(sizeof(int)*#{name}NEQ); FINITA_ASSERT(#{name}PermR);
+          qsort(#{name}LHS, #{name}NNZ, sizeof(#{name}NumericMatrix), #{name}ColumnFirstSort);
           for(i = j = 0, c = -1; i < #{name}NNZ; ++i) {
             #{name}ASub[i] = #{name}LHS[i].row;
             if(c < #{name}LHS[i].column) {
@@ -127,16 +129,16 @@ class SuperLU
           int i;
           int* ASub;
           int* XA;
-          #{type}* LHS;
-          #{type}* RHS;
+          #{scalar_type}* LHS;
+          #{scalar_type}* RHS;
           SuperMatrix A, B, L, U;
           superlu_options_t Opts;
           SuperLUStat_t Stat;
           int Info;
           ASub = (int*)FINITA_MALLOC(sizeof(int)*#{name}NNZ); FINITA_ASSERT(ASub);
           XA = (int*)FINITA_MALLOC(sizeof(int)*(#{name}NEQ+1)); FINITA_ASSERT(XA);
-          LHS = (#{type}*)FINITA_MALLOC(sizeof(#{type})*#{name}NNZ); FINITA_ASSERT(LHS);
-          RHS = (#{type}*)FINITA_MALLOC(sizeof(#{type})*#{name}NEQ); FINITA_ASSERT(RHS);
+          LHS = (#{scalar_type}*)FINITA_MALLOC(sizeof(#{scalar_type})*#{name}NNZ); FINITA_ASSERT(LHS);
+          RHS = (#{scalar_type}*)FINITA_MALLOC(sizeof(#{scalar_type})*#{name}NEQ); FINITA_ASSERT(RHS);
           memcpy(ASub, #{name}ASub, sizeof(int)*#{name}NNZ);
           memcpy(XA, #{name}XA, sizeof(int)*(#{name}NEQ+1));
           for(i = 0; i < #{name}NNZ; ++i) {
