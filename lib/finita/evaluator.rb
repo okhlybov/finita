@@ -4,68 +4,159 @@ require 'finita/common'
 module Finita::Evaluator
 
 
-class StaticCode < Finita::StaticCodeTemplate
-
-  def entities; super + [Finita::FpListCode.instance] end
+class MatrixEvaluatorCode < Finita::StaticCodeTemplate
+  attr_reader :type, :scalar_type, :func_list_code
+  def entities; super + [Finita::NodeCode.instance, func_list_code] end
+  def initialize(type, scalar)
+    @type = type
+    @func_list_code = Finita::FuncList::Code[scalar]
+    @scalar_type = Finita::Generator::Scalar[scalar]
+  end
   def write_intf(stream)
     stream << %$
-      typedef struct  {
+      typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode, FinitaNode);
+      typedef struct {
         FinitaNode row, column;
-        FinitaFpList* fps;
-      } FinitaEvaluatorEntry;
+        #{func_list_code.type}* list_ptr;
+        #{type}Func evaluator;
+      } #{type};
+      static void #{type}Ctor(#{type}* self, FinitaNode row, FinitaNode column, #{func_list_code.type}* list_ptr, #{type}Func evaluator) {
+        self->row = row;
+        self->column = column;
+        self->list_ptr = list_ptr;
+        self->evaluator = evaluator;
+      }
     $
   end
+end # MatrixEvaluatorCode
 
-end # StaticCode
+
+class IntegerMatrixEvaluatorCode < MatrixEvaluatorCode
+  def initialize
+    super('FinitaIntegerMatrixEvaluator', Integer)
+  end
+end # IntegerMatrixEvaluatorCode
+
+
+class FloatMatrixEvaluatorCode < MatrixEvaluatorCode
+  def initialize
+    super('FinitaFloatMatrixEvaluator', Float)
+  end
+end # FloatMatrixEvaluatorCode
+
+
+class ComplexMatrixEvaluatorCode < MatrixEvaluatorCode
+  def initialize
+    super('FinitaComplexMatrixEvaluator', Complex)
+  end
+end # ComplexMatrixEvaluatorCode
+
+
+module MatrixEvaluator
+  Code = {Integer=>IntegerMatrixEvaluatorCode.instance, Float=>FloatMatrixEvaluatorCode.instance, Complex=>ComplexMatrixEvaluatorCode.instance}
+end # MatrixEvaluator
+
+
+class VectorEvaluatorCode < Finita::StaticCodeTemplate
+  attr_reader :type, :scalar_type, :func_list_code
+  def entities; super + [Finita::NodeCode.instance, func_list_code] end
+  def initialize(type, scalar)
+    @type = type
+    @func_list_code = Finita::FuncList::Code[scalar]
+    @scalar_type = Finita::Generator::Scalar[scalar]
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode);
+      typedef struct {
+        FinitaNode row;
+        #{func_list_code.type}* list_ptr;
+        #{type}Func evaluator;
+      } #{type};
+      static void #{type}Ctor(#{type}* self, FinitaNode row, #{func_list_code.type}* list_ptr, #{type}Func evaluator) {
+        self->row = row;
+        self->list_ptr = list_ptr;
+        self->evaluator = evaluator;
+      }
+    $
+  end
+end # VectorEvaluatorCode
+
+
+class IntegerVectorEvaluatorCode < VectorEvaluatorCode
+  def initialize
+    super('FinitaIntegerVectorEvaluator', Integer)
+  end
+end # IntegerVectorEvaluatorCode
+
+
+class FloatVectorEvaluatorCode < VectorEvaluatorCode
+  def initialize
+    super('FinitaFloatVectorEvaluator', Float)
+  end
+end # FloatVectorEvaluatorCode
+
+
+class ComplexVectorEvaluatorCode < VectorEvaluatorCode
+  def initialize
+    super('FinitaComplexVectorEvaluator', Complex)
+  end
+end # ComplexVectorEvaluatorCode
+
+
+module VectorEvaluator
+  Code = {Integer=>IntegerVectorEvaluatorCode.instance, Float=>FloatVectorEvaluatorCode.instance, Complex=>ComplexVectorEvaluatorCode.instance}
+end # VectorEvaluator
 
 
 class EvaluatorCode < Finita::CodeTemplate
 
-  attr_reader :gtor, :evaluator, :name, :type, :system, :code
+  attr_reader :gtor, :evaluator, :name, :scalar_type, :system, :code
 
-  def entities; super + [StaticCode.instance] end
+  attr_reader :func_list_code, :func_matrix_code, :func_vector_code, :matrix_evaluator_code, :vector_evaluator_code
+
+  def entities; super + [Finita::NodeSetCode.instance, func_matrix_code, func_vector_code, matrix_evaluator_code, vector_evaluator_code] end
 
   def initialize(evaluator, gtor, system)
     @gtor = gtor
     @evaluator = evaluator
     @system = system
     @name = system.name
-    @type = Finita::Generator::Scalar[system.type]
+    @scalar_type = Finita::Generator::Scalar[system.type]
+    @func_list_code = Finita::FuncList::Code[system.type]
+    @func_matrix_code = Finita::FuncMatrix::Code[system.type]
+    @func_vector_code = Finita::FuncVector::Code[system.type]
+    @matrix_evaluator_code = MatrixEvaluator::Code[system.type]
+    @vector_evaluator_code = VectorEvaluator::Code[system.type]
     gtor << self
   end
 
   def write_intf(stream)
     stream << %$
       extern FinitaNodeSet #{name}Nodes;
-      extern FinitaMatrix #{name}SymbolicMatrix;
-      extern FinitaVector #{name}SymbolicVector;
-      extern FinitaEvaluatorEntry* #{name}MatrixEntry;
-      extern FinitaEvaluatorEntry* #{name}VectorEntry;
-      void #{name}SetupEvaluator1();
-      void #{name}SetupEvaluator2();
-      #{type} #{name}EvaluateMatrix(FinitaNode, FinitaNode);
-      #{type} #{name}EvaluateVector(FinitaNode);
+      extern #{func_matrix_code.type} #{name}SymbolicMatrix;
+      extern #{func_vector_code.type} #{name}SymbolicVector;
+      #{scalar_type} #{name}EvaluateVector(FinitaNode);
+      #{scalar_type} #{name}EvaluateMatrix(FinitaNode, FinitaNode);
+      void #{name}SetupEvaluator();
   $
   end
 
   def write_defs(stream)
     stream << %$
-      typedef #{type} (*#{name}Fp)(int, int, int);
-      FinitaMatrix #{name}SymbolicMatrix;
-      FinitaVector #{name}SymbolicVector;
       FinitaNodeSet #{name}Nodes;
-      FinitaEvaluatorEntry* #{name}MatrixEntry;
-      FinitaEvaluatorEntry* #{name}VectorEntry;
-      #{type} #{name}EvaluateMatrixEntry(FinitaFpList*, FinitaNode, FinitaNode);
-      #{type} #{name}EvaluateVectorEntry(FinitaFpList*, FinitaNode);
-      #{type} #{name}EvaluateMatrix(FinitaNode row, FinitaNode column) {
-        return #{name}EvaluateMatrixEntry(FinitaMatrixAt(&#{name}SymbolicMatrix, row, column), row, column);
-      }
-      #{type} #{name}EvaluateVector(FinitaNode row) {
-        return #{name}EvaluateVectorEntry(FinitaVectorAt(&#{name}SymbolicVector, row), row);
-      }
+      #{func_matrix_code.type} #{name}SymbolicMatrix;
+      #{func_vector_code.type} #{name}SymbolicVector;
     $
     system.linear? ? write_defs_linear(stream) : write_defs_nonlinear(stream)
+    stream << %$
+      #{scalar_type} #{name}EvaluateMatrix(FinitaNode row, FinitaNode column) {
+        return #{name}MatrixEntryEvaluator(#{func_matrix_code.at}(&#{name}SymbolicMatrix, row, column), row, column);
+      }
+      #{scalar_type} #{name}EvaluateVector(FinitaNode row) {
+        return #{name}VectorEntryEvaluator(#{func_vector_code.at}(&#{name}SymbolicVector, row), row);
+      }
+    $
   end
 
 end # EvaluatorCode
@@ -75,7 +166,7 @@ class Numeric
 
   class Code < EvaluatorCode
 
-    def entities; super + [Finita::NodeSetCode.instance, Finita::MatrixCode.instance, Finita::VectorCode.instance] + code.values end
+    def entities; super + code.values end
 
     def initialize(evaluator, gtor, system)
       super
@@ -92,9 +183,9 @@ class Numeric
     def write_defs(stream)
       super
       stream << %$
-        extern #{type} #{name}GetNode(FinitaNode);
-        extern void #{name}SetNode(#{type}, FinitaNode);
-        void #{name}SetupEvaluator1() {
+        extern #{scalar_type} #{name}GetNode(FinitaNode);
+        extern void #{name}SetNode(#{scalar_type}, FinitaNode);
+        void #{name}SetupEvaluator() {
           int size = 0;
           FinitaNodeSet nodes;
           FinitaNodeSetIt it;
@@ -110,8 +201,8 @@ class Numeric
       end
       stream << %$
         size = FinitaNodeSetSize(&nodes);
-        FinitaMatrixCtor(&#{name}SymbolicMatrix, pow(size, 1.1));
-        FinitaVectorCtor(&#{name}SymbolicVector, size);
+        #{func_matrix_code.ctor}(&#{name}SymbolicMatrix, pow(size, 1.1));
+        #{func_vector_code.ctor}(&#{name}SymbolicVector, size);
         FinitaNodeSetCtor(&#{name}Nodes, size);
         FinitaNodeSetItCtor(&it, &nodes);
         while(FinitaNodeSetItHasNext(&it)) {
@@ -124,12 +215,12 @@ class Numeric
         eqn.lhs.each do |ref,fp|
           stream << %$
             column = FinitaNodeNew(#{system.unknowns.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex});
-            FinitaMatrixMerge(&#{name}SymbolicMatrix, row, column, (FinitaFp)#{code[fp].name});
+            #{func_matrix_code.merge}(&#{name}SymbolicMatrix, row, column, #{code[fp].name});
             FinitaNodeSetPut(&#{name}Nodes, column);
           $
         end
         stream << %$
-          FinitaVectorMerge(&#{name}SymbolicVector, row, (FinitaFp)#{code[eqn.rhs].name});
+          #{func_vector_code.merge}(&#{name}SymbolicVector, row, #{code[eqn.rhs].name});
           FinitaNodeSetPut(&#{name}Nodes, row);
         $
         stream << (eqn.through? ? '}' : 'continue;}')
@@ -141,74 +232,38 @@ class Numeric
           FinitaMatrixKey key;
           FinitaNode node = FinitaNodeSetItNext(&it);
           key.row = key.column = node;
-          if(!FinitaMatrixContainsKey(&#{name}SymbolicMatrix, key)) {
-            FINITA_ASSERT(!FinitaVectorContainsKey(&#{name}SymbolicVector, node));
-            FinitaMatrixPut(&#{name}SymbolicMatrix, key, NULL);
-            FinitaVectorPut(&#{name}SymbolicVector, node, NULL);
+          if(!#{func_matrix_code.contains_key}(&#{name}SymbolicMatrix, key)) {
+            FINITA_ASSERT(!#{func_vector_code.contains_key}(&#{name}SymbolicVector, node));
+            #{func_matrix_code.put}(&#{name}SymbolicMatrix, key, NULL);
+            #{func_vector_code.put}(&#{name}SymbolicVector, node, NULL);
           }
         }
       $
       stream << '}'
-      stream << %$
-        void #{name}SetupEvaluator2() {
-          int i;
-          FinitaEvaluatorEntry entry;
-#if 1
-          {
-            FILE *f = fopen("#{name}SymbolicMatrix.dat", "wt");
-            FinitaMatrixLog(&#{name}SymbolicMatrix, f);
-            fclose(f);
-          }
-          {
-            FILE *f = fopen("#{name}SymbolicVector.dat", "wt");
-            FinitaVectorLog(&#{name}SymbolicVector, f);
-            fclose(f);
-          }
-          {
-            FILE *f = fopen("#{name}Nodes.dat", "wt");
-            FinitaNodeSetLog(&#{name}Nodes, f);
-            fclose(f);
-          }
-#endif
-          #{name}MatrixEntry = (FinitaEvaluatorEntry*)FINITA_MALLOC(sizeof(FinitaEvaluatorEntry)*#{name}NNZ); FINITA_ASSERT(#{name}MatrixEntry);
-          #{name}VectorEntry = (FinitaEvaluatorEntry*)FINITA_MALLOC(sizeof(FinitaEvaluatorEntry)*#{name}NEQ); FINITA_ASSERT(#{name}VectorEntry);
-          for(i = 0; i < #{name}NNZ; ++i) {
-            entry.row = FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row);
-            entry.column = FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column);
-            entry.fps = FinitaMatrixAt(&#{name}SymbolicMatrix, entry.row, entry.column);
-            #{name}MatrixEntry[i] = entry;
-          }
-          for(i = 0; i < #{name}NEQ; ++i) {
-            entry.row = entry.column = FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row);
-            entry.fps = FinitaVectorAt(&#{name}SymbolicVector, entry.row);
-            #{name}VectorEntry[i] = entry;
-          }
-        }
-      $
     end
 
     def write_defs_linear(stream)
       stream << %$
-      #{type} #{name}EvaluateMatrixEntry(FinitaFpList* fps, FinitaNode row, FinitaNode column) {
+      static #{scalar_type} #{name}MatrixEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row, FinitaNode column) {
           if(fps) {
-            FinitaFpListIt it;
-            #{type} result = 0;
-            FinitaFpListItCtor(&it, fps);
-            while(FinitaFpListItHasNext(&it)) {
-              result += ((#{name}Fp)FinitaFpListItNext(&it))(row.x, row.y, row.z);
+            #{func_list_code.it} it;
+            #{scalar_type} result = 0;
+            #{func_list_code.it_ctor}(&it, fps);
+            while(#{func_list_code.it_has_next}(&it)) {
+              result += #{func_list_code.it_next}(&it)(row.x, row.y, row.z);
             }
             return result;
           } else {
             return 1;
           }
         }
-        #{type} #{name}EvaluateVectorEntry(FinitaFpList* fps, FinitaNode row) {
+        static #{scalar_type} #{name}VectorEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row) {
           if(fps) {
-            #{type} result = 0;
-            FinitaFpListIt it;
-            FinitaFpListItCtor(&it, fps);
-            while(FinitaFpListItHasNext(&it)) {
-              result += ((#{name}Fp)FinitaFpListItNext(&it))(row.x, row.y, row.z);
+            #{scalar_type} result = 0;
+            #{func_list_code.it} it;
+            #{func_list_code.it_ctor}(&it, fps);
+            while(#{func_list_code.it_has_next}(&it)) {
+              result += #{func_list_code.it_next}(&it)(row.x, row.y, row.z);
             }
             return result;
           } else {
@@ -220,15 +275,15 @@ class Numeric
 
     def write_defs_nonlinear(stream)
       stream << %$
-        #{type} #{name}EvaluateMatrixEntry(FinitaFpList* fps, FinitaNode row, FinitaNode column) {
+        static #{scalar_type} #{name}MatrixEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row, FinitaNode column) {
           if(fps) {
-            FinitaFpListIt it;
-            #{type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
+            #{func_list_code.it} it;
+            #{scalar_type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
             value = #{name}GetNode(column);
             eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* from the PETSc's MatFD implementation '*/
-            FinitaFpListItCtor(&it, fps);
-            while(FinitaFpListItHasNext(&it)) {
-              #{name}Fp fp = (#{name}Fp)FinitaFpListItNext(&it);
+            #{func_list_code.it_ctor}(&it, fps);
+            while(#{func_list_code.it_has_next}(&it)) {
+              #{func_list_code.element_type} fp = #{func_list_code.it_next}(&it);
               #{name}SetNode(value + eta, column);
               result += fp(row.x, row.y, row.z);
               #{name}SetNode(value - eta, column);
@@ -240,13 +295,13 @@ class Numeric
             return 1;
           }
         }
-        #{type} #{name}EvaluateVectorEntry(FinitaFpList* fps, FinitaNode row) {
+        static #{scalar_type} #{name}VectorEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row) {
           if(fps) {
-            FinitaFpListIt it;
-            #{type} result = 0;
-            FinitaFpListItCtor(&it, fps);
-            while(FinitaFpListItHasNext(&it)) {
-              result += ((#{name}Fp)FinitaFpListItNext(&it))(row.x, row.y, row.z);
+            #{func_list_code.it} it;
+            #{scalar_type} result = 0;
+            #{func_list_code.it_ctor}(&it, fps);
+            while(#{func_list_code.it_has_next}(&it)) {
+              result += #{func_list_code.it_next}(&it)(row.x, row.y, row.z);
             }
             return result;
           } else {

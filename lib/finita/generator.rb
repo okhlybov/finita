@@ -171,6 +171,8 @@ class FuncMatrixCode < MapAdapter
   end # StaticCode
   def entities; super + [StaticCode.instance, NodeCode.instance, func_list_code] end
   attr_reader :func_list_code
+  def merge; "#{type}Merge" end
+  def at; "#{type}At" end
   def initialize(type, scalar)
     @func_list_code = FuncList::Code[scalar]
     super(type, 'FinitaMatrixKey', "#{func_list_code.type}*", 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
@@ -178,14 +180,14 @@ class FuncMatrixCode < MapAdapter
   def write_intf(stream)
     super
     stream << %$
-      void #{type}Merge(#{type}*, FinitaNode, FinitaNode, #{func_list_code.element_type});
-      #{func_list_code.type}* #{type}At(#{type}*, FinitaNode, FinitaNode);
+      void #{merge}(#{type}*, FinitaNode, FinitaNode, #{func_list_code.element_type});
+      #{func_list_code.type}* #{at}(#{type}*, FinitaNode, FinitaNode);
     $
   end
   def write_defs(stream)
     super
     stream << %$
-      void #{type}Merge(#{type}* self, FinitaNode row, FinitaNode column, #{func_list_code.element_type} element) {
+      void #{merge}(#{type}* self, FinitaNode row, FinitaNode column, #{func_list_code.element_type} element) {
         FinitaMatrixKey key;
         key.row = row; key.column = column;
         if(#{contains_key}(self, key)) {
@@ -196,7 +198,7 @@ class FuncMatrixCode < MapAdapter
           #{put}(self, key, list);
         }
       }
-      #{func_list_code.type}* #{type}At(#{type}* self, FinitaNode row, FinitaNode column) {
+      #{func_list_code.type}* #{at}(#{type}* self, FinitaNode row, FinitaNode column) {
         FinitaMatrixKey key;
         key.row = row; key.column = column;
         return #{get}(self, key);
@@ -236,6 +238,8 @@ class FuncVectorCode < MapAdapter
   include Singleton
   def entities; super + [NodeCode.instance, func_list_code] end
   attr_reader :func_list_code
+  def merge; "#{type}Merge" end
+  def at; "#{type}At" end
   def initialize(type, scalar)
     @func_list_code = FuncList::Code[scalar]
     super(type, 'FinitaNode', "#{func_list_code.type}*", 'FinitaNodeHash', 'FinitaNodeCompare', true)
@@ -243,14 +247,14 @@ class FuncVectorCode < MapAdapter
   def write_intf(stream)
     super
     stream << %$
-      void #{type}Merge(#{type}*, FinitaNode, #{func_list_code.element_type});
-      #define #{type}At #{get}
+      void #{merge}(#{type}*, FinitaNode, #{func_list_code.element_type});
+      #define #{at} #{get}
     $
   end
   def write_defs(stream)
     super
     stream << %$
-      void #{type}Merge(#{type}* self, FinitaNode row, #{func_list_code.element_type} element) {
+      void #{merge}(#{type}* self, FinitaNode row, #{func_list_code.element_type} element) {
         if(#{contains_key}(self, row)) {
           #{func_list_code.append}(#{get}(self, row), element);
         } else {
@@ -288,115 +292,6 @@ end # ComplexFuncVectorCode
 module FuncVector
   Code = {Integer=>IntegerFuncVectorCode.instance, Float=>FloatFuncVectorCode.instance, Complex=>ComplexFuncVectorCode.instance}
 end # FuncVector
-
-
-class FpListCode < ListAdapter
-  include Singleton
-  def initialize
-    super('FinitaFpList', 'FinitaFp', 'FinitaFpCompare', true)
-  end
-  def write_intf(stream)
-    stream << %$
-      typedef void (*FinitaFp)(void);
-      int FinitaFpCompare(FinitaFp, FinitaFp);
-    $
-    super
-  end
-  def write_defs(stream)
-    stream << %$
-      int FinitaFpCompare(FinitaFp lt, FinitaFp rt) {
-        return lt == rt;
-      }
-    $
-    super
-  end
-end # FpListCode
-
-
-class MatrixCode < MapAdapter
-  include Singleton
-  def entities; super + [FuncMatrix::Code[Float], NodeCode.instance, FpListCode.instance] end
-  def initialize
-    super('FinitaMatrix', 'FinitaMatrixKey', 'FinitaFpList*', 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
-  end
-  def write_intf_real(stream)
-    stream << %$
-      typedef struct {
-        FinitaNode row, column;
-      } FinitaMatrixKey;
-    $
-    super
-    stream << %$
-      void FinitaMatrixMerge(FinitaMatrix*, FinitaNode, FinitaNode, FinitaFp);
-      FinitaFpList* FinitaMatrixAt(FinitaMatrix*, FinitaNode, FinitaNode);
-    $
-  end
-  def write_defs(stream)
-    stream << %$
-      size_t FinitaMatrixKeyHash(FinitaMatrixKey key) {
-        FinitaNode delta = {key.column.field, key.row.x-key.column.x, key.row.y-key.column.y, key.row.z-key.column.z};
-        return FinitaNodeHash(key.row) ^ (FinitaNodeHash(delta));
-      }
-      int FinitaMatrixKeyCompare(FinitaMatrixKey lt, FinitaMatrixKey rt) {
-        return FinitaNodeCompare(lt.row, rt.row) && FinitaNodeCompare(lt.column, rt.column);
-      }
-      void FinitaMatrixMerge(FinitaMatrix* self, FinitaNode row, FinitaNode column, FinitaFp fp) {
-        FinitaMatrixKey key;
-        FINITA_ASSERT(self);
-        key.row = row; key.column = column;
-        if(FinitaMatrixContainsKey(self, key)) {
-          FinitaFpListAppend(FinitaMatrixGet(self, key), fp);
-        } else {
-          FinitaFpList* fps = FinitaFpListNew();
-          FinitaFpListAppend(fps, fp);
-          FinitaMatrixPut(self, key, fps);
-        }
-      }
-      FinitaFpList* FinitaMatrixAt(FinitaMatrix* self, FinitaNode row, FinitaNode column) {
-        FinitaMatrixKey key;
-        FINITA_ASSERT(self);
-        key.row = row; key.column = column;
-        return FinitaMatrixGet(self, key);
-      }
-    $
-    super
-  end
-end # MatrixCode
-
-
-class VectorCode < MapAdapter
-  include Singleton
-  def entities; super + [NodeCode.instance, FpListCode.instance] end
-  def initialize
-    super('FinitaVector', 'FinitaNode', 'FinitaFpList*', 'FinitaNodeHash', 'FinitaNodeCompare', true)
-  end
-  def write_intf_real(stream)
-    super
-    stream << %$
-      void FinitaVectorMerge(FinitaVector*, FinitaNode, FinitaFp);
-      FinitaFpList* FinitaVectorAt(FinitaVector*, FinitaNode);
-    $
-  end
-  def write_defs(stream)
-    stream << %$
-      void FinitaVectorMerge(FinitaVector* self, FinitaNode row, FinitaFp fp) {
-        FINITA_ASSERT(self);
-        if(FinitaVectorContainsKey(self, row)) {
-          FinitaFpListAppend(FinitaVectorGet(self, row), fp);
-        } else {
-          FinitaFpList* fps = FinitaFpListNew();
-          FinitaFpListAppend(fps, fp);
-          FinitaVectorPut(self, row, fps);
-        }
-      }
-      FinitaFpList* FinitaVectorAt(FinitaVector* self, FinitaNode row) {
-        FINITA_ASSERT(self);
-        return FinitaVectorGet(self, row);
-      }
-    $
-    super
-  end
-end # VectorCode
 
 
 end # Finita
