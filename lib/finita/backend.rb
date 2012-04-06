@@ -48,7 +48,7 @@ class BackendCode < Finita::CodeTemplate
       int #{name}NNZ, #{name}NEQ;
       #{name}NumericMatrix* #{name}LHS;
       #{name}NumericVector* #{name}RHS;
-      static void #{name}SetupBackendStruct(FinitaMapper* mapper, #{func_matrix_code.type}* matrix, #{func_vector_code.type}* vector) {
+      static void #{name}SetupBackend_(FinitaMapper* mapper, #{func_matrix_code.type}* matrix, #{func_vector_code.type}* vector) {
         int i;
         #{func_matrix_code.it} it;
         FINITA_ASSERT(FinitaMapperSize(mapper) == #{func_vector_code.size}(vector));
@@ -112,7 +112,7 @@ class SuperLU
         }
         void #{name}SetupBackend(FinitaMapper* mapper, #{func_matrix_code.type}* matrix, #{func_vector_code.type}* vector) {
           int i, j, c;
-          #{name}SetupBackendStruct(mapper, matrix, vector);
+          #{name}SetupBackend_(mapper, matrix, vector);
           #{name}ASub = (int*)FINITA_MALLOC(sizeof(int)*#{name}NNZ); FINITA_ASSERT(#{name}ASub);
           #{name}XA = (int*)FINITA_MALLOC(sizeof(int)*(#{name}NEQ+1)); FINITA_ASSERT(#{name}XA);
           #{name}PermC = (int*)FINITA_MALLOC(sizeof(int)*#{name}NEQ); FINITA_ASSERT(#{name}PermC);
@@ -145,11 +145,11 @@ class SuperLU
           memcpy(XA, #{name}XA, sizeof(int)*(#{name}NEQ+1));
           for(i = 0; i < #{name}NNZ; ++i) {
             #{matrix_evaluator_code.type}* evaluator = &#{name}LHS[i].evaluator;
-            LHS[i] = evaluator->fp(evaluator->plist, evaluator->row, evaluator->column);
+            LHS[i] = +evaluator->code(evaluator);
           }
           for(i = 0; i < #{name}NEQ; ++i) {
             #{vector_evaluator_code.type}* evaluator = &#{name}RHS[i].evaluator;
-            RHS[i] = -evaluator->fp(evaluator->plist, evaluator->row);
+            RHS[i] = -evaluator->code(evaluator);
           }
           set_default_options(&Opts);
           StatInit(&Stat);
