@@ -7,7 +7,7 @@ module Finita::Backend
 
 class BackendCode < Finita::CodeTemplate
 
-  attr_reader :system, :name, :scalar_type, :func_matrix_code, :func_vector_code
+  attr_reader :system, :name, :scalar_type, :func_matrix_code, :func_vector_code, :matrix_evaluator_code, :vector_evaluator_code
 
   def entities; super + [Finita::Mapper::StaticCode.instance] end
 
@@ -19,54 +19,56 @@ class BackendCode < Finita::CodeTemplate
     @scalar_type = Finita::Generator::Scalar[system.type]
     @func_matrix_code = Finita::FuncMatrix::Code[system.type]
     @func_vector_code = Finita::FuncVector::Code[system.type]
+    @matrix_evaluator_code = Finita::MatrixEvaluator::Code[system.type]
+    @vector_evaluator_code = Finita::VectorEvaluator::Code[system.type]
     gtor << self
   end
 
   def write_intf(stream)
     stream << %$
       typedef struct {
-        int row, column;
-        #{scalar_type} value;
+        int row_index, column_index;
+        #{matrix_evaluator_code.type} evaluator;
       } #{name}NumericMatrix;
       typedef struct {
-        int row;
-        #{scalar_type} value;
+        int row_index;
+        #{scalar_type} result;
+        #{vector_evaluator_code.type} evaluator;
       } #{name}NumericVector;
       extern int #{name}NNZ, #{name}NEQ;
       extern #{name}NumericMatrix* #{name}LHS;
       extern #{name}NumericVector* #{name}RHS;
-      void #{name}SetupBackend();
+      void #{name}SetupBackend(FinitaMapper*, #{func_matrix_code.type}*, #{func_vector_code.type}*);
       void #{name}SolveLinearSystem();
     $
   end
 
   def write_defs(stream)
     stream << %$
-      extern FinitaMapper #{name}Mapper;
-      extern #{func_matrix_code.type} #{name}SymbolicMatrix;
-      extern #{func_vector_code.type} #{name}SymbolicVector;
       int #{name}NNZ, #{name}NEQ;
       #{name}NumericMatrix* #{name}LHS;
       #{name}NumericVector* #{name}RHS;
-      static void #{name}SetupBackendStruct() {
+      static void #{name}SetupBackendStruct(FinitaMapper* mapper, #{func_matrix_code.type}* matrix, #{func_vector_code.type}* vector) {
         int i;
         #{func_matrix_code.it} it;
-        FINITA_ASSERT(FinitaMapperSize(&#{name}Mapper) == #{func_vector_code.size}(&#{name}SymbolicVector));
-        #{name}NNZ = #{func_matrix_code.size}(&#{name}SymbolicMatrix);
-        #{name}NEQ = FinitaMapperSize(&#{name}Mapper);
+        FINITA_ASSERT(FinitaMapperSize(mapper) == #{func_vector_code.size}(vector));
+        #{name}NNZ = #{func_matrix_code.size}(matrix);
+        #{name}NEQ = FinitaMapperSize(mapper);
         #{name}LHS = (#{name}NumericMatrix*)FINITA_MALLOC(sizeof(#{name}NumericMatrix)*#{name}NNZ); FINITA_ASSERT(#{name}LHS);
-        #{func_matrix_code.it_ctor}(&it, &#{name}SymbolicMatrix);
+        #{func_matrix_code.it_ctor}(&it, matrix);
         i = 0;
         while(#{func_matrix_code.it_has_next}(&it)) {
           #{func_matrix_code.pair} pair = #{func_matrix_code.it_next}(&it);
-          #{name}LHS[i].row = FinitaMapperIndex(&#{name}Mapper, pair.key.row);
-          #{name}LHS[i].column = FinitaMapperIndex(&#{name}Mapper, pair.key.column);
+          #{name}LHS[i].row_index = FinitaMapperIndex(mapper, pair.key.row);
+          #{name}LHS[i].column_index = FinitaMapperIndex(mapper, pair.key.column);
+          #{name}MatrixEvaluatorCtor(&#{name}LHS[i].evaluator, pair.key.row, pair.key.column);
           ++i;
         }
         FINITA_ASSERT(i == #{func_matrix_code.size}(&#{name}SymbolicMatrix));
         #{name}RHS = (#{name}NumericVector*)FINITA_MALLOC(sizeof(#{name}NumericVector)*#{name}NEQ); FINITA_ASSERT(#{name}RHS);
         for(i = 0; i < #{name}NEQ; ++i) {
-          #{name}RHS[i].row = i;
+          #{name}RHS[i].row_index = i;
+          #{name}VectorEvaluatorCtor(&#{name}RHS[i].evaluator, FinitaMapperNode(mapper, i));
         }
       }
     $
@@ -97,29 +99,29 @@ class SuperLU
         static int #{name}ColumnFirstSort(const void* l, const void* r) {
           #{name}NumericMatrix* lt = (#{name}NumericMatrix*)l;
           #{name}NumericMatrix* rt = (#{name}NumericMatrix*)r;
-          if(lt->column < rt->column)
+          if(lt->column_index < rt->column_index)
             return -1;
-          else if(lt->column > rt->column)
+          else if(lt->column_index > rt->column_index)
             return +1;
-          else if(lt->row < rt->row)
+          else if(lt->row_index < rt->row_index)
             return -1;
-          else if(lt->row > rt->row)
+          else if(lt->row_index > rt->row_index)
             return +1;
           else
             return 0;
         }
-        void #{name}SetupBackend() {
+        void #{name}SetupBackend(FinitaMapper* mapper, #{func_matrix_code.type}* matrix, #{func_vector_code.type}* vector) {
           int i, j, c;
-          #{name}SetupBackendStruct();
+          #{name}SetupBackendStruct(mapper, matrix, vector);
           #{name}ASub = (int*)FINITA_MALLOC(sizeof(int)*#{name}NNZ); FINITA_ASSERT(#{name}ASub);
           #{name}XA = (int*)FINITA_MALLOC(sizeof(int)*(#{name}NEQ+1)); FINITA_ASSERT(#{name}XA);
           #{name}PermC = (int*)FINITA_MALLOC(sizeof(int)*#{name}NEQ); FINITA_ASSERT(#{name}PermC);
           #{name}PermR = (int*)FINITA_MALLOC(sizeof(int)*#{name}NEQ); FINITA_ASSERT(#{name}PermR);
           qsort(#{name}LHS, #{name}NNZ, sizeof(#{name}NumericMatrix), #{name}ColumnFirstSort);
           for(i = j = 0, c = -1; i < #{name}NNZ; ++i) {
-            #{name}ASub[i] = #{name}LHS[i].row;
-            if(c < #{name}LHS[i].column) {
-              c = #{name}LHS[i].column;
+            #{name}ASub[i] = #{name}LHS[i].row_index;
+            if(c < #{name}LHS[i].column_index) {
+              c = #{name}LHS[i].column_index;
               #{name}XA[j++] = i;
             }
           }
@@ -142,10 +144,12 @@ class SuperLU
           memcpy(ASub, #{name}ASub, sizeof(int)*#{name}NNZ);
           memcpy(XA, #{name}XA, sizeof(int)*(#{name}NEQ+1));
           for(i = 0; i < #{name}NNZ; ++i) {
-            LHS[i] = #{name}LHS[i].value;
+            #{matrix_evaluator_code.type}* evaluator = &#{name}LHS[i].evaluator;
+            LHS[i] = evaluator->fp(evaluator->plist, evaluator->row, evaluator->column);
           }
           for(i = 0; i < #{name}NEQ; ++i) {
-            RHS[i] = #{name}RHS[i].value;
+            #{vector_evaluator_code.type}* evaluator = &#{name}RHS[i].evaluator;
+            RHS[i] = -evaluator->fp(evaluator->plist, evaluator->row);
           }
           set_default_options(&Opts);
           StatInit(&Stat);
@@ -153,7 +157,7 @@ class SuperLU
           #{tag}Create_Dense_Matrix(&B, #{name}NEQ, 1, RHS, #{name}NEQ, SLU_DN, SLU_D, SLU_GE);
           #{tag}gssv(&Opts, &A, #{name}PermC, #{name}PermR, &L, &U, &B, &Stat, &Info);
           for(i = 0; i < #{name}NEQ; ++i) {
-            #{name}RHS[i].value =  RHS[i];
+            #{name}RHS[i].result =  RHS[i];
           }
           Destroy_CompCol_Matrix(&A); /* implicitly frees LHS, ASub, XA */
           Destroy_Dense_Matrix(&B); /* implicitly frees RHS */
