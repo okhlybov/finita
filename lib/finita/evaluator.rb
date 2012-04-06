@@ -14,12 +14,13 @@ class MatrixEvaluatorCode < Finita::StaticCodeTemplate
   end
   def write_intf(stream)
     stream << %$
-    typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode, FinitaNode);
-    typedef struct {
+    typedef struct #{type} #{type};
+    typedef #{scalar_type} (*#{type}Code)(#{type}*);
+    struct #{type} {
       FinitaNode row, column;
-      #{func_list_code.type}* plist;
-      #{type}Func fp;
-    } #{type};
+      #{func_list_code.type}* list;
+      #{type}Code code;
+    };
   $
   end
 end # MatrixEvaluatorCode
@@ -61,12 +62,13 @@ class VectorEvaluatorCode < Finita::StaticCodeTemplate
   end
   def write_intf(stream)
     stream << %$
-    typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode);
-    typedef struct {
+    typedef struct #{type} #{type};
+    typedef #{scalar_type} (*#{type}Code)(#{type}*);
+    struct #{type} {
       FinitaNode row;
-      #{func_list_code.type}* plist;
-      #{type}Func fp;
-    } #{type};
+      #{func_list_code.type}* list;
+      #{type}Code code;
+    };
   $
   end
 end # VectorEvaluatorCode
@@ -130,8 +132,6 @@ class EvaluatorCode < Finita::CodeTemplate
     stream << %$
       extern #{func_matrix_code.type} #{name}SymbolicMatrix;
       extern #{func_vector_code.type} #{name}SymbolicVector;
-      #{scalar_type} #{name}EvaluateVector(FinitaNode);
-      #{scalar_type} #{name}EvaluateMatrix(FinitaNode, FinitaNode);
       void #{name}MatrixEvaluatorCtor(#{matrix_evaluator_code.type}*, FinitaNode, FinitaNode);
       void #{name}VectorEvaluatorCtor(#{vector_evaluator_code.type}*, FinitaNode);
       void #{name}SetupEvaluator();
@@ -150,20 +150,14 @@ class EvaluatorCode < Finita::CodeTemplate
         FINITA_ASSERT(self);
         self->row = row;
         self->column = column;
-        self->plist = #{func_matrix_code.at}(&#{name}SymbolicMatrix, row, column);
-        self->fp = #{name}MatrixEntryEvaluator;
+        self->list = #{func_matrix_code.at}(&#{name}SymbolicMatrix, row, column);
+        self->code = #{name}MatrixEntryEvaluator;
       }
       void #{name}VectorEvaluatorCtor(#{vector_evaluator_code.type}* self, FinitaNode row) {
         FINITA_ASSERT(self);
         self->row = row;
-        self->plist = #{func_vector_code.at}(&#{name}SymbolicVector, row);
-        self->fp = #{name}VectorEntryEvaluator;
-      }
-      #{scalar_type} #{name}EvaluateMatrix(FinitaNode row, FinitaNode column) {
-        return #{name}MatrixEntryEvaluator(#{func_matrix_code.at}(&#{name}SymbolicMatrix, row, column), row, column);
-      }
-      #{scalar_type} #{name}EvaluateVector(FinitaNode row) {
-        return #{name}VectorEntryEvaluator(#{func_vector_code.at}(&#{name}SymbolicVector, row), row);
+        self->list = #{func_vector_code.at}(&#{name}SymbolicVector, row);
+        self->code = #{name}VectorEntryEvaluator;
       }
     $
   end
@@ -253,30 +247,30 @@ class Numeric
 
     def write_defs_linear(stream)
       stream << %$
-      static #{scalar_type} #{name}MatrixEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row, FinitaNode column) {
-          if(fps) {
+      static #{scalar_type} #{name}MatrixEntryEvaluator(#{matrix_evaluator_code.type}* evaluator) {
+          if(evaluator->list) {
             #{func_list_code.it} it;
             #{scalar_type} result = 0;
-            #{func_list_code.it_ctor}(&it, fps);
+            #{func_list_code.it_ctor}(&it, evaluator->list);
             while(#{func_list_code.it_has_next}(&it)) {
-              result += #{func_list_code.it_next}(&it)(row.x, row.y, row.z);
+              result += #{func_list_code.it_next}(&it)(evaluator->row.x, evaluator->row.y, evaluator->row.z);
             }
             return result;
           } else {
             return 1;
           }
         }
-        static #{scalar_type} #{name}VectorEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row) {
-          if(fps) {
+        static #{scalar_type} #{name}VectorEntryEvaluator(#{vector_evaluator_code.type}* evaluator) {
+          if(evaluator->list) {
             #{scalar_type} result = 0;
             #{func_list_code.it} it;
-            #{func_list_code.it_ctor}(&it, fps);
+            #{func_list_code.it_ctor}(&it, evaluator->list);
             while(#{func_list_code.it_has_next}(&it)) {
-              result += #{func_list_code.it_next}(&it)(row.x, row.y, row.z);
+              result += #{func_list_code.it_next}(&it)(evaluator->row.x, evaluator->row.y, evaluator->row.z);
             }
             return result;
           } else {
-            return #{name}GetNode(row);
+            return #{name}GetNode(evaluator->row);
           }
         }
       $
@@ -284,37 +278,37 @@ class Numeric
 
     def write_defs_nonlinear(stream)
       stream << %$
-        static #{scalar_type} #{name}MatrixEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row, FinitaNode column) {
-          if(fps) {
+        static #{scalar_type} #{name}MatrixEntryEvaluator(#{matrix_evaluator_code.type}* evaluator) {
+          if(evaluator->list) {
             #{func_list_code.it} it;
             #{scalar_type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
-            value = #{name}GetNode(column);
+            value = #{name}GetNode(evaluator->column);
             eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* from the PETSc's MatFD implementation '*/
-            #{func_list_code.it_ctor}(&it, fps);
+            #{func_list_code.it_ctor}(&it, evaluator->list);
             while(#{func_list_code.it_has_next}(&it)) {
               #{func_list_code.element_type} fp = #{func_list_code.it_next}(&it);
-              #{name}SetNode(value + eta, column);
-              result += fp(row.x, row.y, row.z);
-              #{name}SetNode(value - eta, column);
-              result -= fp(row.x, row.y, row.z);
+              #{name}SetNode(value + eta, evaluator->column);
+              result += fp(evaluator->row.x, evaluator->row.y, evaluator->row.z);
+              #{name}SetNode(value - eta, evaluator->column);
+              result -= fp(evaluator->row.x, evaluator->row.y, evaluator->row.z);
             }
-            #{name}SetNode(value, column);
+            #{name}SetNode(value, evaluator->column);
             return result/(2*eta);
           } else {
             return 1;
           }
         }
-        static #{scalar_type} #{name}VectorEntryEvaluator(#{func_list_code.type}* fps, FinitaNode row) {
-          if(fps) {
+        static #{scalar_type} #{name}VectorEntryEvaluator(#{vector_evaluator_code.type}* evaluator) {
+          if(evaluator->list) {
             #{func_list_code.it} it;
             #{scalar_type} result = 0;
-            #{func_list_code.it_ctor}(&it, fps);
+            #{func_list_code.it_ctor}(&it, evaluator->list);
             while(#{func_list_code.it_has_next}(&it)) {
-              result += #{func_list_code.it_next}(&it)(row.x, row.y, row.z);
+              result += #{func_list_code.it_next}(&it)(evaluator->row.x, evaluator->row.y, evaluator->row.z);
             }
             return result;
           } else {
-            return #{name}GetNode(row);
+            return #{name}GetNode(evaluator->row);
           }
         }
       $
