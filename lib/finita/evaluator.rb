@@ -1,7 +1,7 @@
 require 'finita/common'
 
 
-module Finita::Evaluator
+module Finita
 
 
 class MatrixEvaluatorCode < Finita::StaticCodeTemplate
@@ -14,19 +14,13 @@ class MatrixEvaluatorCode < Finita::StaticCodeTemplate
   end
   def write_intf(stream)
     stream << %$
-      typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode, FinitaNode);
-      typedef struct {
-        FinitaNode row, column;
-        #{func_list_code.type}* list_ptr;
-        #{type}Func evaluator;
-      } #{type};
-      static void #{type}Ctor(#{type}* self, FinitaNode row, FinitaNode column, #{func_list_code.type}* list_ptr, #{type}Func evaluator) {
-        self->row = row;
-        self->column = column;
-        self->list_ptr = list_ptr;
-        self->evaluator = evaluator;
-      }
-    $
+    typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode, FinitaNode);
+    typedef struct {
+      FinitaNode row, column;
+      #{func_list_code.type}* plist;
+      #{type}Func fp;
+    } #{type};
+  $
   end
 end # MatrixEvaluatorCode
 
@@ -67,18 +61,13 @@ class VectorEvaluatorCode < Finita::StaticCodeTemplate
   end
   def write_intf(stream)
     stream << %$
-      typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode);
-      typedef struct {
-        FinitaNode row;
-        #{func_list_code.type}* list_ptr;
-        #{type}Func evaluator;
-      } #{type};
-      static void #{type}Ctor(#{type}* self, FinitaNode row, #{func_list_code.type}* list_ptr, #{type}Func evaluator) {
-        self->row = row;
-        self->list_ptr = list_ptr;
-        self->evaluator = evaluator;
-      }
-    $
+    typedef #{scalar_type} (*#{type}Func)(#{func_list_code.type}*, FinitaNode);
+    typedef struct {
+      FinitaNode row;
+      #{func_list_code.type}* plist;
+      #{type}Func fp;
+    } #{type};
+  $
   end
 end # VectorEvaluatorCode
 
@@ -109,6 +98,12 @@ module VectorEvaluator
 end # VectorEvaluator
 
 
+end # Finita
+
+
+module Finita::Evaluator
+
+
 class EvaluatorCode < Finita::CodeTemplate
 
   attr_reader :gtor, :evaluator, :name, :scalar_type, :system, :code
@@ -126,18 +121,19 @@ class EvaluatorCode < Finita::CodeTemplate
     @func_list_code = Finita::FuncList::Code[system.type]
     @func_matrix_code = Finita::FuncMatrix::Code[system.type]
     @func_vector_code = Finita::FuncVector::Code[system.type]
-    @matrix_evaluator_code = MatrixEvaluator::Code[system.type]
-    @vector_evaluator_code = VectorEvaluator::Code[system.type]
+    @matrix_evaluator_code = Finita::MatrixEvaluator::Code[system.type]
+    @vector_evaluator_code = Finita::VectorEvaluator::Code[system.type]
     gtor << self
   end
 
   def write_intf(stream)
     stream << %$
-      extern FinitaNodeSet #{name}Nodes;
       extern #{func_matrix_code.type} #{name}SymbolicMatrix;
       extern #{func_vector_code.type} #{name}SymbolicVector;
       #{scalar_type} #{name}EvaluateVector(FinitaNode);
       #{scalar_type} #{name}EvaluateMatrix(FinitaNode, FinitaNode);
+      void #{name}MatrixEvaluatorCtor(#{matrix_evaluator_code.type}*, FinitaNode, FinitaNode);
+      void #{name}VectorEvaluatorCtor(#{vector_evaluator_code.type}*, FinitaNode);
       void #{name}SetupEvaluator();
   $
   end
@@ -150,6 +146,19 @@ class EvaluatorCode < Finita::CodeTemplate
     $
     system.linear? ? write_defs_linear(stream) : write_defs_nonlinear(stream)
     stream << %$
+      void #{name}MatrixEvaluatorCtor(#{matrix_evaluator_code.type}* self, FinitaNode row, FinitaNode column) {
+        FINITA_ASSERT(self);
+        self->row = row;
+        self->column = column;
+        self->plist = #{func_matrix_code.at}(&#{name}SymbolicMatrix, row, column);
+        self->fp = #{name}MatrixEntryEvaluator;
+      }
+      void #{name}VectorEvaluatorCtor(#{vector_evaluator_code.type}* self, FinitaNode row) {
+        FINITA_ASSERT(self);
+        self->row = row;
+        self->plist = #{func_vector_code.at}(&#{name}SymbolicVector, row);
+        self->fp = #{name}VectorEntryEvaluator;
+      }
       #{scalar_type} #{name}EvaluateMatrix(FinitaNode row, FinitaNode column) {
         return #{name}MatrixEntryEvaluator(#{func_matrix_code.at}(&#{name}SymbolicMatrix, row, column), row, column);
       }

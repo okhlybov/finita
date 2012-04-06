@@ -117,23 +117,17 @@ class Matrix
       stream << %$
         void #{name}SetupSolver() {
           #{name}SetupEvaluator();
-          #{name}SetupMapper();
-          #{name}SetupBackend();
+          #{name}SetupMapper(&#{name}Nodes);
+          #{name}SetupBackend(&#{name}Mapper, &#{name}SymbolicMatrix, &#{name}SymbolicVector);
         }
       $
       if system.linear?
         stream << %$
           void #{name}Solve() {
             int i;
-            for(i = 0; i < #{name}NNZ; ++i) {
-              #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
-            }
-            for(i = 0; i < #{name}NEQ; ++i) {
-              #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
-            }
             #{name}SolveLinearSystem();
             for(i = 0; i < #{name}NEQ; ++i) {
-              #{name}SetIndex(#{name}RHS[i].value, #{name}RHS[i].row);
+              #{name}SetIndex(#{name}RHS[i].result, #{name}RHS[i].row_index);
             }
           }
         $
@@ -146,18 +140,12 @@ class Matrix
             #{type} norm;
             do {
               #{type} base = 0, delta = 0;
-              for(i = 0; i < #{name}NNZ; ++i) {
-                #{name}LHS[i].value = #{name}EvaluateMatrix(FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].row), FinitaMapperNode(&#{name}Mapper, #{name}LHS[i].column));
-              }
-              for(i = 0; i < #{name}NEQ; ++i) {
-                #{name}RHS[i].value = -#{name}EvaluateVector(FinitaMapperNode(&#{name}Mapper, #{name}RHS[i].row));
-              }
               #{name}SolveLinearSystem();
               for(i = 0; i < #{name}NEQ; ++i) {
-                #{type} value = #{name}GetIndex(#{name}RHS[i].row);
+                #{type} value = #{name}GetIndex(#{name}RHS[i].row_index);
                 base += #{abs}(value);
-                delta += #{abs}(#{name}RHS[i].value);
-                #{name}SetIndex(value + #{name}RHS[i].value, #{name}RHS[i].row);
+                delta += #{abs}(#{name}RHS[i].result);
+                #{name}SetIndex(value + #{name}RHS[i].result, #{name}RHS[i].row_index);
               }
               norm = (base == 0 ? 1 : delta/base); if(delta == 0) norm = 0;
             } while(norm > #{solver.relative_tolerance});

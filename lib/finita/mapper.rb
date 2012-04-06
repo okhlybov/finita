@@ -9,12 +9,7 @@ class StaticCode < Finita::StaticCodeTemplate
   def entities; super + [Finita::NodeMapCode.instance] end
   def write_intf(stream)
     stream << %$
-      typedef struct {
-        FinitaNodeMap map;
-        FinitaNode* linear;
-        int linear_size;
-        int frozen;
-      } #{TAG};
+      typedef struct #{TAG} #{TAG};
       void #{TAG}Ctor(#{TAG}*, int);
       void #{TAG}Merge(#{TAG}*, FinitaNode);
       int #{TAG}Index(#{TAG}*, FinitaNode);
@@ -24,6 +19,12 @@ class StaticCode < Finita::StaticCodeTemplate
   end
   def write_defs(stream)
     stream << %$
+      struct #{TAG} {
+        FinitaNodeMap map;
+        FinitaNode* linear;
+        int linear_size;
+        int frozen;
+      };
       void #{TAG}Ctor(#{TAG}* self, int size) {
         FINITA_ASSERT(self);
         self->frozen = 0;
@@ -100,17 +101,16 @@ class Naive
     def write_intf(stream)
       stream << %$
         extern FinitaMapper #{name}Mapper;
-        void #{name}SetupMapper();
+        void #{name}SetupMapper(FinitaNodeSet*);
       $
     end
     def write_defs(stream)
       stream << %$
-        extern FinitaNodeSet #{name}Nodes;
         FinitaMapper #{name}Mapper;
-        void #{name}SetupMapper() {
+        void #{name}SetupMapper(FinitaNodeSet* nodes) {
           FinitaNodeSetIt it;
-          FinitaMapperCtor(&#{name}Mapper, FinitaNodeSetSize(&#{name}Nodes));
-          FinitaNodeSetItCtor(&it, &#{name}Nodes);
+          FinitaMapperCtor(&#{name}Mapper, FinitaNodeSetSize(nodes));
+          FinitaNodeSetItCtor(&it, nodes);
           while(FinitaNodeSetItHasNext(&it)) {
             FinitaMapperMerge(&#{name}Mapper, FinitaNodeSetItNext(&it));
           }
