@@ -46,6 +46,10 @@ class Module
 
   # def new_source(index)
 
+  def source_count=(count)
+    @source_count = count
+  end
+
   def generate
     @header = new_header
     @sources = []
@@ -63,10 +67,14 @@ class Module
   private
 
   def source_count
-    total = 0
-    @entities.each {|e| total += e.source_size}
-    count = @source_size_threshold > 0 ? (total/@source_size_threshold + 1) : 1
-    count > 0 ? count : 1
+    if @source_count.nil?
+      total = 0
+      @entities.each {|e| total += e.source_size}
+      count = @source_size_threshold > 0 ? (total/@source_size_threshold + 1) : 1
+      count > 0 ? count : 1
+    else
+      @source_count
+    end
   end
 
 end # Module

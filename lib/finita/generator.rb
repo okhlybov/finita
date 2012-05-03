@@ -332,9 +332,9 @@ class Default
           #define FINITA_CALLOC(count, size) calloc(count, size)
           #define FINITA_FREE(ptr) free(ptr)
           #ifdef FINITA_MPI
-            extern int FinitaRank;
-            #define FINITA_HEAD if(!FinitaRank)
-            #define FINITA_NHEAD if(FinitaRank)
+            extern int FinitaMPIRank;
+            #define FINITA_HEAD if(!FinitaMPIRank)
+            #define FINITA_NHEAD if(FinitaMPIRank)
           #else
             #define FINITA_HEAD if(1)
             #define FINITA_NHEAD if(0)
@@ -345,12 +345,9 @@ class Default
       stream << %$
           #include <stdio.h>
           extern void FinitaAbort(int); /* To be defined elsewhere */
-          #ifdef FINITA_MPI
-            int FinitaRank;
-          #endif
           void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
               #ifdef FINITA_MPI
-                fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaRank, func, file, line, msg);
+                fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaMPIRank, func, file, line, msg);
               #else
                 fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
               #endif
@@ -438,83 +435,78 @@ class Default
     Module.new(self)
   end
 
-end # Default
+  class Module < CodeBuilder::Module
 
+    class Header < CodeBuilder::Header
+      def name
+        @module.dotted_infix? ? "#{@module.name}.auto.h" : "#{@module.name}_auto.h"
+      end
+      def tag
+        "__FINITA_#{@module.name.upcase}__"
+      end
+      def write(stream)
+        stream << "\n#ifndef #{tag}\n#define #{tag}\n"
+        @module.defines.each do |symbol|
+          stream << "#define #{symbol}\n"
+        end
+        super
+        stream << "\n#endif\n"
+      end
+      protected
+      def new_stream
+        File.new(name, 'wt')
+      end
+    end # Header
 
-class Module < CodeBuilder::Module
+    class Source < CodeBuilder::Source
+      def name
+        @module.dotted_infix? ? "#{@module.name}.auto#{@index}.c" : "#{@module.name}_auto#{@index}.c"
+      end
+      def write(stream)
+        stream << %{\n#include "#{@module.header.name}"\n}
+        super
+      end
+      protected
+      def new_stream
+        File.new(name, 'wt')
+      end
+    end # Source
 
-  attr_reader :name, :defines
+    attr_reader :name, :defines
 
-  def dotted_infix?
-    @dotted_infix
-  end
-
-  def initialize(gtor)
-    super()
-    @name = gtor.problem.name
-    @defines = gtor.defines
-    @dotted_infix = false
-  end
-
-  protected
-
-  def new_header
-    Header.new(self)
-  end
-
-  def new_source(index)
-    Source.new(self, index)
-  end
-
-end # Module
-
-
-class Header < CodeBuilder::Header
-
-  def name
-    @module.dotted_infix? ? "#{@module.name}.auto.h" : "#{@module.name}_auto.h"
-  end
-
-  def tag
-    "__FINITA_#{@module.name.upcase}__"
-  end
-
-  def write(stream)
-    stream << "\n#ifndef #{tag}\n#define #{tag}\n"
-    @module.defines.each do |symbol|
-      stream << "#define #{symbol}\n"
+    def dotted_infix?
+      @dotted_infix
     end
-    super
-    stream << "\n#endif\n"
-  end
 
-  protected
+    def header_name
+      @header.name
+    end
 
-  def new_stream
-    File.new(name, 'wt')
-  end
+    def source_names
+      @sources.collect {|s| s.name}
+    end
 
-end # Header
+    def initialize(gtor)
+      super()
+      @name = gtor.problem.name
+      @defines = gtor.defines
+      @dotted_infix = false
+    end
+
+    protected
+
+    def new_header
+      Header.new(self)
+    end
+
+    def new_source(index)
+      Source.new(self, index)
+    end
+
+  end # Module
 
 
-class Source < CodeBuilder::Source
-
-  def name
-    @module.dotted_infix? ? "#{@module.name}.auto#{@index}.c" : "#{@module.name}_auto#{@index}.c"
-  end
-
-  def write(stream)
-    stream << %{\n#include "#{@module.header.name}"\n}
-    super
-  end
-
-  protected
-
-  def new_stream
-    File.new(name, 'wt')
-  end
-
-end # Source
+end # Default
 
 
 end # Finita::Generator

@@ -47,23 +47,34 @@ class MPI < Environment
         #include <mpi.h>
       $
     end
+    def write_defs(stream)
+      stream << %$
+        int FinitaMPISize, FinitaMPIRank;
+      $
+    end
     def write_setup(stream)
-      stream << "{
-        int result, flag;
-        result = MPI_Initialized(&flag); FINITA_ASSERT(result == MPI_SUCCESS);
-        if(!flag) {
-          result = MPI_Init(&argc, &argv); FINITA_ASSERT(result == MPI_SUCCESS);
+      stream << %$
+        {
+          int result, flag;
+          result = MPI_Initialized(&flag); FINITA_ASSERT(result == MPI_SUCCESS);
+          if(!flag) {
+            result = MPI_Init(&argc, &argv); FINITA_ASSERT(result == MPI_SUCCESS);
+          }
+          result = MPI_Comm_size(MPI_COMM_WORLD, &FinitaMPISize); FINITA_ASSERT(result == MPI_SUCCESS);
+          result = MPI_Comm_rank(MPI_COMM_WORLD, &FinitaMPIRank); FINITA_ASSERT(result == MPI_SUCCESS);
         }
-      }"
+      $
     end
     def write_cleanup(stream)
-      stream << "{
-        int result, flag;
-        result = MPI_Finalized(&flag); FINITA_ASSERT(result == MPI_SUCCESS);
-        if(!flag) {
-          result = MPI_Finalize(); FINITA_ASSERT(result == MPI_SUCCESS);
+      stream << %$
+        {
+          int result, flag;
+          result = MPI_Finalized(&flag); FINITA_ASSERT(result == MPI_SUCCESS);
+          if(!flag) {
+            result = MPI_Finalize(); FINITA_ASSERT(result == MPI_SUCCESS);
+          }
         }
-      }"
+      $
     end
   end # Code
   def static_code; StaticCode.instance end
