@@ -26,6 +26,34 @@ module Priority
 end
 
 
+# A no-op entity implementation with reasonable defaults
+class Code
+  def entities; [] end
+  def priority
+    if entities.empty?
+      CodeBuilder::Priority::DEFAULT
+    else
+      result = CodeBuilder::Priority::DEFAULT
+      entities.each do |e|
+        ep = e.priority
+        result = ep if result > ep
+      end
+      result-1
+    end
+  end
+  def source_size
+    s = String.new
+    write_decls(s)
+    write_defs(s)
+    s.size
+  end
+  def attach(source) source << self if source.smallest? end
+  def write_intf(stream) end
+  def write_defs(stream) end
+  def write_decls(stream) end
+end # Code
+
+
 class Module
 
   attr_reader :header, :smallest_source, :main_source
@@ -87,7 +115,7 @@ def self.priority_sort(entities, reverse = false)
 end # priority_sort
 
 
-class Code
+class File
 
   attr_reader :entities
 
@@ -113,17 +141,17 @@ class Code
     @entities << e
   end
 
-end # Code
+end # File
 
 
-class Header < Code
+class Header < File
   def write(stream)
     CodeBuilder.priority_sort(entities).each {|e| e.write_intf(stream)}
   end
 end # Header
 
 
-class Source < Code
+class Source < File
 
   attr_reader :index
 
