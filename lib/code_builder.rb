@@ -68,6 +68,7 @@ class Module
       @entities << obj
       obj.entities.each {|e| self << e}
     end
+    self
   end
 
   # def new_header()
@@ -139,6 +140,7 @@ class File
 
   def <<(e)
     @entities << e
+    self
   end
 
 end # File

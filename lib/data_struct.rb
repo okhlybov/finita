@@ -10,12 +10,12 @@ class Prologue < CodeBuilder::Code
   def write_intf(stream)
     stream << %$
       #include <stddef.h>
+      #include <assert.h>
     $
   end
   def write_decls(stream)
     stream << %$
       #include <stdlib.h>
-      #include <assert.h>
       #include <malloc.h>
     $
   end
