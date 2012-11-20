@@ -3,6 +3,18 @@
 
 #include "data_struct_test.auto.h"
 
+static void DoubleArrayTest() {
+    DoubleArray da;
+    DoubleArrayCtor(&da, 5);
+    printf("size=%d\n", DoubleArraySize(&da));
+    DoubleArraySet(&da, 1, 1.1);
+    DoubleArraySet(&da, 2, 2.2);
+    printf("[0]=%e\n", DoubleArrayGet(&da, 0));
+    printf("[1]=%e\n", DoubleArrayGet(&da, 1));
+    printf("[2]=%e\n", DoubleArrayGet(&da, 2));
+    puts("\n");
+}
+
 static void IntSlistTest() {
     IntSlist is;
     IntSlistCtor(&is);
@@ -56,7 +68,7 @@ static void IntHsetTest() {
 	}
 }
 
-int PcharHasher(char* x) {
+size_t PcharHasher(char* x) {
 	int i = 0;
 	char* p = x;
 	while(*p++) i += *p;
@@ -88,7 +100,7 @@ static void StrHsetTest() {
 	}
 }
 
-int StrIntHmapKeyHasher(char* x) {
+size_t StrIntHmapKeyHasher(char* x) {
 	int i = 0;
 	char* p = x;
 	while(*p++) i += *p;
@@ -128,6 +140,7 @@ static void StrIntHmapTest() {
 }
 
 int main(int argc, char** argv) {
+    DoubleArrayTest();
     IntSlistTest();
     IntHsetTest();
     StrHsetTest();

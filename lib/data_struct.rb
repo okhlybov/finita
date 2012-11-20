@@ -5,598 +5,539 @@ require 'code_builder'
 module DataStruct
 
 
-class StaticCode
+class Prologue < CodeBuilder::Code
   include Singleton
-  def entities; [] end
-  def source_size; 0 end
-  def attach(source) end
-  def priority; CodeBuilder::Priority::DEFAULT end
   def write_intf(stream)
     stream << %$
-      #include <assert.h>
-      #include <malloc.h>
-      #include <stdlib.h>
       #include <stddef.h>
     $
   end
-  def write_defs(stream) end
-  def write_decls(stream) end
-end # StaticCode
-
-
-class Type
-
-  def malloc; :malloc end
-  def assert; :assert end
-  def abort; :abort end
-  attr_reader :type, :visible
-  def initialize(type, visible = true)
-    @type = type
-    @visible = visible
-  end
-  def attach(source) source << self if source.smallest? end
-  def entities; [StaticCode.instance] end
-  def priority
-    min = CodeBuilder::Priority::DEFAULT
-    entities.each {|e| min = e.priority if min > e.priority}
-    min-1
-  end
-  def source_size
-    stream = String.new
-    write_defs(stream)
-    stream.size
-  end
-  def write_intf(stream) write_intf_real(stream) if visible end
-  def write_decls(stream) write_intf_real(stream) unless visible end
-end
-
-
-class List < Type
-  
-  attr_reader :element_type, :comparator
-
-  def node; "#{type}Node" end
-
-  def it; "#{type}It" end
-    
-  def ctor; "#{type}Ctor" end
-    
-  def new; "#{type}New" end
-
-  def first; "#{type}First" end
-    
-  def last; "#{type}Last" end
-    
-  def append; "#{type}Append" end
-  
-  def prepend; "#{type}Prepend" end
-
-  def contains; "#{type}Contains" end
-
-  def get; "#{type}Get" end
-
-  def replace; "#{type}Replace" end
-
-  def replace_all; "#{type}ReplaceAll" end
-
-  def size; "#{type}Size" end
-    
-  def empty; "#{type}Empty" end
-    
-  def it_ctor; "#{type}ItCtor" end
-    
-  def it_has_next; "#{type}ItHasNext" end
-  
-  def it_next; "#{type}ItNext" end
-      
-  def initialize(type, element_type, comparator, visible = true)
-    super(type, visible)
-    @element_type = element_type
-    @comparator = comparator
-  end
-  
-  def write_intf_real(stream)
+  def write_decls(stream)
     stream << %$
-        typedef struct #{node}_ #{node};
-        struct #{node}_ {
-            #{element_type} element;
-            #{node}* next_node;
-        };
-        typedef struct {
-            #{node}* head_node;
-            #{node}* tail_node;
-            int node_count;
-        } #{type};
-        typedef struct {
-            #{node}* next_node;
-        } #{it};
-        void #{ctor}(#{type}*);
-        #{type}* #{new}();
-        #{element_type} #{first}(#{type}*);
-        #{element_type} #{last}(#{type}*);
-        void #{append}(#{type}*, #{element_type});
-        void #{prepend}(#{type}*, #{element_type});
-        int #{contains}(#{type}*, #{element_type});
-        #{element_type} #{get}(#{type}*, #{element_type});
-        int #{replace}(#{type}*, #{element_type}, #{element_type});
-        int #{replace_all}(#{type}*, #{element_type}, #{element_type});
-        int #{size}(#{type}*);
-        int #{empty}(#{type}*);
-        void #{it_ctor}(#{it}*, #{type}*);
-        int #{it_has_next}(#{it}*);
-        #{element_type} #{it_next}(#{it}*);
+      #include <stdlib.h>
+      #include <assert.h>
+      #include <malloc.h>
     $
   end
-  
+end # Prologue
+
+
+class Struct < CodeBuilder::Code
+  undef abort;
+  attr_reader :type, :elementType
+  def initialize(type, element_type)
+    @overrides = {:malloc=>'malloc', :calloc=>'calloc', :assert=>'assert', :abort=>'abort'}
+    @type = type
+    @elementType = element_type
+  end
+  def entities; [Prologue.instance] end
+  def method_missing(method, *args)
+    if @overrides.include?(method)
+      @overrides[method]
+    else
+      s = method.to_s
+      @type + s[0].capitalize + s[1..-1]
+    end
+  end
+end # Struct
+
+
+class Array < Struct
+  def write_intf(stream)
+    stream << %$
+      typedef struct #{type} #{type};
+      typedef struct #{it} #{it};
+      struct #{type} {
+        #{elementType}* values;
+        size_t element_count;
+      };
+      struct #{it} {
+        #{type}* array;
+        size_t index;
+      };
+      void #{ctor}(#{type}*, size_t);
+      #{type}* #{new}(size_t);
+      #{elementType} #{get}(#{type}*, size_t);
+      void #{set}(#{type}*, size_t, #{elementType});
+      int #{within}(#{type}*, size_t);
+      size_t #{size}(#{type}*);
+      void #{itCtor}(#{it}*, #{type}*);
+      int #{itHasNext}(#{it}*);
+      #{elementType} #{itNext}(#{it}*);
+    $
+  end
   def write_defs(stream)
     stream << %$
-        extern int #{comparator}(#{element_type}, #{element_type});
-        void #{ctor}(#{type}* self) {
-            #{assert}(self);
-            self->head_node = self->tail_node = NULL;
-            self->node_count = 0;
-        }
-        #{type}* #{new}() {
-          #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
-          #{ctor}(self);
-          return self;
-        }
-        #{element_type} #{first}(#{type}* self) {
-            #{assert}(self);
-            return self->head_node->element;
-        }
-        #{element_type} #{last}(#{type}* self) {
-            #{assert}(self);
-            return self->tail_node->element;
-        }
-        void #{append}(#{type}* self, #{element_type} element) {
-            #{node}* node;
-            #{assert}(self);
-            node = (#{node}*) #{malloc}(sizeof(#{node})); #{assert}(node);
-            node->element = element;
-            node->next_node = NULL;
-            if(self->tail_node) self->tail_node->next_node = node;
-            self->tail_node = node;
-            if(!self->head_node) self->head_node = self->tail_node;
-            ++self->node_count;
-        }
-        void #{prepend}(#{type}* self, #{element_type} element) {
-            #{node}* node;
-            #{assert}(self);
-            node = (#{node}*) #{malloc}(sizeof(#{node})); #{assert}(node);
-            node->element = element;
-            node->next_node = self->head_node;
-            self->head_node = node;
-            if(!self->tail_node) self->tail_node = node;
-            ++self->node_count;
-        }
-        int #{contains}(#{type}* self, #{element_type} what) {
-          #{node}* node;
-          #{assert}(self);
-          node = self->head_node;
-          while(node) {
-            if(#{comparator}(node->element, what)) {
-              return 1;
-            }
-            node = node->next_node;
-          }
-          return 0;
-        }
-        #{element_type} #{get}(#{type}* self, #{element_type} what) {
-          #{node}* node;
-          #{assert}(self);
-          #{assert}(#{contains}(self, what));
-          node = self->head_node;
-          while(node) {
-            if(#{comparator}(node->element, what)) {
-              return node->element;
-            }
-            node = node->next_node;
-          }
-          #{abort}();
-        }
-        int #{replace}(#{type}* self, #{element_type} what, #{element_type} with) {
-          #{node}* node;
-          #{assert}(self);
-          node = self->head_node;
-          while(node) {
-            if(#{comparator}(node->element, what)) {
-              node->element = with;
-              return 1;
-            }
-            node = node->next_node;
-          }
-          return 0;
-        }
-        int #{replace_all}(#{type}* self, #{element_type} what, #{element_type} with) {
-          #{node}* node;
-          int count = 0;
-          #{assert}(self);
-          node = self->head_node;
-          while(node) {
-            if(#{comparator}(node->element, what)) {
-              node->element = with;
-              ++count;
-            }
-            node = node->next_node;
-          }
-          return count;
-        }
-        int #{size}(#{type}* self) {
-            #{assert}(self);
-            return self->node_count;
-        }
-        int #{empty}(#{type}* self) {
-            #{assert}(self);
-            return !self->node_count;
-        }
-        void #{it_ctor}(#{it}* self, #{type}* list) {
-            #{assert}(self);
-            #{assert}(list);
-            self->next_node = list->head_node;
-        }
-        int #{it_has_next}(#{it}* self) {
-            #{assert}(self);
-            return self->next_node != NULL;
-        }
-        #{element_type} #{it_next}(#{it}* self) {
-            #{node}* node;
-            #{assert}(self);
-            node = self->next_node;
-            self->next_node = self->next_node->next_node;
-            return node->element;
-        }
+      void #{ctor}(#{type}* self, size_t element_count) {
+        #{assert}(self);
+        #{assert}(element_count > 0);
+        self->element_count = element_count;
+        self->values = (#{elementType}*) #{calloc}(element_count, sizeof(#{elementType})); #{assert}(self->values);
+      }
+      #{type}* #{new}(size_t element_count) {
+        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{ctor}(self, element_count);
+        return self;
+      }
+      #{elementType} #{get}(#{type}* self, size_t index) {
+        #{assert}(self);
+        #{assert}(#{within}(self, index));
+        return self->values[index];
+      }
+      void #{set}(#{type}* self, size_t index, #{elementType} value) {
+        #{assert}(self);
+        #{assert}(#{within}(self, index));
+        self->values[index] = value;
+      }
+      int #{within}(#{type}* self, size_t index) {
+        #{assert}(self);
+        return index < self->element_count;
+      }
+      size_t #{size}(#{type}* self) {
+        #{assert}(self);
+        return self->element_count;
+      }
+      void #{itCtor}(#{it}* self, #{type}* array) {
+        #{assert}(self);
+        #{assert}(array);
+        self->array = array;
+        self->index = 0;
+      }
+      int #{itHasNext}(#{it}* self) {
+        #{assert}(self);
+        return self->index < #{size}(self->array);
+      }
+      #{elementType} #{itNext}(#{it}* self) {
+        #{assert}(self);
+        return #{get}(self->array, self->index++);
+      }
     $
   end
+end # Array
 
+
+class List < Struct
+  attr_reader :comparator
+  def initialize(type, element_type, comparator)
+    super(type, element_type)
+    @comparator = comparator
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef struct #{node} #{node};
+      typedef struct #{type} #{type};
+      typedef struct #{it} #{it};
+      struct #{type} {
+        #{node}* head_node;
+        #{node}* tail_node;
+        size_t node_count;
+      };
+      struct #{it} {
+        #{node}* next_node;
+      };
+      void #{ctor}(#{type}*);
+      #{type}* #{new}(void);
+      #{elementType} #{first}(#{type}*);
+      #{elementType} #{last}(#{type}*);
+      void #{append}(#{type}*, #{elementType});
+      void #{prepend}(#{type}*, #{elementType});
+      int #{contains}(#{type}*, #{elementType});
+      #{elementType} #{get}(#{type}*, #{elementType});
+      int #{replace}(#{type}*, #{elementType}, #{elementType});
+      int #{replaceAll}(#{type}*, #{elementType}, #{elementType});
+      size_t #{size}(#{type}*);
+      int #{empty}(#{type}*);
+      void #{itCtor}(#{it}*, #{type}*);
+      int #{itHasNext}(#{it}*);
+      #{elementType} #{itNext}(#{it}*);
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      struct #{node} {
+        #{elementType} element;
+        #{node}* next_node;
+      };
+      extern int #{comparator}(#{elementType}, #{elementType});
+      void #{ctor}(#{type}* self) {
+        #{assert}(self);
+        self->head_node = self->tail_node = NULL;
+        self->node_count = 0;
+      }
+      #{type}* #{new}(void) {
+        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{ctor}(self);
+        return self;
+      }
+      #{elementType} #{first}(#{type}* self) {
+        #{assert}(self);
+        return self->head_node->element;
+      }
+      #{elementType} #{last}(#{type}* self) {
+        #{assert}(self);
+        return self->tail_node->element;
+      }
+      void #{append}(#{type}* self, #{elementType} element) {
+        #{node}* node;
+        #{assert}(self);
+        node = (#{node}*) #{malloc}(sizeof(#{node})); #{assert}(node);
+        node->element = element;
+        node->next_node = NULL;
+        if(self->tail_node) self->tail_node->next_node = node;
+        self->tail_node = node;
+        if(!self->head_node) self->head_node = self->tail_node;
+        ++self->node_count;
+      }
+      void #{prepend}(#{type}* self, #{elementType} element) {
+        #{node}* node;
+        #{assert}(self);
+        node = (#{node}*) #{malloc}(sizeof(#{node})); #{assert}(node);
+        node->element = element;
+        node->next_node = self->head_node;
+        self->head_node = node;
+        if(!self->tail_node) self->tail_node = node;
+        ++self->node_count;
+      }
+      int #{contains}(#{type}* self, #{elementType} what) {
+        #{node}* node;
+        #{assert}(self);
+        node = self->head_node;
+        while(node) {
+          if(#{comparator}(node->element, what)) {
+            return 1;
+          }
+          node = node->next_node;
+        }
+        return 0;
+      }
+      #{elementType} #{get}(#{type}* self, #{elementType} what) {
+        #{node}* node;
+        #{assert}(self);
+        #{assert}(#{contains}(self, what));
+        node = self->head_node;
+        while(node) {
+          if(#{comparator}(node->element, what)) {
+            return node->element;
+          }
+          node = node->next_node;
+        }
+        #{abort}();
+        return what;
+      }
+      int #{replace}(#{type}* self, #{elementType} what, #{elementType} with) {
+        #{node}* node;
+        #{assert}(self);
+        node = self->head_node;
+        while(node) {
+          if(#{comparator}(node->element, what)) {
+            node->element = with;
+            return 1;
+          }
+          node = node->next_node;
+        }
+        return 0;
+      }
+      int #{replaceAll}(#{type}* self, #{elementType} what, #{elementType} with) {
+        #{node}* node;
+        int count = 0;
+        #{assert}(self);
+        node = self->head_node;
+        while(node) {
+          if(#{comparator}(node->element, what)) {
+            node->element = with;
+            ++count;
+          }
+          node = node->next_node;
+        }
+        return count;
+      }
+      size_t #{size}(#{type}* self) {
+        #{assert}(self);
+        return self->node_count;
+      }
+      int #{empty}(#{type}* self) {
+        #{assert}(self);
+        return !self->node_count;
+      }
+      void #{itCtor}(#{it}* self, #{type}* list) {
+        #{assert}(self);
+        #{assert}(list);
+        self->next_node = list->head_node;
+      }
+      int #{itHasNext}(#{it}* self) {
+        #{assert}(self);
+        return self->next_node != NULL;
+      }
+      #{elementType} #{itNext}(#{it}* self) {
+        #{node}* node;
+        #{assert}(self);
+        node = self->next_node;
+        self->next_node = self->next_node->next_node;
+        return node->element;
+      }
+    $
+  end
 end # List
 
 
-class Set < Type
-
-  attr_reader :element_type, :hasher, :comparator
-
-  def ctor; "#{type}Ctor" end
-
-  def new; "#{type}New" end
-
-  def contains; "#{type}Contains" end
-
-  def get; "#{type}Get" end
-
-  def put; "#{type}Put" end
-
-  def put_force; "#{type}PutForce" end
-
-  def size; "#{type}Size" end
-
-  def empty; "#{type}Empty" end
-
-  def it; "#{type}It" end
-
-  def it_ctor; "#{type}ItCtor" end
-
-  def it_has_next; "#{type}ItHasNext" end
-
-  def it_next; "#{type}ItNext" end
-
-  def log; "#{type}Log" end
-
-  def initialize(type, element_type, hasher, comparator, visible = true)
-    super(type, visible)
-    @element_type = element_type
+class Set < Struct
+  attr_reader :hasher, :comparator
+  def initialize(type, element_type, hasher, comparator)
+    super(type, element_type)
     @hasher = hasher
     @comparator = comparator
-    @bucket = new_bucket_list
+    @bucket = new_bucket
   end
-
-  def new_bucket_list
-    List.new("#{type}Bucket", element_type, comparator, visible)
+  def new_bucket
+    List.new("#{type}Bucket", elementType, comparator)
   end
-
-  def write_intf_real(stream)
-    bucket.write_intf_real(stream)
+  def write_intf(stream)
+    @bucket.write_intf(stream)
     stream << %$
-        typedef struct {
-            #{bucket.type}* buckets;
-            int bucket_count;
-          int size;
-        } #{type};
-        typedef struct {
-          #{type}* set;
-          int bucket_index;
-          #{bucket.it} it;
-        } #{it};
-        extern size_t #{hasher}(#{element_type});
-        extern int #{comparator}(#{element_type}, #{element_type});
-        void #{ctor}(#{type}*, int);
-        #{type}* #{new}(int);
-        int #{contains}(#{type}*, #{element_type});
-        #{element_type} #{get}(#{type}*, #{element_type});
-        int #{size}(#{type}*);
-        int #{empty}(#{type}*);
-        int #{put}(#{type}*, #{element_type});
-        void #{put_force}(#{type}*, #{element_type});
-        void #{it_ctor}(#{it}*, #{type}*);
-        int #{it_has_next}(#{it}*);
-        #{element_type} #{it_next}(#{it}*);
+      typedef struct #{type} #{type};
+      typedef struct #{it} #{it};
+      struct #{type} {
+        #{@bucket.type}* buckets;
+        size_t bucket_count;
+        size_t size;
+      };
+      struct #{it} {
+        #{type}* set;
+        int bucket_index;
+        #{@bucket.it} it;
+      };
+      void #{ctor}(#{type}*, size_t);
+      #{type}* #{new}(size_t);
+      int #{contains}(#{type}*, #{elementType});
+      #{elementType} #{get}(#{type}*, #{elementType});
+      size_t #{size}(#{type}*);
+      int #{empty}(#{type}*);
+      int #{put}(#{type}*, #{elementType});
+      void #{putForce}(#{type}*, #{elementType});
+      void #{itCtor}(#{it}*, #{type}*);
+      int #{itHasNext}(#{it}*);
+      #{elementType} #{itNext}(#{it}*);
     $
   end
-
   def write_defs(stream)
-    bucket.write_defs(stream)
+    @bucket.write_defs(stream)
     stream << %$
-        void #{ctor}(#{type}* self, int bucket_count) {
-          int i;
-          #{assert}(self);
-          #{assert}(bucket_count > 0);
-          self->buckets = (#{bucket.type}*) #{malloc}(bucket_count*sizeof(#{bucket.type})); #{assert}(self->buckets);
-          for(i = 0; i < bucket_count; ++i) {
-            #{bucket.ctor}(&self->buckets[i]);
-          }
-          self->bucket_count = bucket_count;
-          self->size = 0;
+      extern size_t #{hasher}(#{elementType});
+      extern int #{comparator}(#{elementType}, #{elementType});
+      void #{ctor}(#{type}* self, size_t bucket_count) {
+        size_t i;
+        #{assert}(self);
+        #{assert}(bucket_count > 0);
+        self->buckets = (#{@bucket.type}*) #{malloc}(bucket_count*sizeof(#{@bucket.type})); #{assert}(self->buckets);
+        for(i = 0; i < bucket_count; ++i) {
+          #{@bucket.ctor}(&self->buckets[i]);
         }
-        #{type}* #{new}(int bucket_count) {
-          #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
-          #{ctor}(self, bucket_count);
-          return self;
+        self->bucket_count = bucket_count;
+        self->size = 0;
+      }
+      #{type}* #{new}(size_t bucket_count) {
+        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{ctor}(self, bucket_count);
+        return self;
+      }
+      int #{contains}(#{type}* self, #{elementType} element) {
+        #{assert}(self);
+        return #{@bucket.contains}(&self->buckets[#{hasher}(element) % self->bucket_count], element);
+      }
+      #{elementType} #{get}(#{type}* self, #{elementType} element) {
+        #{assert}(self);
+        #{assert}(#{contains}(self, element));
+        return #{@bucket.get}(&self->buckets[#{hasher}(element) % self->bucket_count], element);
+      }
+      size_t #{size}(#{type}* self) {
+        #{assert}(self);
+        return self->size;
+      }
+      int #{empty}(#{type}* self) {
+        #{assert}(self);
+        return !self->size;
+      }
+      int #{put}(#{type}* self, #{elementType} element) {
+        #{@bucket.type}* bucket;
+        #{assert}(self);
+        bucket = &self->buckets[#{hasher}(element) % self->bucket_count];
+        if(!#{@bucket.contains}(bucket, element)) {
+          #{@bucket.append}(bucket, element);
+          ++self->size;
+          return 1;
+        } else {
+          return 0;
         }
-        int #{contains}(#{type}* self, #{element_type} element) {
-          #{assert}(self);
-          return #{bucket.contains}(&self->buckets[#{hasher}(element) % self->bucket_count], element);
+      }
+      void #{putForce}(#{type}* self, #{elementType} element) {
+        #{@bucket.type}* bucket;
+        #{assert}(self);
+        bucket = &self->buckets[#{hasher}(element) % self->bucket_count];
+        if(!#{@bucket.replace}(bucket, element, element)) {
+          #{@bucket.append}(bucket, element);
+          ++self->size;
         }
-        #{element_type} #{get}(#{type}* self, #{element_type} element) {
-          #{assert}(self);
-          #{assert}(#{contains}(self, element));
-          return #{bucket.get}(&self->buckets[#{hasher}(element) % self->bucket_count], element);
-        }
-        int #{size}(#{type}* self) {
-          #{assert}(self);
-          return self->size;
-        }
-        int #{empty}(#{type}* self) {
-          #{assert}(self);
-          return !self->size;
-        }
-        int #{put}(#{type}* self, #{element_type} element) {
-          #{bucket.type}* bucket;
-          #{assert}(self);
-          bucket = &self->buckets[#{hasher}(element) % self->bucket_count];
-          if(!#{bucket.contains}(bucket, element)) {
-            #{bucket.append}(bucket, element);
-            ++self->size;
-            return 1;
-          } else {
-            return 0;
-          }
-        }
-        void #{put_force}(#{type}* self, #{element_type} element) {
-          #{bucket.type}* bucket;
-          #{assert}(self);
-          bucket = &self->buckets[#{hasher}(element) % self->bucket_count];
-          if(!#{bucket.replace}(bucket, element, element)) {
-            #{bucket.append}(bucket, element);
-            ++self->size;
-          }
-        }
-        void #{it_ctor}(#{it}* self, #{type}* set) {
-          #{assert}(self);
-          self->set = set;
-          self->bucket_index = 0;
-          #{bucket.it_ctor}(&self->it, &set->buckets[0]);
-        }
-        int #{it_has_next}(#{it}* self) {
-          #{assert}(self);
-          if(#{bucket.it_has_next}(&self->it)) {
-            return 1;
-          } else {
-            int i; for(i = self->bucket_index+1; i < self->set->bucket_count; ++i) {
-              if(!#{bucket.empty}(&self->set->buckets[i])) {
-                return 1;
-              }
+      }
+      void #{itCtor}(#{it}* self, #{type}* set) {
+        #{assert}(self);
+        self->set = set;
+        self->bucket_index = 0;
+        #{@bucket.itCtor}(&self->it, &set->buckets[0]);
+      }
+      int #{itHasNext}(#{it}* self) {
+        #{assert}(self);
+        if(#{@bucket.itHasNext}(&self->it)) {
+          return 1;
+        } else {
+          size_t i; for(i = self->bucket_index+1; i < self->set->bucket_count; ++i) {
+            if(!#{@bucket.empty}(&self->set->buckets[i])) {
+              return 1;
             }
-            return 0;
           }
+          return 0;
         }
-        #{element_type} #{it_next}(#{it}* self) {
-          #{assert}(self);
-          #{assert}(#{it_has_next}(self));
-          if(#{bucket.it_has_next}(&self->it)) {
-            return #{bucket.it_next}(&self->it);
+      }
+      #{elementType} #{itNext}(#{it}* self) {
+        #{assert}(self);
+        #{assert}(#{itHasNext}(self));
+          if(#{@bucket.itHasNext}(&self->it)) {
+            return #{@bucket.itNext}(&self->it);
           } else {
-            int i; for(i = self->bucket_index+1; i < self->set->bucket_count; ++i) {
-              if(!#{bucket.empty}(&self->set->buckets[i])) {
-                #{bucket.it_ctor}(&self->it, &self->set->buckets[i]);
-                self->bucket_index = i;
-                return #{bucket.it_next}(&self->it);
-              }
+            size_t i; for(i = self->bucket_index+1; i < self->set->bucket_count; ++i) {
+            if(!#{@bucket.empty}(&self->set->buckets[i])) {
+            #{@bucket.itCtor}(&self->it, &self->set->buckets[i]);
+              self->bucket_index = i;
+              return #{@bucket.itNext}(&self->it);
             }
-            #{abort}();
           }
+          #{abort}();
         }
-      void #{log}(#{type}* self, FILE* out) {
-        int i, size, max = 0;
-        fprintf(out, "size=%d\\nbucket_count=%d\\nbucket_size[]=\\n", self->size, self->bucket_count);
-        for(i = 0; i < self->bucket_count; ++i) {
-          size = #{bucket.size}(&self->buckets[i]);
-          if(max < size) max = size;
-          fprintf(out, "%d\\t%d\\n", i, size);
-        }
-        fprintf(out, "max(bucket_size)=%d\\n", max);
       }
     $
   end
-
-  protected
-
-  attr_reader :bucket
-
 end # Set
 
 
-class Map < Type
-
-  attr_reader :key_type, :value_type, :hasher, :comparator
-
-  def pair; "#{type}Pair" end
-
-  def ctor; "#{type}Ctor" end
-
-  def new; "#{type}New" end
-
-  def contains_key; "#{type}ContainsKey" end
-
-  def get; "#{type}Get" end
-
-  def put; "#{type}Put" end
-
-  def put_force; "#{type}PutForce" end
-
-  def size; "#{type}Size" end
-
-  def empty; "#{type}Empty" end
-
-  def it; "#{type}It" end
-
-  def it_ctor; "#{type}ItCtor" end
-
-  def it_has_next; "#{type}ItHasNext" end
-
-  def it_next_key; "#{type}ItNextKey" end
-
-  def it_next_value; "#{type}ItNextValue" end
-
-  def it_next; "#{type}ItNext" end
-
-  def log; "#{type}Log" end
-
-  def initialize(type, key_type, value_type, hasher, comparator, visible = true)
-    super(type, visible)
-    @key_type = key_type
-    @value_type = value_type
+class Map < Struct
+  attr_reader :keyType, :hasher, :comparator
+  def initialize(type, key_type, element_type, hasher, comparator)
+    super(type, element_type)
+    @keyType = key_type
     @hasher = hasher
     @comparator = comparator
-    @pair_set = new_pair_set
+    @pairSet = new_pair_set
   end
-
   def new_pair_set
-    Set.new("#{type}PairSet", "#{type}Pair", "#{type}PairHasher", "#{type}PairComparator", visible)
+    Set.new("#{type}PairSet", "#{type}Pair", "#{type}PairHasher", "#{type}PairComparator")
   end
-
-  def write_intf_real(stream)
+  def write_intf(stream)
     stream << %$
-        typedef struct {
-          #{key_type} key;
-          #{value_type} value;
-        } #{pair};
+      typedef struct #{pair} #{pair};
+      struct #{pair} {
+        #{keyType} key;
+        #{elementType} element;
+      };
     $
-    pair_set.write_intf_real(stream)
+    @pairSet.write_intf(stream)
     stream << %$
-        typedef struct {
-          #{pair_set.type} pairs;
-        } #{type};
-        typedef struct {
-          #{pair_set.it} it;
-        } #{it};
-        extern size_t #{hasher}(#{key_type});
-        extern int #{comparator}(#{key_type}, #{key_type});
-        void #{ctor}(#{type}*, int);
-        #{type}* #{new}(int);
-        int #{size}(#{type}*);
-        int #{contains_key}(#{type}*, #{key_type});
-        #{value_type} #{get}(#{type}*, #{key_type});
-        int #{put}(#{type}*, #{key_type}, #{value_type});
-        void #{put_force}(#{type}*, #{key_type}, #{value_type});
-        void #{it_ctor}(#{it}*, #{type}*);
-        int #{it_has_next}(#{it}*);
-        #{key_type} #{it_next_key}(#{it}*);
-        #{value_type} #{it_next_value}(#{it}*);
-        #{pair} #{it_next}(#{it}*);
+      typedef struct #{type} #{type};
+      typedef struct #{it} #{it};
+      struct #{type} {
+        #{@pairSet.type} pairs;
+      };
+      struct #{it} {
+        #{@pairSet.it} it;
+      };
+      extern size_t #{hasher}(#{keyType});
+      extern int #{comparator}(#{keyType}, #{keyType});
+      void #{ctor}(#{type}*, size_t);
+      #{type}* #{new}(size_t);
+      size_t #{size}(#{type}*);
+      int #{containsKey}(#{type}*, #{keyType});
+      #{elementType} #{get}(#{type}*, #{keyType});
+      int #{put}(#{type}*, #{keyType}, #{elementType});
+      void #{putForce}(#{type}*, #{keyType}, #{elementType});
+      void #{itCtor}(#{it}*, #{type}*);
+      int #{itHasNext}(#{it}*);
+      #{keyType} #{itNextKey}(#{it}*);
+      #{elementType} #{itNextElement}(#{it}*);
+      #{pair} #{itNext}(#{it}*);
     $
   end
-
   def write_defs(stream)
-    pair_set.write_defs(stream)
+    @pairSet.write_defs(stream)
     stream << %$
-        size_t #{pair_set.hasher}(#{pair} pair) {
-          return #{hasher}(pair.key);
-        }
-        int #{pair_set.comparator}(#{pair} lt, #{pair} rt) {
-          return #{comparator}(lt.key, rt.key);
-        }
-        void #{ctor}(#{type}* self, int bucket_count) {
-          #{assert}(self);
-          #{pair_set.ctor}(&self->pairs, bucket_count);
-        }
-        #{type}* #{new}(int bucket_count) {
-          #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
-          return self;
-        }
-        int #{size}(#{type}* self) {
-          return #{pair_set.size}(&self->pairs);
-        }
-        int #{contains_key}(#{type}* self, #{key_type} key) {
+      size_t #{@pairSet.hasher}(#{pair} pair) {
+        return #{hasher}(pair.key);
+      }
+      int #{@pairSet.comparator}(#{pair} lt, #{pair} rt) {
+        return #{comparator}(lt.key, rt.key);
+      }
+      void #{ctor}(#{type}* self, size_t bucket_count) {
+        #{assert}(self);
+        #{@pairSet.ctor}(&self->pairs, bucket_count);
+      }
+      #{type}* #{new}(size_t bucket_count) {
+        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{ctor}(self, bucket_count);
+        return self;
+      }
+      size_t #{size}(#{type}* self) {
+        return #{@pairSet.size}(&self->pairs);
+      }
+      int #{containsKey}(#{type}* self, #{keyType} key) {
+        #{pair} pair;
+        #{assert}(self);
+        pair.key = key;
+        return #{@pairSet.contains}(&self->pairs, pair);
+      }
+      #{elementType} #{get}(#{type}* self, #{keyType} key) {
+        #{pair} pair;
+        #{assert}(self);
+        #{assert}(#{containsKey}(self, key));
+        pair.key = key;
+        return #{@pairSet.get}(&self->pairs, pair).element;
+      }
+      int #{put}(#{type}* self, #{keyType} key, #{elementType} element) {
+        #{assert}(self);
+        if(!#{containsKey}(self, key)) {
           #{pair} pair;
-          #{assert}(self);
-          pair.key = key;
-          return #{pair_set.contains}(&self->pairs, pair);
+          pair.key = key; pair.element = element;
+          #{@pairSet.put}(&self->pairs, pair);
+          return 1;
+        } else {
+          return 0;
         }
-        #{value_type} #{get}(#{type}* self, #{key_type} key) {
-          #{pair} pair;
-          #{assert}(self);
-          #{assert}(#{contains_key}(self, key));
-          pair.key = key;
-          return #{pair_set.get}(&self->pairs, pair).value;
-        }
-        int #{put}(#{type}* self, #{key_type} key, #{value_type} value) {
-          #{assert}(self);
-          if(!#{contains_key}(self, key)) {
-            #{pair} pair;
-            pair.key = key; pair.value = value;
-            #{pair_set.put}(&self->pairs, pair);
-              return 1;
-            } else {
-              return 0;
-            }
-        }
-        void #{put_force}(#{type}* self, #{key_type} key, #{value_type} value) {
-          #{pair} pair;
-          #{assert}(self);
-          pair.key = key; pair.value = value;
-          #{pair_set.put_force}(&self->pairs, pair);
-        }
-        void #{it_ctor}(#{it}* self, #{type}* map) {
-          #{assert}(self);
-          #{assert}(map);
-          #{pair_set.it_ctor}(&self->it, &map->pairs);
-        }
-        int #{it_has_next}(#{it}* self) {
-          #{assert}(self);
-          return #{pair_set.it_has_next}(&self->it);
-        }
-        #{key_type} #{it_next_key}(#{it}* self) {
-          #{assert}(self);
-          return #{pair_set.it_next}(&self->it).key;
-        }
-        #{value_type} #{it_next_value}(#{it}* self) {
-          #{assert}(self);
-          return #{pair_set.it_next}(&self->it).value;
-        }
-        #{pair} #{it_next}(#{it}* self) {
-          #{assert}(self);
-          return #{pair_set.it_next}(&self->it);
-        }
-      void #{log}(#{type}* self, FILE* out) {
-        #{pair_set.log}(&self->pairs, out);
+      }
+      void #{putForce}(#{type}* self, #{keyType} key, #{elementType} element) {
+        #{pair} pair;
+        #{assert}(self);
+        pair.key = key; pair.element = element;
+        #{@pairSet.putForce}(&self->pairs, pair);
+      }
+      void #{itCtor}(#{it}* self, #{type}* map) {
+        #{assert}(self);
+        #{assert}(map);
+        #{@pairSet.itCtor}(&self->it, &map->pairs);
+      }
+      int #{itHasNext}(#{it}* self) {
+        #{assert}(self);
+        return #{@pairSet.itHasNext}(&self->it);
+      }
+      #{keyType} #{itNextKey}(#{it}* self) {
+        #{assert}(self);
+        return #{@pairSet.itNext}(&self->it).key;
+      }
+      #{elementType} #{itNextElement}(#{it}* self) {
+        #{assert}(self);
+        return #{@pairSet.itNext}(&self->it).element;
+      }
+      #{pair} #{itNext}(#{it}* self) {
+        #{assert}(self);
+        return #{@pairSet.itNext}(&self->it);
       }
     $
   end
-
-  protected
-
-  attr_reader :pair_set
-
 end # Map
 
 

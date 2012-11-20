@@ -29,6 +29,7 @@ end
 
 m = M.new
 
+m << DataStruct::Array.new("DoubleArray", "double")
 m << DataStruct::List.new("IntSlist", "int", "IntComparator")
 m << DataStruct::Set.new("IntHset", "int", "IntHasher", "IntComparator")
 m << DataStruct::Set.new("StrHset", "char*", "PcharHasher", "PcharComparator")
