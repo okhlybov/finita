@@ -18,7 +18,7 @@ class H < CodeBuilder::Header
   end
 end
 
-class S <CodeBuilder::Source
+class S < CodeBuilder::Source
   def new_stream
     File.new("field_code_test.auto.c", 'wt')
   end

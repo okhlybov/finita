@@ -83,7 +83,7 @@ class NodeSetCode < SetAdapter
   include Singleton
   def entities; super + [NodeCode.instance] end
   def initialize
-    super('FinitaNodeSet', 'FinitaNode', 'FinitaNodeHash', 'FinitaNodeCompare', true)
+    super('FinitaNodeSet', 'FinitaNode', 'FinitaNodeHash', 'FinitaNodeCompare')
   end
 end # NodeSetCode
 
@@ -92,7 +92,7 @@ class NodeMapCode < MapAdapter
   include Singleton
   def entities; super + [NodeCode.instance] end
   def initialize
-    super('FinitaNodeMap', 'FinitaNode', 'int', 'FinitaNodeHash', 'FinitaNodeCompare', true)
+    super('FinitaNodeMap', 'FinitaNode', 'int', 'FinitaNodeHash', 'FinitaNodeCompare')
   end
 end # NodeMapCode
 
@@ -102,7 +102,7 @@ class FuncListCode < ListAdapter
   attr_reader :scalar_type
   def initialize(type, scalar, func_type)
     @scalar_type = Generator::Scalar[scalar]
-    super(type, func_type, "#{type}Compare", true)
+    super(type, func_type, "#{type}Compare")
   end
   def write_intf(stream)
     stream << %$
@@ -175,7 +175,7 @@ class FuncMatrixCode < MapAdapter
   def at; "#{type}At" end
   def initialize(type, scalar)
     @func_list_code = FuncList::Code[scalar]
-    super(type, 'FinitaMatrixKey', "#{func_list_code.type}*", 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare', true)
+    super(type, 'FinitaMatrixKey', "#{func_list_code.type}*", 'FinitaMatrixKeyHash', 'FinitaMatrixKeyCompare')
   end
   def write_intf(stream)
     super
@@ -242,7 +242,7 @@ class FuncVectorCode < MapAdapter
   def at; "#{type}At" end
   def initialize(type, scalar)
     @func_list_code = FuncList::Code[scalar]
-    super(type, 'FinitaNode', "#{func_list_code.type}*", 'FinitaNodeHash', 'FinitaNodeCompare', true)
+    super(type, 'FinitaNode', "#{func_list_code.type}*", 'FinitaNodeHash', 'FinitaNodeCompare')
   end
   def write_intf(stream)
     super
