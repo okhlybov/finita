@@ -148,7 +148,7 @@ end # ListAdapter
 class SetAdapter < DataStruct::Set
   include AdapterMixin
   def new_bucket_list
-    ListAdapter.new("#{type}Bucket", element_type, comparator, visible)
+    ListAdapter.new("#{type}Bucket", element_type, comparator)
   end
 end # SetAdapter
 
@@ -156,7 +156,7 @@ end # SetAdapter
 class MapAdapter < DataStruct::Map
   include AdapterMixin
   def new_pair_set
-    SetAdapter.new("#{type}PairSet", "#{type}Pair", "#{type}PairHash", "#{type}PairCompare", visible)
+    SetAdapter.new("#{type}PairSet", "#{type}Pair", "#{type}PairHash", "#{type}PairCompare")
   end
 end # MapAdapter
 

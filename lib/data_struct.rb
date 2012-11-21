@@ -11,10 +11,6 @@ class Prologue < CodeBuilder::Code
     stream << %$
       #include <stddef.h>
       #include <assert.h>
-    $
-  end
-  def write_decls(stream)
-    stream << %$
       #include <stdlib.h>
       #include <malloc.h>
     $
@@ -75,7 +71,7 @@ class Array < Struct
         self->values = (#{elementType}*) #{calloc}(element_count, sizeof(#{elementType})); #{assert}(self->values);
       }
       #{type}* #{new}(size_t element_count) {
-        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{type}* self = (#{type}*)#{malloc}(sizeof(#{type})); #{assert}(self);
         #{ctor}(self, element_count);
         return self;
       }
@@ -165,7 +161,7 @@ class List < Struct
         self->node_count = 0;
       }
       #{type}* #{new}(void) {
-        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{type}* self = (#{type}*)#{malloc}(sizeof(#{type})); #{assert}(self);
         #{ctor}(self);
         return self;
       }
@@ -180,7 +176,7 @@ class List < Struct
       void #{append}(#{type}* self, #{elementType} element) {
         #{node}* node;
         #{assert}(self);
-        node = (#{node}*) #{malloc}(sizeof(#{node})); #{assert}(node);
+        node = (#{node}*)#{malloc}(sizeof(#{node})); #{assert}(node);
         node->element = element;
         node->next_node = NULL;
         if(self->tail_node) self->tail_node->next_node = node;
@@ -191,7 +187,7 @@ class List < Struct
       void #{prepend}(#{type}* self, #{elementType} element) {
         #{node}* node;
         #{assert}(self);
-        node = (#{node}*) #{malloc}(sizeof(#{node})); #{assert}(node);
+        node = (#{node}*)#{malloc}(sizeof(#{node})); #{assert}(node);
         node->element = element;
         node->next_node = self->head_node;
         self->head_node = node;
@@ -222,7 +218,6 @@ class List < Struct
           node = node->next_node;
         }
         #{abort}();
-        return what;
       }
       int #{replace}(#{type}* self, #{elementType} what, #{elementType} with) {
         #{node}* node;
@@ -328,7 +323,7 @@ class Set < Struct
         size_t i;
         #{assert}(self);
         #{assert}(bucket_count > 0);
-        self->buckets = (#{@bucket.type}*) #{malloc}(bucket_count*sizeof(#{@bucket.type})); #{assert}(self->buckets);
+        self->buckets = (#{@bucket.type}*)#{malloc}(bucket_count*sizeof(#{@bucket.type})); #{assert}(self->buckets);
         for(i = 0; i < bucket_count; ++i) {
           #{@bucket.ctor}(&self->buckets[i]);
         }
@@ -336,7 +331,7 @@ class Set < Struct
         self->size = 0;
       }
       #{type}* #{new}(size_t bucket_count) {
-        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{type}* self = (#{type}*)#{malloc}(sizeof(#{type})); #{assert}(self);
         #{ctor}(self, bucket_count);
         return self;
       }
@@ -478,7 +473,7 @@ class Map < Struct
         #{@pairSet.ctor}(&self->pairs, bucket_count);
       }
       #{type}* #{new}(size_t bucket_count) {
-        #{type}* self = #{malloc}(sizeof(#{type})); #{assert}(self);
+        #{type}* self = (#{type}*)#{malloc}(sizeof(#{type})); #{assert}(self);
         #{ctor}(self, bucket_count);
         return self;
       }

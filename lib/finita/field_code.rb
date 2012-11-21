@@ -1,11 +1,12 @@
 require 'singleton'
 require 'data_struct'
+require 'finita/evaluator_code'
 
 
 module Finita
 
 
-class RectField3D < DataStruct::Struct
+class RectField < DataStruct::Struct
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -13,6 +14,7 @@ class RectField3D < DataStruct::Struct
         #{elementType}* data;
         int x1, x2, y1, y2, z1, z2;
         size_t size;
+        char* tag;
       };
       void #{ctor}(#{type}*, int, int, int, int, int, int);
       int #{within}(#{type}*, int, int, int);
@@ -69,29 +71,29 @@ class RectField3D < DataStruct::Struct
       }
     $
   end
-end # RectField3D
+end # RectField
 
 
-class IntegerRectField < RectField3D
+class IntegerRectField < RectField
   include Singleton
   def initialize
-    super('FinitaIntegerRectField', 'int')
+    super('FinitaIntegerRectField', NumericType[::Integer])
   end
 end # IntegerRectField
 
 
-class FloatRectField < RectField3D
+class FloatRectField < RectField
   include Singleton
   def initialize
-    super('FinitaFloatRectField', 'double')
+    super('FinitaFloatRectField', NumericType[::Float])
   end
 end # IntegerRectField
 
 
-class ComplexRectField < RectField3D
+class ComplexRectField < RectField
   include Singleton
   def initialize
-    super('FinitaComplexRectField', '_Complex double')
+    super('FinitaComplexRectField', NumericType[::Complex])
   end
   def write_intf(stream)
     stream << %$

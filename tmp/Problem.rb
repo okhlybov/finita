@@ -1,5 +1,6 @@
 #require 'ruby-prof'
 #RubyProf.start
+include Finita
 
 A = Scalar.new(:A, Integer)
 B = Scalar.new(:B, Integer)
