@@ -10,23 +10,21 @@ class Prologue < CodeBuilder::Code
   def write_intf(stream)
     stream << %$
       #include <stddef.h>
-      #include <assert.h>
       #include <stdlib.h>
       #include <malloc.h>
+      #include <assert.h>
     $
   end
 end # Prologue
 
 
-class Struct < CodeBuilder::Code
+class Code < CodeBuilder::Code
   undef abort;
-  attr_reader :type, :elementType
-  def initialize(type, element_type)
-    @overrides = {:malloc=>'malloc', :calloc=>'calloc', :assert=>'assert', :abort=>'abort'}
+  attr_reader :type
+  def initialize(type)
     @type = type
-    @elementType = element_type
+    setup_overrides
   end
-  def entities; [Prologue.instance] end
   def method_missing(method, *args)
     if @overrides.include?(method)
       @overrides[method]
@@ -35,10 +33,23 @@ class Struct < CodeBuilder::Code
       @type + s[0].capitalize + s[1..-1]
     end
   end
+  def setup_overrides
+    @overrides = {:malloc=>'malloc', :calloc=>'calloc', :assert=>'assert', :abort=>'abort'}
+  end
+end # Code
+
+
+class Structure < Code
+  attr_reader :elementType
+  def initialize(type, element_type)
+    super(type)
+    @elementType = element_type
+  end
+  def entities; [Prologue.instance] end
 end # Struct
 
 
-class Array < Struct
+class Array < Structure
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -68,7 +79,7 @@ class Array < Struct
         #{assert}(self);
         #{assert}(element_count > 0);
         self->element_count = element_count;
-        self->values = (#{elementType}*) #{calloc}(element_count, sizeof(#{elementType})); #{assert}(self->values);
+        self->values = (#{elementType}*)#{calloc}(element_count, sizeof(#{elementType})); #{assert}(self->values);
       }
       #{type}* #{new}(size_t element_count) {
         #{type}* self = (#{type}*)#{malloc}(sizeof(#{type})); #{assert}(self);
@@ -112,7 +123,7 @@ class Array < Struct
 end # Array
 
 
-class List < Struct
+class List < Structure
   attr_reader :comparator
   def initialize(type, element_type, comparator)
     super(type, element_type)
@@ -275,7 +286,7 @@ class List < Struct
 end # List
 
 
-class Set < Struct
+class Set < Structure
   attr_reader :hasher, :comparator
   def initialize(type, element_type, hasher, comparator)
     super(type, element_type)
@@ -413,7 +424,7 @@ class Set < Struct
 end # Set
 
 
-class Map < Struct
+class Map < Structure
   attr_reader :keyType, :hasher, :comparator
   def initialize(type, key_type, element_type, hasher, comparator)
     super(type, element_type)

@@ -29,5 +29,7 @@ class S < CodeBuilder::Source
 end
 
 m = M.new
-m << Finita::RectFieldCode[Integer] << Finita::RectFieldCode[Float] << Finita::RectFieldCode[Complex]
+#m << Finita::RectFieldCode[Integer] << Finita::RectFieldCode[Float] << Finita::RectFieldCode[Complex]
+require 'finita/evaluator_code'
+m<<Finita::EvaluationMatrixCode[Float]
 m.generate

@@ -1,125 +1,111 @@
 require 'set'
-require 'code_builder'
-require 'finita/common'
+require 'data_struct'
+require 'finita/type'
+require 'finita/system'
 require 'finita/generator'
-require 'finita/mapper'
 
 
 module Finita
 
 
-# This class represents the root in the hierarchy of the problem specified.
 class Problem
-
-  @@object = nil
-
-  # Return current problem object which is set when the Problem constructor is supplied with block.
-  def self.object
-    raise 'Problem context is not set' if @@object.nil?
-    @@object
+  @@current = nil
+  @@problems = []
+  def self.current
+    raise 'problem context is not set' if @@current.nil?
+    @@current
   end
-
-  class Code < BoundCodeTemplate
-    def entities; super + [@setup, @cleanup] end
-    def initialize(problem, gtor)
-      super({:problem=>problem}, gtor)
-      @setup = CustomFunctionCode.new(gtor, "#{problem.name}Setup", ['int argc', 'char** argv'], 'void', :write_setup, false)
-      @cleanup = CustomFunctionCode.new(gtor, "#{problem.name}Cleanup", [], 'void', :write_cleanup, true)
-    end
-  end # Code
-
-  # Return problem name as seen from the C side.
-  # Must be a valid C identifier.
-  attr_reader :name
-
-  # Return list of equation systems bound to the problem.
-  # The list ordering is not important.
-  attr_reader :systems
-
-  # Return problem-wise solver.
-  # This solver is to be used by the systems bound to this problem for which system-specific backends are not specified.
-  def solver
-    @solver.nil? ? raise('Problem-wise algebraic solver is not set') : @solver
+  def self.current=(problem)
+    raise 'nested problem contexts are not allowed' if @@current.nil? == problem.nil?
+    @@current = problem
   end
-
-  # Set problem-wise solver. See #solver.
-  def solver=(solver)
-    @solver = solver
+  def self.problems
+    @@problems
   end
-
-  def transformer
-    @t9r.nil? ? raise('Problem-wise coordinate transformer is not set') : @t9r
-  end
-
-  def transformer=(t9r)
-    @t9r = t9r
-  end
-
-  def discretizer
-    @d9r.nil? ? raise('Problem-wise discretizer is not set') : @d9r
-  end
-
-  def discretizer=(d9r)
-    @d9r = d9r
-  end
-
-  def generator
-    @gtor.nil? ? raise('Problem-wise generator is not set') : @gtor
-  end
-
-  def generator=(gtor)
-    @gtor = gtor
-  end
-
-  def mapper
-    @mapper.nil? ? raise('Problem-wise mapper is not set') : @mapper
-  end
-
-  def mapper=(mapper)
-    @mapper = mapper
-  end
-
-  # Initialize a new problem instance.
-  # Invokes #process when optional block is supplied.
+  attr_reader :name, :systems, :instances
   def initialize(name, &block)
-    @name = Finita.to_c(name)
+    @name = name.to_s # TODO validate
+    @instances = Set.new
     @systems = []
+    Problem.problems << self
     if block_given?
-      raise 'Problem nesting is not permitted' unless @@object.nil?
       begin
-        @@object = self
-        yield(self)
+        Problem.current = self
+        block.call(self)
       ensure
-        @@object = nil
+        Problem.current = nil
       end
-      process!
     end
   end
-
-  def unknowns
-    set = Set.new
-    systems.unknowns.each {|uns| set.merge(uns)}
-    set
+  def <<(entity)
+    instances << entity
   end
-
-  def types
-    Set.new(systems.collect {|sys| sys.type})
-  end
-
-  # Generate source code for the problem.
   def process!
-    @algebraic_systems = systems.collect {|system| system.process}
-    generator.generate!(self)
+    @module = new_module
+    @module << code
+    @module.generate!
   end
-
-  # Bind code entities to specified generator.
-  # Invokes bind() methods on owned sub-objects.
-  def bind(gtor)
-    Code.new(self, gtor) unless gtor.bound?(self)
-    @algebraic_systems.each {|s| s.bind(gtor)}
+  def code
+    Code.new(self)
   end
-
+  protected
+  def new_module
+    Generator::Module.new(name)
+  end
 end # Problem
+
+
+class Problem::Code < DataStruct::Code
+  attr_reader :problem, :initializers, :finalizers
+  def entities; super + @codes.values + (problem.systems + problem.instances.to_a).collect {|s| s.code(self)} + (initializers | finalizers).to_a end
+  def initialize(problem)
+    @problem = problem
+    super(problem.name)
+    @initializers = Set.new
+    @finalizers = Set.new
+    @symbols = {}
+    @codes = {}
+  end
+  def hash
+    problem.hash
+  end
+  def eql?(other)
+    equal?(other) || self.class == other.class && problem == other.problem
+  end
+  def <<(code)
+    if @codes.key?(code)
+      @codes[code]
+    else
+      if code.respond_to?(:symbol)
+        symbol = code.symbol
+        raise "duplicate global symbol #{symbol}" if @symbols.key?(symbol) && @symbols[symbol] != code
+        @symbols[symbol] = code
+      end
+      @codes[code] = code
+    end
+  end
+  def write_intf(stream)
+    stream << %$
+        int #{setup}(int, char**);
+        int #{cleanup}(void);
+      $
+  end
+  def write_defs(stream)
+    stream << %$
+      FINITA_ARGSUSED
+      int #{setup}(int argc, char** argv) {int result = FINITA_OK;
+    $
+    CodeBuilder.priority_sort(initializers, false).each do |e|
+      e.write_initializer(stream)
+    end
+    stream << 'return result;}'
+    stream << %$int #{cleanup}(void) {int result = FINITA_OK;$
+    CodeBuilder.priority_sort(finalizers, true).each do |e|
+      e.write_finalizer(stream)
+    end
+    stream << 'return result;}'
+  end
+end # Code
 
 
 end # Finita
