@@ -2,3 +2,4 @@
 require 'finita'
 include Finita
 load ARGV[0]
+Problem.problems.each {|p| p.process!}

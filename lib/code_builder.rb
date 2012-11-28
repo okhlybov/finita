@@ -13,8 +13,7 @@ module CodeBuilder
 #   def write_defs(stream)
 #   def write_decls(stream)
 #   def hash()
-#   def ==(other)
-#   alias :eql? :==
+#   def eql?(other)
 # end
 
 
@@ -79,7 +78,7 @@ class Module
     @source_count = count
   end
 
-  def generate
+  def generate!
     @header = new_header
     @sources = []
     (1..source_count).each {|i| @sources << new_source(i)}
@@ -100,7 +99,7 @@ class Module
       total = 0
       @entities.each {|e| total += e.source_size}
       count = @source_size_threshold > 0 ? (total/@source_size_threshold + 1) : 1
-      count > 0 ? count : 1
+      @source_count = count > 0 ? count : 1
     else
       @source_count
     end

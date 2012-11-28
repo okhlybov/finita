@@ -1,332 +1,345 @@
+require 'singleton'
+require 'data_struct'
 require 'finita/common'
 
 
 module Finita
 
 
-class MatrixEvaluatorCode < Finita::StaticCodeTemplate
-  attr_reader :type, :scalar_type, :func_list_code
-  def entities; super + [Finita::NodeCode.instance, func_list_code] end
-  def initialize(type, scalar)
+class Evaluator
+  attr_reader :expression, :type
+  def initialize(expression, type)
+    @expression = expression
     @type = type
-    @func_list_code = Finita::FuncList::Code[scalar]
-    @scalar_type = Finita::Generator::Scalar[scalar]
+  end
+  def hash
+    expression.hash ^ type.hash # TODO
+  end
+  def ==(other)
+    equal?(other) || self.class == other.class && expression == other.expression && type == other.type
+  end
+  def code(problem_code)
+    Code.new(self, problem_code)
+  end
+  class Code < DataStruct::Code
+    class << self
+      alias :__new__ :new
+      def new(owner, problem_code)
+        obj = __new__(owner, problem_code)
+        problem_code << obj
+      end
+    end
+    @@count = 0
+    attr_reader :evaluator, :instance
+    def initialize(evaluator, problem_code)
+      super('FinitaCode')
+      @evaluator = evaluator
+      @instance = "#{problem_code.problem.name}#{@@count += 1}"
+      @ctype = Finita::NumericType[evaluator.type]
+    end
+    def hash
+      evaluator.hash
+    end
+    def eql?(other)
+      equal?(other) || self.class == other.class && evaluator == other.evaluator
+    end
+    def write_intf(stream)
+      stream << %$#{@ctype} #{instance}(int, int, int);$
+    end
+    def write_defs(stream)
+      stream << %$
+        FINITA_ARGSUSED
+        #{@ctype} #{instance}(int x, int y, int z) {
+          return #{CEmitter.emit(evaluator.expression)};
+        }
+      $
+    end
+  end # Code
+end # Evaluator
+
+
+class NodeCode < DataStruct::Code
+  include Singleton
+  def initialize
+    super('FinitaNode')
   end
   def write_intf(stream)
     stream << %$
-    typedef struct #{type} #{type};
-    typedef #{scalar_type} (*#{type}Code)(#{type}*);
-    struct #{type} {
-      FinitaNode row, column;
-      #{func_list_code.type}* list;
-      #{type}Code code;
-    };
-  $
+      FINITA_INLINE size_t FinitaHashMix(size_t hash) {
+        /* Thomas Wang's mixing algorithm */
+        hash = (hash ^ 61) ^ (hash >> 16);
+        hash = hash + (hash << 3);
+        hash = hash ^ (hash >> 4);
+        hash = hash * 0x27d4eb2d;
+        hash = hash ^ (hash >> 15);
+        return hash;
+      }
+      typedef struct {
+        int field, x, y, z;
+        size_t hash;
+      } #{type};
+      #define SIGN2LSB(x) ((abs(x) << 1) | (x < 0))
+      FINITA_INLINE #{type} #{new}(int field, int x, int y, int z) {
+        #{type} result;
+        #{assert}(field >= 0);
+        result.field = field;
+        result.x = x;
+        result.y = y;
+        result.z = z;
+        /* abs(x|y|z) < 2^9 is implied; extra bit is reserved for the sign */
+        result.hash = FinitaHashMix(((SIGN2LSB(x) & 0x3FF) | ((SIGN2LSB(y) & 0x3FF) << 10) | ((SIGN2LSB(z) & 0x3FF) << 20)) ^ (field << 30));
+        return result;
+      }
+      #undef SIGN2LSB
+      FINITA_INLINE size_t #{hasher}(#{type} node) {
+        return node.hash;
+      }
+      FINITA_INLINE int #{comparator}(#{type} lt, #{type} rt) {
+        return lt.field == rt.field && lt.x == rt.x && lt.y == rt.y && lt.z == rt.z;
+      }
+    $
   end
-end # MatrixEvaluatorCode
+end # NodeCode
 
 
-class IntegerMatrixEvaluatorCode < MatrixEvaluatorCode
+class NodeCoordCode < DataStruct::Code
+  include Singleton
+  attr_reader :node
+  def entities; super + [node] end
   def initialize
-    super('FinitaIntegerMatrixEvaluator', Integer)
-  end
-end # IntegerMatrixEvaluatorCode
-
-
-class FloatMatrixEvaluatorCode < MatrixEvaluatorCode
-  def initialize
-    super('FinitaFloatMatrixEvaluator', Float)
-  end
-end # FloatMatrixEvaluatorCode
-
-
-class ComplexMatrixEvaluatorCode < MatrixEvaluatorCode
-  def initialize
-    super('FinitaComplexMatrixEvaluator', Complex)
-  end
-end # ComplexMatrixEvaluatorCode
-
-
-module MatrixEvaluator
-  Code = {Integer=>IntegerMatrixEvaluatorCode.instance, Float=>FloatMatrixEvaluatorCode.instance, Complex=>ComplexMatrixEvaluatorCode.instance}
-end # MatrixEvaluator
-
-
-class VectorEvaluatorCode < Finita::StaticCodeTemplate
-  attr_reader :type, :scalar_type, :func_list_code
-  def entities; super + [Finita::NodeCode.instance, func_list_code] end
-  def initialize(type, scalar)
-    @type = type
-    @func_list_code = Finita::FuncList::Code[scalar]
-    @scalar_type = Finita::Generator::Scalar[scalar]
+    super('FinitaNodeCoord')
+    @node = NodeCode.instance
   end
   def write_intf(stream)
     stream << %$
-    typedef struct #{type} #{type};
-    typedef #{scalar_type} (*#{type}Code)(#{type}*);
-    struct #{type} {
-      FinitaNode row;
-      #{func_list_code.type}* list;
-      #{type}Code code;
-    };
-  $
+      typedef struct {
+        #{node.type} row, column;
+        size_t hash;
+      } #{type};
+      FINITA_INLINE #{type} #{new}(#{node.type} row, #{node.type} column) {
+        #{type} result;
+        result.row = row;
+        result.column = column;
+        result.hash = FinitaHashMix(#{node.hasher}(row) ^ #{node.hasher}(column));
+        return result;
+      }
+      FINITA_INLINE size_t #{hasher}(#{type} node) {
+        return node.hash;
+      }
+      FINITA_INLINE int #{comparator}(#{type} lt, #{type} rt) {
+        return #{node.comparator}(lt.row, rt.row) && #{node.comparator}(lt.column, rt.column);
+      }
+    $
   end
-end # VectorEvaluatorCode
+end # NodeCoordCode
 
 
-class IntegerVectorEvaluatorCode < VectorEvaluatorCode
+class FuncListCode < DataStruct::List
+  include Singleton
   def initialize
-    super('FinitaIntegerVectorEvaluator', Integer)
+    super('FinitaFuncList', 'FinitaFunc', 'FinitaFuncComparator')
   end
-end # IntegerVectorEvaluatorCode
+  def write_intf(stream)
+    stream << %$
+      typedef void (*#{elementType})(void);
+      FINITA_INLINE int #{comparator}(#{elementType} lt, #{elementType} rt) {
+        return lt == rt;
+      }
+    $
+    super
+  end
+end # FuncListCode
 
 
-class FloatVectorEvaluatorCode < VectorEvaluatorCode
+class FuncNodeMapCode < DataStruct::Map
+  include Singleton
+  attr_reader :key, :list
+  def entities; super + [key, list] end
   def initialize
-    super('FinitaFloatVectorEvaluator', Float)
+    @list = FuncListCode.instance
+    @key = NodeCode.instance
+    super('FinitaFuncNodeMap', key.type, "#{list.type}*", key.hasher, key.comparator)
   end
-end # FloatVectorEvaluatorCode
+end # FuncNodeMapCode
 
 
-class ComplexVectorEvaluatorCode < VectorEvaluatorCode
+class FuncNodeCoordMapCode < DataStruct::Map
+  include Singleton
+  attr_reader :key, :list
+  def entities; super + [key, list] end
   def initialize
-    super('FinitaComplexVectorEvaluator', Complex)
+    @list = FuncListCode.instance
+    @key = NodeCoordCode.instance
+    super('FinitaFuncNodeCoordMap', key.type, "#{list.type}*", key.hasher, key.comparator)
   end
-end # ComplexVectorEvaluatorCode
+end # FuncNodeMapCode
 
 
-module VectorEvaluator
-  Code = {Integer=>IntegerVectorEvaluatorCode.instance, Float=>FloatVectorEvaluatorCode.instance, Complex=>ComplexVectorEvaluatorCode.instance}
-end # VectorEvaluator
+class AbstractEvaluationVectorCode < DataStruct::Structure
+  attr_reader :returnType, :map
+  def entities; super + [map] end
+  def initialize(type, element_type, return_type)
+    super(type, element_type)
+    @returnType = return_type
+    @map = FuncNodeMapCode.instance
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef #{map.type} #{type};
+      typedef #{returnType} (*#{elementType})(int, int, int);
+      void #{ctor}(#{type}*, size_t);
+      void #{merge}(#{type}*, #{map.key.type}, #{elementType});
+      #{returnType} #{get}(#{type}*, #{map.key.type});
+    $
+    super
+  end
+  def write_defs(stream)
+    stream << %$
+      void #{ctor}(#{type}* self, size_t bucket_size) {
+        #{assert}(self);
+        #{map.ctor}(self, bucket_size);
+      }
+      void #{merge}(#{type}* self, #{map.key.type} node, #{elementType} fp) {
+        #{map.elementType} list;
+        #{assert}(self);
+        if(#{map.containsKey}(self, node)) {
+          list = #{map.get}(self, node);
+        } else {
+          list = #{map.list.new}();
+          #{map.put}(self, node, list);
+        }
+        #{map.list.append}(list, (#{map.list.elementType})fp);
+      }
+      #{returnType} #{get}(#{type}* self, #{map.key.type} node) {
+        #{map.list.it} it;
+        #{returnType} result = 0;
+        #{assert}(self);
+        #{assert}(#{map.containsKey}(self, node));
+        #{map.list.itCtor}(&it, #{map.get}(self, node));
+        while(#{map.list.itHasNext}(&it)) result += ((#{elementType})#{map.list.itNext}(&it))(node.x, node.y, node.z);
+        return result;
+      }
+    $
+    super
+  end
+end # AbstractEvaluationVectorCode
+
+
+class IntegerEvaluationVectorCode < AbstractEvaluationVectorCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerEvaluationVector', 'FinitaIntegerFuncPtr', NumericType[Integer])
+  end
+end # FloatEvaluationVectorCode
+
+
+class FloatEvaluationVectorCode < AbstractEvaluationVectorCode
+  include Singleton
+  def initialize
+    super('FinitaFloatEvaluationVector', 'FinitaFloatFuncPtr', NumericType[Float])
+  end
+end # FloatEvaluationVectorCode
+
+
+class ComplexEvaluationVectorCode < AbstractEvaluationVectorCode
+  include Singleton
+  def initialize
+    super('FinitaComplexEvaluationVector', 'FinitaComplexFuncPtr', NumericType[Complex])
+  end
+end # ComplexEvaluationVectorCode
+
+
+EvaluationVectorCode = {
+    Integer => IntegerEvaluationVectorCode.instance,
+    Float => FloatEvaluationVectorCode.instance,
+    Complex => ComplexEvaluationVectorCode.instance
+}
+
+
+class AbstractEvaluationMatrixCode < DataStruct::Structure
+  attr_reader :returnType, :map
+  def entities; super + [map] end
+  def initialize(type, element_type, return_type)
+    super(type, element_type)
+    @returnType = return_type
+    @map = FuncNodeCoordMapCode.instance
+    @node = NodeCode.instance
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef #{map.type} #{type};
+      typedef #{returnType} (*#{elementType})(int, int, int);
+      void #{ctor}(#{type}*, size_t);
+      void #{merge}(#{type}*, #{@node.type}, #{@node.type}, #{elementType});
+      #{returnType} #{get}(#{type}*, #{@node.type}, #{@node.type});
+    $
+    super
+  end
+  def write_defs(stream)
+    stream << %$
+      void #{ctor}(#{type}* self, size_t bucket_size) {
+        #{assert}(self);
+        #{map.ctor}(self, bucket_size);
+      }
+      void #{merge}(#{type}* self, #{@node.type} row, #{@node.type} column, #{elementType} fp) {
+        #{map.key.type} node;
+        #{map.elementType} list;
+        #{assert}(self);
+        node = #{map.key.new}(row, column);
+        if(#{map.containsKey}(self, node)) {
+          list = #{map.get}(self, node);
+        } else {
+          list = #{map.list.new}();
+          #{map.put}(self, node, list);
+        }
+        #{map.list.append}(list, (#{map.list.elementType})fp);
+      }
+      #{returnType} #{get}(#{type}* self, #{@node.type} row, #{@node.type} column) {
+        #{map.key.type} node;
+        #{map.list.it} it;
+        #{returnType} result = 0;
+        #{assert}(self);
+        node = #{map.key.new}(row, column);
+        #{assert}(#{map.containsKey}(self, node));
+        #{map.list.itCtor}(&it, #{map.get}(self, node));
+        while(#{map.list.itHasNext}(&it)) result += ((#{elementType})#{map.list.itNext}(&it))(row.x, row.y, row.z);
+        return result;
+      }
+    $
+    super
+  end
+end # AbstractEvaluationMatrixCode
+
+
+class IntegerEvaluationMatrixCode < AbstractEvaluationMatrixCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerEvaluationMatrix', 'FinitaIntegerFuncPtr', NumericType[Integer])
+  end
+end # FloatEvaluationMatrixCode
+
+
+class FloatEvaluationMatrixCode < AbstractEvaluationMatrixCode
+  include Singleton
+  def initialize
+    super('FinitaFloatEvaluationMatrix', 'FinitaFloatFuncPtr', NumericType[Float])
+  end
+end # FloatEvaluationMatrixCode
+
+
+class ComplexEvaluationMatrixCode < AbstractEvaluationMatrixCode
+  include Singleton
+  def initialize
+    super('FinitaComplexEvaluationMatrix', 'FinitaComplexFuncPtr', NumericType[Complex])
+  end
+end # ComplexEvaluationMatrixCode
+
+
+EvaluationMatrixCode = {
+    Integer => IntegerEvaluationMatrixCode.instance,
+    Float => FloatEvaluationMatrixCode.instance,
+    Complex => ComplexEvaluationMatrixCode.instance
+}
 
 
 end # Finita
-
-
-module Finita::Evaluator
-
-
-class EvaluatorCode < Finita::CodeTemplate
-
-  attr_reader :gtor, :evaluator, :name, :scalar_type, :system, :code
-
-  attr_reader :func_list_code, :func_matrix_code, :func_vector_code, :matrix_evaluator_code, :vector_evaluator_code
-
-  def entities; super + [Finita::NodeSetCode.instance, func_matrix_code, func_vector_code, matrix_evaluator_code, vector_evaluator_code] end
-
-  def initialize(evaluator, gtor, system)
-    @gtor = gtor
-    @evaluator = evaluator
-    @system = system
-    @name = system.name
-    @scalar_type = Finita::Generator::Scalar[system.type]
-    @func_list_code = Finita::FuncList::Code[system.type]
-    @func_matrix_code = Finita::FuncMatrix::Code[system.type]
-    @func_vector_code = Finita::FuncVector::Code[system.type]
-    @matrix_evaluator_code = Finita::MatrixEvaluator::Code[system.type]
-    @vector_evaluator_code = Finita::VectorEvaluator::Code[system.type]
-    gtor << self
-  end
-
-  def write_intf(stream)
-    stream << %$
-      extern #{func_matrix_code.type} #{name}SymbolicMatrix;
-      extern #{func_vector_code.type} #{name}SymbolicVector;
-      void #{name}MatrixEvaluatorCtor(#{matrix_evaluator_code.type}*, FinitaNode, FinitaNode);
-      void #{name}VectorEvaluatorCtor(#{vector_evaluator_code.type}*, FinitaNode);
-      void #{name}SetupEvaluator();
-  $
-  end
-
-  def write_defs(stream)
-    stream << %$
-      FinitaNodeSet #{name}Nodes;
-      #{func_matrix_code.type} #{name}SymbolicMatrix;
-      #{func_vector_code.type} #{name}SymbolicVector;
-    $
-    system.linear? ? write_defs_linear(stream) : write_defs_nonlinear(stream)
-    stream << %$
-      void #{name}MatrixEvaluatorCtor(#{matrix_evaluator_code.type}* self, FinitaNode row, FinitaNode column) {
-        FINITA_ASSERT(self);
-        self->row = row;
-        self->column = column;
-        self->list = #{func_matrix_code.at}(&#{name}SymbolicMatrix, row, column);
-        self->code = #{name}MatrixEntryEvaluator;
-      }
-      void #{name}VectorEvaluatorCtor(#{vector_evaluator_code.type}* self, FinitaNode row) {
-        FINITA_ASSERT(self);
-        self->row = row;
-        self->list = #{func_vector_code.at}(&#{name}SymbolicVector, row);
-        self->code = #{name}VectorEntryEvaluator;
-      }
-    $
-  end
-
-end # EvaluatorCode
-
-
-class Numeric
-
-  class Code < EvaluatorCode
-
-    def entities; super + code.values end
-
-    def initialize(evaluator, gtor, system)
-      super
-      @code = {}
-      system.equations.each do |eqn|
-        eqn.bind(gtor)
-        eqn.lhs.each do |k,v|
-          code[v] = gtor << FpCode.new(v, eqn.type)
-        end
-        code[eqn.rhs] = gtor << FpCode.new(eqn.rhs, eqn.type)
-      end
-    end
-
-    def write_defs(stream)
-      super
-      stream << %$
-        extern #{scalar_type} #{name}GetNode(FinitaNode);
-        extern void #{name}SetNode(#{scalar_type}, FinitaNode);
-        void #{name}SetupEvaluator() {
-          int size = 0;
-          FinitaNodeSet nodes;
-          FinitaNodeSetIt it;
-      $
-      system.unknowns.each do |u|
-        stream << "size += #{gtor[u].node_count};"
-      end
-      stream << "FinitaNodeSetCtor(&nodes, size);"
-      system.equations.each do |eqn|
-        gtor[eqn.domain].foreach_code(stream) {
-          stream << "FinitaNodeSetPut(&nodes, FinitaNodeNew(#{system.unknowns.index(eqn.unknown)}, x, y, z));"
-        }
-      end
-      stream << %$
-        size = FinitaNodeSetSize(&nodes);
-        #{func_matrix_code.ctor}(&#{name}SymbolicMatrix, pow(size, 1.1));
-        #{func_vector_code.ctor}(&#{name}SymbolicVector, size);
-        FinitaNodeSetCtor(&#{name}Nodes, size);
-        FinitaNodeSetItCtor(&it, &nodes);
-        while(FinitaNodeSetItHasNext(&it)) {
-          int x, y, z;
-          FinitaNode column, row = FinitaNodeSetItNext(&it);
-          x = row.x; y = row.y; z = row.z;
-      $
-      system.equations.each do |eqn|
-        stream << "if(row.field == #{system.unknowns.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
-        eqn.lhs.each do |ref,fp|
-          stream << %$
-            column = FinitaNodeNew(#{system.unknowns.index(ref.arg)}, #{ref.xindex}, #{ref.yindex}, #{ref.zindex});
-            #{func_matrix_code.merge}(&#{name}SymbolicMatrix, row, column, #{code[fp].name});
-            FinitaNodeSetPut(&#{name}Nodes, column);
-          $
-        end
-        stream << %$
-          #{func_vector_code.merge}(&#{name}SymbolicVector, row, #{code[eqn.rhs].name});
-          FinitaNodeSetPut(&#{name}Nodes, row);
-        $
-        stream << (eqn.through? ? '}' : 'continue;}')
-      end
-      stream << '}'
-      stream << %$
-        FinitaNodeSetItCtor(&it, &#{name}Nodes);
-        while(FinitaNodeSetItHasNext(&it)) {
-          FinitaMatrixKey key;
-          FinitaNode node = FinitaNodeSetItNext(&it);
-          key.row = key.column = node;
-          if(!#{func_matrix_code.contains_key}(&#{name}SymbolicMatrix, key)) {
-            FINITA_ASSERT(!#{func_vector_code.contains_key}(&#{name}SymbolicVector, node));
-            #{func_matrix_code.put}(&#{name}SymbolicMatrix, key, NULL);
-            #{func_vector_code.put}(&#{name}SymbolicVector, node, NULL);
-          }
-        }
-      $
-      stream << '}'
-    end
-
-    def write_defs_linear(stream)
-      stream << %$
-      static #{scalar_type} #{name}MatrixEntryEvaluator(#{matrix_evaluator_code.type}* evaluator) {
-          if(evaluator->list) {
-            #{func_list_code.it} it;
-            #{scalar_type} result = 0;
-            #{func_list_code.it_ctor}(&it, evaluator->list);
-            while(#{func_list_code.it_has_next}(&it)) {
-              result += #{func_list_code.it_next}(&it)(evaluator->row.x, evaluator->row.y, evaluator->row.z);
-            }
-            return result;
-          } else {
-            return 1;
-          }
-        }
-        static #{scalar_type} #{name}VectorEntryEvaluator(#{vector_evaluator_code.type}* evaluator) {
-          if(evaluator->list) {
-            #{scalar_type} result = 0;
-            #{func_list_code.it} it;
-            #{func_list_code.it_ctor}(&it, evaluator->list);
-            while(#{func_list_code.it_has_next}(&it)) {
-              result += #{func_list_code.it_next}(&it)(evaluator->row.x, evaluator->row.y, evaluator->row.z);
-            }
-            return result;
-          } else {
-            return #{name}GetNode(evaluator->row);
-          }
-        }
-      $
-    end
-
-    def write_defs_nonlinear(stream)
-      stream << %$
-        static #{scalar_type} #{name}MatrixEntryEvaluator(#{matrix_evaluator_code.type}* evaluator) {
-          if(evaluator->list) {
-            #{func_list_code.it} it;
-            #{scalar_type} value, eta, result = 0, eps = 100*#{evaluator.relative_tolerance};
-            value = #{name}GetNode(evaluator->column);
-            eta = fabs(value) > eps ? value*#{evaluator.relative_tolerance} : (value < 0 ? -1 : 1)*eps; /* from the PETSc's MatFD implementation '*/
-            #{func_list_code.it_ctor}(&it, evaluator->list);
-            while(#{func_list_code.it_has_next}(&it)) {
-              #{func_list_code.element_type} fp = #{func_list_code.it_next}(&it);
-              #{name}SetNode(value + eta, evaluator->column);
-              result += fp(evaluator->row.x, evaluator->row.y, evaluator->row.z);
-              #{name}SetNode(value - eta, evaluator->column);
-              result -= fp(evaluator->row.x, evaluator->row.y, evaluator->row.z);
-            }
-            #{name}SetNode(value, evaluator->column);
-            return result/(2*eta);
-          } else {
-            return 1;
-          }
-        }
-        static #{scalar_type} #{name}VectorEntryEvaluator(#{vector_evaluator_code.type}* evaluator) {
-          if(evaluator->list) {
-            #{func_list_code.it} it;
-            #{scalar_type} result = 0;
-            #{func_list_code.it_ctor}(&it, evaluator->list);
-            while(#{func_list_code.it_has_next}(&it)) {
-              result += #{func_list_code.it_next}(&it)(evaluator->row.x, evaluator->row.y, evaluator->row.z);
-            }
-            return result;
-          } else {
-            return #{name}GetNode(evaluator->row);
-          }
-        }
-      $
-    end
-
-  end # Code
-
-  attr_reader :relative_tolerance
-
-  def initialize(rtol)
-    @relative_tolerance = rtol
-  end
-
-  def bind(gtor, system)
-    Code.new(self, gtor, system)
-  end
-
-end # Numeric
-
-
-end # Finita::Evaluator

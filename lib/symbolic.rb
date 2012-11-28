@@ -137,16 +137,16 @@ end
 #
 [::Fixnum, ::Float, ::Complex, ::Bignum, ::Rational].each do |cls|
   cls.class_eval do
-    alias :__add__ +
-    alias :__sub__ -
-    alias :__mul__ *
-    alias :__div__ /
-    alias :__pow__ **
-    def +(other) other.is_a?(Numeric) ? __add__(other) : Add.new(self, other) end
-    def -(other) other.is_a?(Numeric) ? __sub__(other) : Subtract.new(self, other) end
-    def *(other) other.is_a?(Numeric) ? __mul__(other) : Multiply.new(self, other) end
-    def /(other) other.is_a?(Numeric) ? __div__(other) : Divide.new(self, other) end
-    def **(other) other.is_a?(Numeric) ? __pow__(other) : Power.new(self, other) end
+    alias :symbolic_add +
+    alias :symbolic_sub -
+    alias :symbolic_mul *
+    alias :symbolic_div /
+    alias :symbolic_pow **
+    def +(other) other.is_a?(Numeric) ? symbolic_add(other) : Add.new(self, other) end
+    def -(other) other.is_a?(Numeric) ? symbolic_sub(other) : Subtract.new(self, other) end
+    def *(other) other.is_a?(Numeric) ? symbolic_mul(other) : Multiply.new(self, other) end
+    def /(other) other.is_a?(Numeric) ? symbolic_div(other) : Divide.new(self, other) end
+    def **(other) other.is_a?(Numeric) ? symbolic_pow(other) : Power.new(self, other) end
   end
 end
 
@@ -171,7 +171,7 @@ class Expression
   # The code within the Symbolic package assumes the equivalency of #eql? and #== methods and
   # the subclasses of the Expression class redefine the latter to provide object comparison, therefore
   # this definition must be left as is otherwise things might break.
-  def eql?(other) self == other end
+  alias :eql? :==
 end
 
 
