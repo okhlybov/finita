@@ -1,175 +1,66 @@
 require 'finita/common'
-require 'finita/generator'
+require 'finita/system'
+require 'finita/evaluator'
 
 
-module Finita::Solver
+module Finita
 
 
-class SolverCode < Finita::CodeTemplate
-
-  attr_reader :gtor, :solver, :system, :name, :type
-
-  def initialize(solver, gtor, system)
-    @gtor = gtor
-    @solver = solver
-    @system = system
-    @name = system.name
-    @type = Finita::Generator::Scalar[system.type]
-    gtor << self
+class Solver
+  def code(problem_code, system_code)
+    self.class::Code.new(self, problem_code, system_code)
   end
-
-  def write_intf(stream)
-    stream << %$
-      void #{name}Solve();
-      void #{name}SetupSolver();
-    $
-  end
-
-end # SolverCode
-
-
-class Explicit
-
-  class Code < Finita::BoundCodeTemplate
-    attr_reader :name, :type, :equations, :unknowns, :evaluator
-    def entities; super + [Finita::Mapper::StaticCode.instance, VectorCode.instance] + evaluator.values end
-    def initialize(solver, gtor, system)
-      super({:solver=>solver}, gtor)
-      raise 'Explicit solver requires non-linear system' if system.linear?
-      @system = system
-      @name = system.name
-      @type = Finita::Generator::Scalar[system.type]
-      @equations = system.equations
-      @unknowns = system.unknowns
-      @evaluator = {}
-      equations.each do |eqn|
-        eqn.bind(gtor)
-        evaluator[eqn] = gtor << FpCode.new(eqn.rhs, eqn.type)
-      end
+  class Code < DataStruct::Code
+    attr_reader :solver
+    def initialize(solver, problem_code, system_code)
+      @solver = solver
+      @problem_code = problem_code
+      @system_code = system_code
+      @system_code.initializers << self
+      @system_code.finalizers << self
+      super("#{system_code.type}Solver")
     end
+    def hash
+      solver.hash
+    end
+    def eql?(other)
+      equal?(other) || self.class == other.class && self.solver == other.solver
+    end
+    def write_initializer(stream)
+      stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+    end
+    def write_finalizer(stream)
+      stream << %$result = #{cleanup}(); #{assert}(result == FINITA_OK);$
+    end
+  end # Code
+end # Solver
+
+
+class Solver::Explicit < Solver
+  attr_reader :evaluators
+  def process!(problem, system)
+    @evaluators = system.equations.collect {|e| Finita::Evaluator.new(e.assignment.expression, system.type)}
+  end
+  class Code < Solver::Code
+    def entities; super + solver.evaluators.collect {|e| e.code(@problem_code)} end
     def write_intf(stream)
       stream << %$
-        void #{name}Solve();
-        void #{name}SetupSolver();
+        int #{setup}(void);
+        int #{cleanup}(void);
       $
     end
     def write_defs(stream)
       stream << %$
-        typedef #{type} (*#{name}Fp)(int, int, int);
-        FinitaFpVector #{name}Evaluators;
-      $
-      stream << %$
-        void #{name}SetupSolver() {
-          int index, size;
-          size = FinitaOrdererSize(&#{name}Orderer);
-          FinitaFpVectorCtor(&#{name}Evaluators, &#{name}Orderer);
-          for(index = 0; index < size; ++index) {
-            int x, y, z;
-            FinitaNode row = FinitaOrdererNode(&#{name}Orderer, index);
-            x = row.x; y = row.y; z = row.z;
-      $
-      equations.each do |eqn|
-        stream << "if(row.field == #{unknowns.index(eqn.unknown)} && #{gtor[eqn.domain].within_xyz}) {"
-        stream << "FinitaFpVectorMerge(&#{name}Evaluators, index, (FinitaFp)#{evaluator[eqn].name});"
-        stream << (eqn.through? ? '}' : 'continue;}')
-      end
-      stream << '}}'
-      stream << %$
-        void #{name}Solve() {
-          int index, size = FinitaOrdererSize(&#{name}Orderer);
-          FINITA_ASSERT(#{name}Orderer.frozen);
-          for(index = 0; index < size; ++index) {
-            FinitaFpListIt it;
-            #{type} result = 0;
-            FinitaNode node = FinitaOrdererNode(&#{name}Orderer, index);
-            FinitaFpListItCtor(&it, FinitaFpVectorAt(&#{name}Evaluators, index));
-            while(FinitaFpListItHasNext(&it)) {
-              result += ((#{name}Fp)FinitaFpListItNext(&it))(node.x, node.y, node.z);
-            }
-            #{name}SetNode(result, node);
-          }
+        int #{setup}(void) {
+          return FINITA_OK;
+        }
+        int #{cleanup}(void) {
+          return FINITA_OK;
         }
       $
     end
-  end # Code
-
-  def bind(gtor, system)
-    Code.new(self, gtor, system) unless gtor.bound?(self)
   end
-
-end if false # Explicit
-
-
-class Matrix
-
-  class Code < SolverCode
-
-    def entities; super + [@evaluator_code, @backend_code] end
-
-    def initialize(solver, gtor, system, evaluator_code, backend_code)
-      super(solver, gtor, system)
-      @evaluator_code = evaluator_code
-      @backend_code = backend_code
-    end
-
-    def write_defs(stream)
-      super
-      stream << %$
-        void #{name}SetupSolver() {
-          #{name}SetupEvaluator();
-          #{name}SetupMapper(&#{name}Nodes);
-          #{name}SetupBackend(&#{name}Mapper, &#{name}SymbolicMatrix, &#{name}SymbolicVector);
-        }
-      $
-      if system.linear?
-        stream << %$
-          void #{name}Solve() {
-            int i;
-            #{name}SolveLinearSystem();
-            for(i = 0; i < #{name}NEQ; ++i) {
-              #{name}SetIndex(#{name}RHS[i].result, #{name}RHS[i].row_index);
-            }
-          }
-        $
-      else
-        abs = :fabs if system.type == Float
-        abs = :cabs if system.type == Complex
-        stream << %$
-          void #{name}Solve() {
-            int i;
-            #{type} norm;
-            do {
-              #{type} base = 0, delta = 0;
-              #{name}SolveLinearSystem();
-              for(i = 0; i < #{name}NEQ; ++i) {
-                #{type} value = #{name}GetIndex(#{name}RHS[i].row_index);
-                base += #{abs}(value);
-                delta += #{abs}(#{name}RHS[i].result);
-                #{name}SetIndex(value + #{name}RHS[i].result, #{name}RHS[i].row_index);
-              }
-              norm = (base == 0 ? 1 : delta/base); if(delta == 0) norm = 0;
-            } while(norm > #{solver.relative_tolerance});
-          }
-        $
-      end
-    end
-  end # Code
-
-  attr_reader :evaluator, :backend
-
-  attr_reader :relative_tolerance
-
-  def initialize(rtol, evaluator, backend)
-    @relative_tolerance = rtol
-    @evaluator = evaluator
-    @backend = backend
-  end
-
-  def bind(gtor, system)
-    Code.new(self, gtor, system, evaluator.bind(gtor, system), backend.bind(gtor, system))
-  end
-
-end # Matrix
+end # Explicit
 
 
-end # Finita::Solver
+end # Finita

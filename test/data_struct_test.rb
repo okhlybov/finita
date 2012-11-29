@@ -35,4 +35,4 @@ m << DataStruct::Set.new("IntHset", "int", "IntHasher", "IntComparator")
 m << DataStruct::Set.new("StrHset", "char*", "PcharHasher", "PcharComparator")
 m << DataStruct::Map.new("StrIntHmap", "char*", "int", "PcharHasher", "PcharComparator")
 
-m.generate
+m.generate!

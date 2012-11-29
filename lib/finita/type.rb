@@ -24,7 +24,7 @@ end
 
 
 class Collector < Symbolic::Traverser
-  attr_reader :constants, :variables
+  attr_reader :constants, :variables, :fields
   def self.collect(*exprs)
     collector = Collector.new
     exprs.each {|e| Symbolic.coerce(e).apply(collector)}
@@ -33,15 +33,19 @@ class Collector < Symbolic::Traverser
   def initialize
     @constants = Set.new
     @variables = Set.new
+    @fields = Set.new
   end
   def instances
-    constants | variables
+    constants | variables | fields
   end
   def constant(obj)
     @constants << obj
   end
   def variable(obj)
     @variables << obj
+  end
+  def field(obj)
+    @fields << obj
   end
   def numeric(*args) end
 end # Collector
@@ -98,6 +102,7 @@ class Constant < Numeric
       @constant = constant
       @symbol = constant.name
       @problem_code = problem_code
+      @problem_code.defines << :FINITA_COMPLEX if constant.type == Complex
     end
     def hash
       constant.hash
@@ -158,6 +163,7 @@ class Variable < Symbolic::Expression
       @variable = variable
       @symbol = variable.name
       @problem_code = problem_code
+      @problem_code.defines << :FINITA_COMPLEX if variable.type == Complex
     end
     def hash
       variable.hash
@@ -167,7 +173,7 @@ class Variable < Symbolic::Expression
     end
     def write_intf(stream)
       stream << %$
-      #define #{variable.name} #{@problem_code.problem.name}#{variable.name}
+      #define #{variable.name} #{@problem_code.type}#{variable.name}
       extern #{NumericType[variable.type]} #{variable.name};
     $
     end
@@ -182,7 +188,7 @@ end # Variable
 
 
 
-class Field
+class Field < Symbolic::Expression
   attr_reader :name, :type, :domain
   def initialize(name, type, domain)
     raise 'numeric type expected' unless NumericType.key?(type)
@@ -220,6 +226,7 @@ class Field
       @domain_code = field.domain.code(problem_code)
       @ctype = Finita::NumericType[field.type]
       problem_code.initializers << self
+      problem_code.defines << :FINITA_COMPLEX if field.type == Complex
     end
     def hash
       @field.hash
@@ -229,7 +236,7 @@ class Field
     end
     def write_intf(stream)
       stream << %$
-        #define #{field.name}(x,y,z) #{instance}->data[#{@domain_code.index}(#{instance}->area, x, y, z)];
+        #define #{field.name}(x,y,z) (#{instance}.data[#{@domain_code.index}(#{instance}.area, x, y, z)])
         struct #{type} {
           #{@ctype}* data;
           #{@domain_code.type}* area;
@@ -277,7 +284,7 @@ class CEmitter < Symbolic::CEmitter
     @out << obj.name
   end
   def field(obj)
-    @out << obj.name
+    @out << obj.name << '(x,y,z)'
   end
 end # CEmitter
 
