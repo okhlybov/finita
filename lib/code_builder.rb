@@ -30,9 +30,9 @@ class Code
   def entities; [] end
   def priority
     if entities.empty?
-      CodeBuilder::Priority::DEFAULT
+      Priority::DEFAULT
     else
-      result = CodeBuilder::Priority::DEFAULT
+      result = Priority::DEFAULT
       entities.each do |e|
         ep = e.priority
         result = ep if result > ep

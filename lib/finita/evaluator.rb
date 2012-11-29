@@ -31,11 +31,14 @@ class Evaluator
     end
     @@count = 0
     attr_reader :evaluator, :instance
+    def entities; super + Collector.collect(evaluator.expression).instances.collect {|o| o.code(@problem_code)} end
     def initialize(evaluator, problem_code)
-      super('FinitaCode')
       @evaluator = evaluator
-      @instance = "#{problem_code.problem.name}#{@@count += 1}"
+      @problem_code = problem_code
+      @instance = "#{@problem_code.type}#{@@count += 1}"
       @ctype = Finita::NumericType[evaluator.type]
+      @problem_code.defines << :FINITA_COMPLEX if evaluator.type == Complex
+      super('FinitaCode')
     end
     def hash
       evaluator.hash

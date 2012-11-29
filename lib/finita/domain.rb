@@ -114,53 +114,51 @@ class Area
   def self.coerce(obj)
     obj.is_a?(Array) ? [Finita.simplify(obj.first), Finita.simplify(obj.last)] : [Finita.simplify(0), Finita.simplify(obj-1)]
   end
-end # Area
-
-
-class Area::Code < DataStruct::Code
-  class << self
-    alias :__new__ :new
-    def new(owner, problem_code)
-      obj = __new__(owner, problem_code)
-      problem_code << obj
+  class Code < DataStruct::Code
+    class << self
+      alias :__new__ :new
+      def new(owner, problem_code)
+        obj = __new__(owner, problem_code)
+        problem_code << obj
+      end
     end
-  end
-  @@count = 0
-  @@codes = {}
-  attr_reader :area, :instance
-  def entities
-    super + [StaticCode.instance] + Collector.collect(*(area.xrange + area.yrange + area.zrange)).instances.collect {|o| o.code(@problem_code)}
-  end
-  def initialize(area, problem_code)
-    @area = area
-    @instance = "#{StaticCode.instance.type}#{@@count += 1}"
-    @problem_code = problem_code
-    super(StaticCode.instance.type)
-    problem_code.initializers << self
-  end
-  def hash
-    area.hash
-  end
-  def eql?(other)
-    equal?(other) || self.class == other.class && area == other.area
-  end
-  def write_intf(stream)
-    stream << %$
+    @@count = 0
+    @@codes = {}
+    attr_reader :area, :instance
+    def entities
+      super + [StaticCode.instance] + Collector.collect(*(area.xrange + area.yrange + area.zrange)).instances.collect {|o| o.code(@problem_code)}
+    end
+    def initialize(area, problem_code)
+      @area = area
+      @instance = "#{StaticCode.instance.type}#{@@count += 1}"
+      @problem_code = problem_code
+      super(StaticCode.instance.type)
+      problem_code.initializers << self
+    end
+    def hash
+      area.hash
+    end
+    def eql?(other)
+      equal?(other) || self.class == other.class && area == other.area
+    end
+    def write_intf(stream)
+      stream << %$
       extern #{type} #{instance};
     $
-  end
-  def write_defs(stream)
-    stream << %$
+    end
+    def write_defs(stream)
+      stream << %$
       #{type} #{instance};
     $
-  end
-  def write_initializer(stream)
-    args = (area.xrange + area.yrange + area.zrange).collect {|e| CEmitter.emit(e)}.join(',')
-    stream << %$
+    end
+    def write_initializer(stream)
+      args = (area.xrange + area.yrange + area.zrange).collect {|e| CEmitter.emit(e)}.join(',')
+      stream << %$
       #{ctor}(&#{instance}, #{args});
     $
-  end
-end # Code
+    end
+  end # Code
+end # Area
 
 
 end # Finita::Domain

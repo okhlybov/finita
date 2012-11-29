@@ -41,71 +41,69 @@ class Problem
     instances << entity
   end
   def process!
-    @module = new_module
-    @module << code
-    @module.generate!
+    systems.each {|s| s.process!}
+    new_module(code).generate!
   end
   def code
     Code.new(self)
   end
-  protected
-  def new_module
-    Generator::Module.new(name)
-  end
-end # Problem
-
-
-class Problem::Code < DataStruct::Code
-  attr_reader :problem, :initializers, :finalizers
-  def entities; super + @codes.values + (problem.systems + problem.instances.to_a).collect {|s| s.code(self)} + (initializers | finalizers).to_a end
-  def initialize(problem)
-    @problem = problem
-    super(problem.name)
-    @initializers = Set.new
-    @finalizers = Set.new
-    @symbols = {}
-    @codes = {}
-  end
-  def hash
-    problem.hash
-  end
-  def eql?(other)
-    equal?(other) || self.class == other.class && problem == other.problem
-  end
-  def <<(code)
-    if @codes.key?(code)
-      @codes[code]
-    else
-      if code.respond_to?(:symbol)
-        symbol = code.symbol
-        raise "duplicate global symbol #{symbol}" if @symbols.key?(symbol) && @symbols[symbol] != code
-        @symbols[symbol] = code
-      end
-      @codes[code] = code
+  class Code < DataStruct::Code
+    attr_reader :problem, :initializers, :finalizers, :defines
+    def entities; super + [Finita::Generator::PrologueCode.new(defines)] + @codes.values + (problem.systems + problem.instances.to_a).collect {|s| s.code(self)} + (initializers | finalizers).to_a end
+    def initialize(problem)
+      @problem = problem
+      super(problem.name)
+      @initializers = Set.new
+      @finalizers = Set.new
+      @defines = Set.new
+      @symbols = {}
+      @codes = {}
     end
-  end
-  def write_intf(stream)
-    stream << %$
+    def hash
+      problem.hash
+    end
+    def eql?(other)
+      equal?(other) || self.class == other.class && problem == other.problem
+    end
+    def <<(code)
+      if @codes.key?(code)
+        @codes[code]
+      else
+        if code.respond_to?(:symbol)
+          symbol = code.symbol
+          raise "duplicate global symbol #{symbol}" if @symbols.key?(symbol) && @symbols[symbol] != code
+          @symbols[symbol] = code
+        end
+        @codes[code] = code
+      end
+    end
+    def write_intf(stream)
+      stream << %$
         int #{setup}(int, char**);
         int #{cleanup}(void);
       $
-  end
-  def write_defs(stream)
-    stream << %$
+    end
+    def write_defs(stream)
+      stream << %$
       FINITA_ARGSUSED
       int #{setup}(int argc, char** argv) {int result = FINITA_OK;
     $
-    CodeBuilder.priority_sort(initializers, false).each do |e|
-      e.write_initializer(stream)
+      CodeBuilder.priority_sort(initializers, false).each do |e|
+        e.write_initializer(stream)
+      end
+      stream << 'return result;}'
+      stream << %$int #{cleanup}(void) {int result = FINITA_OK;$
+      CodeBuilder.priority_sort(finalizers, true).each do |e|
+        e.write_finalizer(stream)
+      end
+      stream << 'return result;}'
     end
-    stream << 'return result;}'
-    stream << %$int #{cleanup}(void) {int result = FINITA_OK;$
-    CodeBuilder.priority_sort(finalizers, true).each do |e|
-      e.write_finalizer(stream)
-    end
-    stream << 'return result;}'
+  end # Code
+  protected
+  def new_module(root_code)
+    Generator::Module.new(name) << root_code
   end
-end # Code
+end # Problem
 
 
 end # Finita

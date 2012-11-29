@@ -34,7 +34,7 @@ class Code < CodeBuilder::Code
     end
   end
   def setup_overrides
-    @overrides = {:malloc=>'malloc', :calloc=>'calloc', :assert=>'assert', :abort=>'abort'}
+    @overrides = {:malloc=>'malloc', :calloc=>'calloc', :assert=>'assert', :abort=>'abort', :inline=>'static inline'}
   end
 end # Code
 
@@ -64,13 +64,29 @@ class Array < Structure
       };
       void #{ctor}(#{type}*, size_t);
       #{type}* #{new}(size_t);
-      #{elementType} #{get}(#{type}*, size_t);
-      void #{set}(#{type}*, size_t, #{elementType});
       int #{within}(#{type}*, size_t);
-      size_t #{size}(#{type}*);
       void #{itCtor}(#{it}*, #{type}*);
       int #{itHasNext}(#{it}*);
       #{elementType} #{itNext}(#{it}*);
+      #{inline} #{elementType}* #{ref}(#{type}* self, size_t index) {
+        #{assert}(self);
+        #{assert}(#{within}(self, index));
+        return &self->values[index];
+      }
+      #{inline} #{elementType} #{get}(#{type}* self, size_t index) {
+        #{assert}(self);
+        #{assert}(#{within}(self, index));
+        return *#{ref}(self, index);
+      }
+      #{inline} void #{set}(#{type}* self, size_t index, #{elementType} value) {
+        #{assert}(self);
+        #{assert}(#{within}(self, index));
+        *#{ref}(self, index) = value;
+      }
+      #{inline} size_t #{size}(#{type}* self) {
+        #{assert}(self);
+        return self->element_count;
+      }
     $
   end
   def write_defs(stream)
@@ -86,23 +102,9 @@ class Array < Structure
         #{ctor}(self, element_count);
         return self;
       }
-      #{elementType} #{get}(#{type}* self, size_t index) {
-        #{assert}(self);
-        #{assert}(#{within}(self, index));
-        return self->values[index];
-      }
-      void #{set}(#{type}* self, size_t index, #{elementType} value) {
-        #{assert}(self);
-        #{assert}(#{within}(self, index));
-        self->values[index] = value;
-      }
       int #{within}(#{type}* self, size_t index) {
         #{assert}(self);
         return index < self->element_count;
-      }
-      size_t #{size}(#{type}* self) {
-        #{assert}(self);
-        return self->element_count;
       }
       void #{itCtor}(#{it}* self, #{type}* array) {
         #{assert}(self);

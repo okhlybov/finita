@@ -5,7 +5,7 @@ require 'data_struct'
 
 class DataStruct::Code
   def setup_overrides
-    @overrides = {:malloc=>'FINITA_MALLOC', :calloc=>'FINITA_CALLOC', :assert=>'FINITA_ASSERT', :abort=>'FINITA_ABORT'}
+    @overrides = {:malloc=>'FINITA_MALLOC', :calloc=>'FINITA_CALLOC', :assert=>'FINITA_ASSERT', :abort=>'FINITA_ABORT', :inline=>'FINITA_INLINE'}
   end
 end # DataStruct::Code
 
@@ -14,9 +14,12 @@ module Finita::Generator
 
 
 class PrologueCode < CodeBuilder::Code
-  include Singleton
   def priority; CodeBuilder::Priority::MAX end
+  def initialize(defines)
+    @defines = defines
+  end
   def write_intf(stream)
+    @defines.each {|s| stream << "#define #{s}\n"}
     stream << %$
       #include <stdlib.h>
       #include <malloc.h>
@@ -26,7 +29,7 @@ class PrologueCode < CodeBuilder::Code
       #endif
 
       #if defined _MSC_VER
-        #define FINITA_ARGSUSED __pragma(warning (disable:4100))
+        #define FINITA_ARGSUSED __pragma(warning(disable:4100))
       #elif defined __DMC__
         #define FINITA_ARGSUSED
       #elif __STDC_VERSION__ >= 199901L
@@ -36,11 +39,11 @@ class PrologueCode < CodeBuilder::Code
       #endif
 
       #if defined _MSC_VER
-        #define FINITA_INLINE __inline
+        #define FINITA_INLINE static __inline
       #elif __STDC_VERSION__ >= 199901L || defined __PGI
-        #define FINITA_INLINE inline
+        #define FINITA_INLINE static inline
       #else
-        #define FINITA_INLINE
+        #define FINITA_INLINE static
       #endif
 
       #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
@@ -55,10 +58,18 @@ class PrologueCode < CodeBuilder::Code
 
       #define FINITA_MALLOC(size) malloc(size)
       #define FINITA_CALLOC(count, size) calloc(count, size)
-      extern void FinitaAbort(int); /* To be defined elsewhere */
       #define FINITA_ABORT() FinitaAbort(EXIT_FAILURE)
+      void FinitaAbort(int);
       #define FINITA_OK EXIT_SUCCESS
       #define FINITA_ERROR EXIT_FAILURE
+
+      #ifdef FINITA_COMPLEX
+        #include <complex.h>
+      #endif
+
+      #ifdef FINITA_MPI
+        #include <mpi.h>
+      #endif
     $
   end
   def write_defs(stream)
@@ -94,7 +105,6 @@ class Module < CodeBuilder::Module
   def initialize(file_prefix)
     super()
     @file_prefix = file_prefix # TODO
-    self << PrologueCode.instance
   end
   def new_header
     Header.new(self)
@@ -107,8 +117,8 @@ end # Module
 
 class Source < CodeBuilder::Source
   attr_reader :file_name
-  def initialize(*args)
-    super
+  def initialize(m, index)
+    super(m, index)
     @file_name = "#{@module.file_prefix}.auto#{index}.c"
   end
   def new_stream
@@ -126,8 +136,8 @@ end # Source
 
 class Header < CodeBuilder::Header
   attr_reader :file_name, :header_tag
-  def initialize(*args)
-    super
+  def initialize(m)
+    super(m)
     @file_name = "#{@module.file_prefix}.auto.h"
     @header_tag = @module.file_prefix.upcase + "_H"
   end
