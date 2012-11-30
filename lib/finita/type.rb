@@ -76,6 +76,7 @@ class Constant < Numeric
       false
     end
   end
+  alias :eql? :==
   def apply(obj)
     obj.constant(self)
   end
@@ -140,6 +141,7 @@ class Variable < Symbolic::Expression
   def ==(other)
     equal?(other) || self.class == other.class && name == other.name && type == other.type
   end
+  alias :eql? :==
   def apply(obj)
     obj.variable(self)
   end
@@ -202,6 +204,7 @@ class Field < Symbolic::Expression
   def ==(other)
     equal?(other) || self.class == other.class && name == other.name && type == other.type && domain == other.domain
   end
+  alias :eql? :==
   def apply(obj)
     obj.field(self)
   end

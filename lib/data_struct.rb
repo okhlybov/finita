@@ -428,11 +428,11 @@ end # Set
 
 class Map < Structure
   attr_reader :keyType, :hasher, :comparator
-  def initialize(type, key_type, element_type, hasher, comparator)
+  def initialize(type, key_type, element_type, key_hasher, key_comparator)
     super(type, element_type)
     @keyType = key_type
-    @hasher = hasher
-    @comparator = comparator
+    @hasher = key_hasher
+    @comparator = key_comparator
     @pairSet = new_pair_set
   end
   def new_pair_set

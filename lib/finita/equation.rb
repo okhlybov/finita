@@ -7,11 +7,11 @@ module Finita
 
 
 class Binding
-  attr_reader :expression, :field, :domain
-  def initialize(expression, field, domain, merge)
-    raise 'invalid field value' unless field.is_a?(Field)
+  attr_reader :expression, :unknown, :domain
+  def initialize(expression, unknown, domain, merge)
+    raise 'invalid field value' unless unknown.is_a?(Field)
     @expression = Symbolic.coerce(expression)
-    @field = field
+    @unknown = unknown
     @domain = domain
     @merge = merge
     System.current.equations << self
@@ -19,17 +19,42 @@ class Binding
   def merge?; @merge end
   # def linear?(variable = field)
   # def assignment()
+  def code(problem_code, system_code)
+    Code.new(self, problem_code, system_code)
+  end
+  class Code < DataStruct::Code
+    attr_reader :binding
+    def entities; super + [unknown_code, domain_code] end
+    def initialize(binding, problem_code, system_code)
+      @binding = binding
+      @problem_code = problem_code
+      @system_code = system_code
+      super("#{system_code.type}Binding")
+    end
+    def hash
+      binding.hash
+    end
+    def eql?(other)
+      equal?(other) || self.class == other.class && binding == other.binding
+    end
+    def unknown_code
+      binding.unknown.code(@problem_code)
+    end
+    def domain_code
+      binding.domain.code(@problem_code)
+    end
+  end
 end # Binding
 
 
-# Equation of form expression=field, where expression might be a function of field
+# Equation of form expression=field, where expression might be a function of unknown
 class Assignment < Binding
   def initialize(hash, domain)
-    # hash := {expression => field}
-    raise 'expected {expression=>field} value' unless hash.is_a?(Hash) && hash.size == 1
+    # hash := {expression => unknown}
+    raise 'expected {expression=>unknown} value' unless hash.is_a?(Hash) && hash.size == 1
     expression = hash.keys[0]
-    field = hash[expression]
-    super(expression, field, domain, false)
+    unknown = hash[expression]
+    super(expression, unknown, domain, false)
   end
   def assignment
     self
@@ -37,10 +62,10 @@ class Assignment < Binding
 end # Assignment
 
 
-# Equation of form expression=0 with expression being a function of field
+# Equation of form expression=0 with expression being a function of unknown
 class Equation < Binding
   attr_reader :system
-  def initialize(lhs, field, domain, merge = false)
+  def initialize(lhs, unknown, domain, merge = false)
     super
     @system = System.current
     system.equations << self
