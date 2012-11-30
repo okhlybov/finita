@@ -35,7 +35,7 @@ class System
     end
   end
   def type
-    Float # TODO
+    Float # TODO FIXME
   end
   def process!
     @equations = discretizer.process!(equations)
@@ -45,13 +45,14 @@ class System
     Code.new(self, problem_code)
   end
   class Code < DataStruct::Code
-    attr_reader :system, :initializers, :finalizers
-    def entities; super + [system.solver.code(@problem_code, self)] + (initializers | finalizers).to_a end
+    attr_reader :system, :initializers, :finalizers, :result
+    def entities; super + [solver_code] + equation_codes + (initializers | finalizers).to_a end
     def initialize(system, problem_code)
       @system = system
       @problem_code = problem_code
       @initializers = Set.new
       @finalizers = Set.new
+      @result = NumericType[system.type]
       @problem_code.initializers << self
       @problem_code.finalizers << self
       @problem_code.defines << :FINITA_COMPLEX if system.type == Complex
@@ -63,10 +64,17 @@ class System
     def eql?(other)
       equal?(other) || self.class == other.class && system == other.system
     end
+    def solver_code
+      system.solver.code(@problem_code, self)
+    end
+    def equation_codes
+      system.equations.collect {|e| e.code(@problem_code, self)}
+    end
     def write_intf(stream)
       stream << %$
         int #{setup}(void);
         int #{cleanup}(void);
+        int #{solve}(void);
       $
     end
     def write_defs(stream)

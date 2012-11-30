@@ -18,6 +18,7 @@ class Evaluator
   def ==(other)
     equal?(other) || self.class == other.class && expression == other.expression && type == other.type
   end
+  alias :eql? :==
   def code(problem_code)
     Code.new(self, problem_code)
   end
@@ -67,9 +68,10 @@ class NodeCode < DataStruct::Code
     super('FinitaNode')
   end
   def write_intf(stream)
+    # Thomas Wang's mixing algorithm, 32-bit version
+    # http://www.concentric.net/~ttwang/tech/inthash.htm
     stream << %$
       FINITA_INLINE size_t FinitaHashMix(size_t hash) {
-        /* Thomas Wang's mixing algorithm */
         hash = (hash ^ 61) ^ (hash >> 16);
         hash = hash + (hash << 3);
         hash = hash ^ (hash >> 4);
@@ -105,6 +107,39 @@ class NodeCode < DataStruct::Code
 end # NodeCode
 
 
+class NodeArrayCode < DataStruct::Array
+  include Singleton
+  attr_reader :node
+  def entities; super + [node] end
+  def initialize
+    @node = NodeCode.instance
+    super('FinitaNodeArray', node.type)
+  end
+end # NodeArrayCode
+
+
+class NodeSetCode < DataStruct::Set
+  include Singleton
+  attr_reader :node
+  def entities; super + [node] end
+  def initialize
+    @node = NodeCode.instance
+    super('FinitaNodeSet', node.type, node.hasher, node.comparator)
+  end
+end # NodeSetCode
+
+
+class NodeIndexMapCode < DataStruct::Map
+  include Singleton
+  attr_reader :node
+  def entities; super + [node] end
+  def initialize
+    @node = NodeCode.instance
+    super('FinitaNodeIndexMap', node.type, 'size_t', node.hasher, node.comparator)
+  end
+end # NodeIndexMapCode
+
+
 class NodeCoordCode < DataStruct::Code
   include Singleton
   attr_reader :node
@@ -119,17 +154,17 @@ class NodeCoordCode < DataStruct::Code
         #{node.type} row, column;
         size_t hash;
       } #{type};
-      FINITA_INLINE #{type} #{new}(#{node.type} row, #{node.type} column) {
+      #{inline} #{type} #{new}(#{node.type} row, #{node.type} column) {
         #{type} result;
         result.row = row;
         result.column = column;
         result.hash = FinitaHashMix(#{node.hasher}(row) ^ #{node.hasher}(column));
         return result;
       }
-      FINITA_INLINE size_t #{hasher}(#{type} node) {
+      #{inline} size_t #{hasher}(#{type} node) {
         return node.hash;
       }
-      FINITA_INLINE int #{comparator}(#{type} lt, #{type} rt) {
+      #{inline} int #{comparator}(#{type} lt, #{type} rt) {
         return #{node.comparator}(lt.row, rt.row) && #{node.comparator}(lt.column, rt.column);
       }
     $
@@ -145,7 +180,7 @@ class FuncListCode < DataStruct::List
   def write_intf(stream)
     stream << %$
       typedef void (*#{elementType})(void);
-      FINITA_INLINE int #{comparator}(#{elementType} lt, #{elementType} rt) {
+      #{inline} int #{comparator}(#{elementType} lt, #{elementType} rt) {
         return lt == rt;
       }
     $

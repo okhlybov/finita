@@ -107,6 +107,7 @@ class Area
   def ==(other)
     equal?(other) || self.class == other.class && xrange == other.xrange && yrange == other.yrange && zrange == other.zrange
   end
+  alias :eql? :==
   def code(problem_code)
     Code.new(self, problem_code)
   end
