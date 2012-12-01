@@ -189,6 +189,17 @@ class FuncListCode < DataStruct::List
 end # FuncListCode
 
 
+class FuncListArrayCode < DataStruct::Array
+  include Singleton
+  attr_reader :list
+  def entities; super + [list] end
+  def initialize
+    @list = FuncListCode.instance
+    super('FinitaFuncListArray', "#{list.type}*")
+  end
+end # FuncListArrayCode
+
+
 class FuncNodeMapCode < DataStruct::Map
   include Singleton
   attr_reader :key, :list
@@ -211,6 +222,88 @@ class FuncNodeCoordMapCode < DataStruct::Map
     super('FinitaFuncNodeCoordMap', key.type, "#{list.type}*", key.hasher, key.comparator)
   end
 end # FuncNodeMapCode
+
+
+class AbstractEvaluationArrayCode < DataStruct::Structure
+  attr_reader :returnType, :array
+  def entities; super + [array] end
+  def initialize(type, element_type, return_type)
+    super(type, element_type)
+    @returnType = return_type
+    @array = FuncListArrayCode.instance
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef #{array.type} #{type};
+      typedef #{returnType} (*#{elementType})(int, int, int);
+      void #{ctor}(#{type}*, size_t);
+      void #{merge}(#{type}*, size_t, #{elementType});
+      #{returnType} #{evaluate}(#{type}*, size_t, int, int, int);
+    $
+    super
+  end
+  def write_defs(stream)
+    stream << %$
+      void #{ctor}(#{type}* self, size_t size) {
+        #{assert}(self);
+        #{array.ctor}(self, size);
+      }
+      void #{merge}(#{type}* self, size_t index, #{elementType} fp) {
+        #{array.elementType} list;
+        #{assert}(self);
+        #{assert}(#{array.within}(self, index));
+        list = #{array.get}(self, index);
+        if(!list) {
+          list = #{array.list.new}();
+          #{array.set}(self, index, list);
+        }
+        #{array.list.append}(list, (#{array.list.elementType})fp);
+      }
+      #{returnType} #{evaluate}(#{type}* self, size_t index, int x, int y, int z) {
+        #{array.list.it} it;
+        #{returnType} result = 0;
+        #{assert}(self);
+        #{assert}(#{array.within}(self, index));
+        #{array.list.itCtor}(&it, #{array.get}(self, index));
+        while(#{array.list.itHasNext}(&it)) result += ((#{elementType})#{array.list.itNext}(&it))(x, y, z);
+        return result;
+      }
+    $
+    super
+  end
+end
+
+
+class IntegerEvaluationArrayCode < AbstractEvaluationArrayCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerEvaluationArray', 'FinitaIntegerFuncPtr', NumericType[Integer])
+  end
+end # IntegerEvaluationArrayCode
+
+
+
+class FloatEvaluationArrayCode < AbstractEvaluationArrayCode
+  include Singleton
+  def initialize
+    super('FinitaFloatEvaluationArray', 'FinitaFloatFuncPtr', NumericType[Float])
+  end
+end # FloatEvaluationArrayCode
+
+
+class ComplexEvaluationArrayCode < AbstractEvaluationArrayCode
+  include Singleton
+  def initialize
+    super('FinitaComplexEvaluationArray', 'FinitaComplexFuncPtr', NumericType[Complex])
+  end
+end # ComplexEvaluationArrayCode
+
+
+EvaluationArrayCode = {
+    Integer => IntegerEvaluationArrayCode.instance,
+    Float => FloatEvaluationArrayCode.instance,
+    Complex => ComplexEvaluationArrayCode.instance
+}
 
 
 class AbstractEvaluationVectorCode < DataStruct::Structure
@@ -268,7 +361,7 @@ class IntegerEvaluationVectorCode < AbstractEvaluationVectorCode
   def initialize
     super('FinitaIntegerEvaluationVector', 'FinitaIntegerFuncPtr', NumericType[Integer])
   end
-end # FloatEvaluationVectorCode
+end # IntegerEvaluationVectorCode
 
 
 class FloatEvaluationVectorCode < AbstractEvaluationVectorCode
@@ -354,7 +447,7 @@ class IntegerEvaluationMatrixCode < AbstractEvaluationMatrixCode
   def initialize
     super('FinitaIntegerEvaluationMatrix', 'FinitaIntegerFuncPtr', NumericType[Integer])
   end
-end # FloatEvaluationMatrixCode
+end # IntegerEvaluationMatrixCode
 
 
 class FloatEvaluationMatrixCode < AbstractEvaluationMatrixCode

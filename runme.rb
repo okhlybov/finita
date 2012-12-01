@@ -1,7 +1,7 @@
 N = Variable.new(:N, Integer)
 C = Constant.new(:C, 5)
 A = Domain::Cubic::Area.new(N,N,N)
-B = Domain::Cubic::Area.new(N,N,N+1)
+B = Domain::Cubic::Area.new(N,N,N)
 F1 = Field.new(:F1, Float, A)
 F2 = Field.new(:F2, Float, B)
 

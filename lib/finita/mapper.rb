@@ -12,10 +12,12 @@ class Mapper
   end
   class Code < DataStruct::Code
     attr_reader :mapper
+    def entities; super + [@node] end
     def initialize(mapper, problem_code, system_code)
       @mapper = mapper
       @problem_code = problem_code
       @system_code = system_code
+      @node = NodeCode.instance
       @result = @system_code.result
       @system_code.initializers << self
       super("#{system_code.type}Mapper")
@@ -28,8 +30,11 @@ class Mapper
     end
     def write_intf(stream)
       stream << %$
-      #{@result} #{read}(size_t index);
-        void #{write}(size_t index, #{@result} value);
+        size_t #{size}(void);
+        #{@node.type} #{getNode}(size_t);
+        size_t #{getIndex}(#{@node.type});
+        #{@result} #{getValue}(size_t index);
+        void #{setValue}(size_t index, #{@result} value);
       $
     end
   end
@@ -39,10 +44,9 @@ end # Mapper
 class Mapper::Naive < Mapper
   def process!(system) end
   class Code < Mapper::Code
-    def entities; super + [@node, @nodeArray, @nodeSet, @nodeMap] end
+    def entities; super + [@nodeArray, @nodeSet, @nodeMap] end
     def initialize(*args)
       super
-      @node = NodeCode.instance
       @nodeArray = NodeArrayCode.instance
       @nodeSet = NodeSetCode.instance
       @nodeMap = NodeIndexMapCode.instance
@@ -120,11 +124,19 @@ class Mapper::Naive < Mapper
       stream << %$default : #{abort}();$
       stream << '}return value;}'
       stream << %$
-        #{@result} #{read}(size_t index) {
+        #{@result} #{getValue}(size_t index) {
           return #{nodeGet}(#{@nodeArray.get}(&#{nodes}, index));
         }
-        void #{write}(size_t index, #{@result} value) {
+        void #{setValue}(size_t index, #{@result} value) {
           #{nodeSet}(#{@nodeArray.get}(&#{nodes}, index), value);
+        }
+      $
+      stream << %$
+        #{@node.type} #{getNode}(size_t index) {
+          return #{@nodeArray.get}(&#{nodes}, index);
+        }
+        size_t #{getIndex}(#{@node.type} node) {
+          return #{@nodeMap.get}(&#{indices}, node);
         }
       $
     end
