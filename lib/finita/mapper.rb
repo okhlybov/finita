@@ -6,7 +6,7 @@ module Finita
 
 
 class Mapper
-  attr_reader :fields # ordered list expected
+  attr_reader :fields, :domains
   def code(problem_code, system_code)
     self.class::Code.new(self, problem_code, system_code)
   end
@@ -42,14 +42,23 @@ end # Mapper
 
 
 class Mapper::Naive < Mapper
-  def process!(system) end
+  attr_reader :mappings
+  def process!(problem, system)
+    index = -1
+    @fields = system.equations.collect {|e| e.unknown}.uniq # an ordered list of unknown fields in the system
+    @domains = Set.new(system.equations.collect {|e| e.domain}) # a set of domains in the system
+    @mappings = system.equations.collect {|e| [e.unknown, e.domain]}
+  end
   class Code < Mapper::Code
-    def entities; super + [@nodeArray, @nodeSet, @nodeMap] end
+    def entities; super + [@nodeArray, @nodeSet, @nodeMap] + fields end
     def initialize(*args)
       super
       @nodeArray = NodeArrayCode.instance
       @nodeSet = NodeSetCode.instance
       @nodeMap = NodeIndexMapCode.instance
+    end
+    def fields
+      mapper.fields.collect {|f| f.code(@problem_code)}
     end
     def write_intf(stream)
       super
@@ -58,34 +67,31 @@ class Mapper::Naive < Mapper
       $
     end
     def write_defs(stream)
-      node = NodeCode.instance
-      equation_codes = @system_code.equation_codes
-      domain_codes = equation_codes.collect {|e| e.domain_code}.uniq
-      unknown_codes = equation_codes.collect {|e| e.unknown_code}.uniq
+      field_codes = mapper.fields.collect {|field| field.code(@problem_code)}
+      domain_codes = mapper.domains.collect {|domain| domain.code(@problem_code)}
       stream << %$
         static #{@nodeArray.type} #{nodes};
         static #{@nodeMap.type} #{indices};
+        size_t #{size}(void) {
+          return #{@nodeArray.size}(&#{nodes});
+        }
         int #{setup}(void) {
           #{@nodeSet.type} nodes;
           {size_t approx_node_count = 1;
-        $
-      domain_codes.each do |d|
-        stream << %$approx_node_count += #{d.size}(&#{d.instance});$
-      end
-      stream << %$
-        #{@nodeSet.ctor}(&nodes, approx_node_count*#{unknown_codes.size});
       $
-     equation_codes.each do |e|
-        domain = e.domain_code
+      domain_codes.each {|domain| stream << %$approx_node_count += #{domain.size}(&#{domain.instance});$}
+      stream << %$#{@nodeSet.ctor}(&nodes, approx_node_count*#{field_codes.size});$
+      mapper.mappings.each do |f,d|
+        domain = d.code(@problem_code) # TODO get rid of excessive code object creation
         stream << %${
           #{domain.it} it;
           #{domain.itCtor}(&it, &#{domain.instance});
           while(#{domain.itHasNext}(&it)) {
             #{domain.node} node = #{domain.itNext}(&it);
-            #{@nodeSet.put}(&nodes, #{node.new}(#{unknown_codes.index(e.unknown_code)}, node.x, node.y, node.z));
+            #{@nodeSet.put}(&nodes, #{@node.new}(#{mapper.fields.index(f)}, node.x, node.y, node.z));
           }
         }$
-     end
+      end
       stream << %$}{
         size_t index = 0;
         #{@nodeSet.it} it;
@@ -104,21 +110,21 @@ class Mapper::Naive < Mapper
         #{inline} void #{nodeSet}(#{@node.type} node, #{@result} value) {
           switch(node.field) {
         $
-        index = 0
-        unknown_codes.each do |u|
-          stream << %$case #{index}: #{u.symbol}(node.x, node.y, node.z) = value; break;$
-          index += 1
-        end
-        stream << %$default : #{abort}();$
+      index = 0
+      mapper.fields.each do |field|
+        stream << %$case #{index}: #{field.name}(node.x, node.y, node.z) = value; break;$
+        index += 1
+      end
+      stream << %$default : #{abort}();$
       stream << '}}'
       stream << %$
         #{inline} #{@result} #{nodeGet}(#{@node.type} node) {
           #{@result} value;
           switch(node.field) {
-        $
+      $
       index = 0
-      unknown_codes.each do |u|
-        stream << %$case #{index}: value = #{u.symbol}(node.x, node.y, node.z); break;$
+      mapper.fields.each do |field|
+        stream << %$case #{index}: value = #{field.name}(node.x, node.y, node.z); break;$
         index += 1
       end
       stream << %$default : #{abort}();$
