@@ -85,6 +85,11 @@ class Problem
     end
     def write_defs(stream)
       stream << %$
+        void FinitaAbort(int code) {
+          exit(code);
+        }
+      $
+      stream << %$
       FINITA_ARGSUSED
       int #{setup}(int argc, char** argv) {int result = FINITA_OK;
     $

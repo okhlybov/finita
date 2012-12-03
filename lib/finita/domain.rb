@@ -30,11 +30,12 @@ class StaticCode < DataStruct::Code
       };
       typedef struct #{it} #{it};
       void #{ctor}(#{type}*, int, int, int, int, int, int);
-      FINITA_INLINE size_t #{index}(#{type}* self, int x, int y, int z) {
-        return (x-self->x1) + (self->y2-self->y1+1)*((y-self->y1) + (z-self->z1)*(self->x2-self->x1+1));
-      }
       int #{within}(#{type}*, int, int, int);
       size_t #{size}(#{type}*);
+      FINITA_INLINE size_t #{index}(#{type}* self, int x, int y, int z) {
+        #{assert}(#{within}(self, x, y, z));
+        return (x-self->x1) + (self->y2-self->y1+1)*((y-self->y1) + (z-self->z1)*(self->x2-self->x1+1));
+      }
       void #{itCtor}(#{it}*, #{type}*);
       int #{itHasNext}(#{it}*);
       #{node} #{itNext}(#{it}*);
