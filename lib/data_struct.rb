@@ -144,6 +144,10 @@ class List < Structure
       struct #{it} {
         #{node}* next_node;
       };
+      struct #{node} {
+        #{elementType} element;
+        #{node}* next_node;
+      };
       void #{ctor}(#{type}*);
       #{type}* #{new}(void);
       #{elementType} #{first}(#{type}*);
@@ -163,11 +167,7 @@ class List < Structure
   end
   def write_defs(stream)
     stream << %$
-      struct #{node} {
-        #{elementType} element;
-        #{node}* next_node;
-      };
-      extern int #{comparator}(#{elementType}, #{elementType});
+      int #{comparator}(#{elementType}, #{elementType});
       void #{ctor}(#{type}* self) {
         #{assert}(self);
         self->head_node = self->tail_node = NULL;
@@ -330,8 +330,8 @@ class Set < Structure
   def write_defs(stream)
     @bucket.write_defs(stream)
     stream << %$
-      extern size_t #{hasher}(#{elementType});
-      extern int #{comparator}(#{elementType}, #{elementType});
+      size_t #{hasher}(#{elementType});
+      int #{comparator}(#{elementType}, #{elementType});
       void #{ctor}(#{type}* self, size_t bucket_count) {
         size_t i;
         #{assert}(self);
@@ -456,8 +456,8 @@ class Map < Structure
       struct #{it} {
         #{@pairSet.it} it;
       };
-      extern size_t #{hasher}(#{keyType});
-      extern int #{comparator}(#{keyType}, #{keyType});
+      size_t #{hasher}(#{keyType});
+      int #{comparator}(#{keyType}, #{keyType});
       void #{ctor}(#{type}*, size_t);
       #{type}* #{new}(size_t);
       size_t #{size}(#{type}*);

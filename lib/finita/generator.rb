@@ -30,28 +30,34 @@ class PrologueCode < CodeBuilder::Code
 
       #if defined _MSC_VER
         #define FINITA_ARGSUSED __pragma(warning(disable:4100))
-      #elif defined __DMC__
-        #define FINITA_ARGSUSED
-      #elif __STDC_VERSION__ >= 199901L
+      #elif __STDC_VERSION__ >= 199901L && !defined __DMC__
         #define FINITA_ARGSUSED _Pragma("argsused")
       #else
         #define FINITA_ARGSUSED
       #endif
 
       #if defined _MSC_VER
-        #define FINITA_INLINE static __inline
-      #elif __STDC_VERSION__ >= 199901L || defined __PGI
-        #define FINITA_INLINE static inline
+        #define FINITA_NORETURN(x) __declspec(noreturn) x
+      #elif defined __GNUC__
+        #define FINITA_NORETURN(x) x __attribute__((noreturn))
+      #else
+        #define FINITA_NORETURN(x) x
+      #endif
+
+      #if defined _MSC_VER
+        #define FINITA_INLINE __inline
+      #elif __STDC_VERSION__ >= 199901L && !defined __PGI && !defined __DMC__
+        #define FINITA_INLINE inline
       #else
         #define FINITA_INLINE static
       #endif
 
       #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
-      void FinitaFailure(const char*, const char*, int, const char*);
+      FINITA_NORETURN(void FinitaFailure(const char*, const char*, int, const char*));
 
       #ifndef NDEBUG
         #define FINITA_ASSERT(test) if(!(test)) FinitaAssert(__func__, __FILE__, __LINE__, #test);
-        void FinitaAssert(const char*, const char*, int, const char*);
+        FINITA_NORETURN(void FinitaAssert(const char*, const char*, int, const char*));
       #else
         #define FINITA_ASSERT(test)
       #endif
@@ -59,7 +65,7 @@ class PrologueCode < CodeBuilder::Code
       #define FINITA_MALLOC(size) malloc(size)
       #define FINITA_CALLOC(count, size) calloc(count, size)
       #define FINITA_ABORT() FinitaAbort(EXIT_FAILURE)
-      void FinitaAbort(int);
+      FINITA_NORETURN(void FinitaAbort(int));
       #define FINITA_OK EXIT_SUCCESS
       #define FINITA_ERROR EXIT_FAILURE
 
@@ -84,14 +90,18 @@ class PrologueCode < CodeBuilder::Code
           FinitaAbort(EXIT_FAILURE);
         }
         #ifndef NDEBUG
-        #if defined _MSC_VER || __PGI
+        #if defined _MSC_VER || defined __PGI
           #define FINITA_SNPRINTF sprintf_s
         #else
           #define FINITA_SNPRINTF snprintf
         #endif
         void FinitaAssert(const char* func, const char* file, int line, const char* test) {
           char msg[1024];
-          FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
+          #if defined __DMC__
+            sprintf(msg, "assertion %s failed", test);
+          #else
+            FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
+          #endif
           FinitaFailure(func, file, line, msg);
         }
         #endif
