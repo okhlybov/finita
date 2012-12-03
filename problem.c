@@ -9,4 +9,5 @@ int main(int argc, char** argv) {
 	ProblemSystemSolve();
 	printf("%e\n", F(1,1,1));
 	ProblemCleanup();
+	return 0;
 }
