@@ -45,9 +45,9 @@ class PrologueCode < CodeBuilder::Code
       #endif
 
       #if defined _MSC_VER
-        #define FINITA_INLINE __inline
+        #define FINITA_INLINE __inline static
       #elif __STDC_VERSION__ >= 199901L && !defined __PGI && !defined __DMC__
-        #define FINITA_INLINE inline
+        #define FINITA_INLINE inline static
       #else
         #define FINITA_INLINE static
       #endif
