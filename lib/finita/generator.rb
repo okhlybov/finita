@@ -5,7 +5,7 @@ require 'data_struct'
 
 class DataStruct::Code
   def setup_overrides
-    @overrides = {:malloc=>'FINITA_MALLOC', :calloc=>'FINITA_CALLOC', :assert=>'FINITA_ASSERT', :abort=>'FINITA_ABORT', :inline=>'FINITA_INLINE'}
+    @overrides = {:malloc=>'FINITA_MALLOC', :calloc=>'FINITA_CALLOC', :free=>'FINITA_FREE', :assert=>'FINITA_ASSERT', :abort=>'FINITA_ABORT', :inline=>'FINITA_INLINE'}
   end
 end # DataStruct::Code
 
@@ -64,6 +64,7 @@ class PrologueCode < CodeBuilder::Code
 
       #define FINITA_MALLOC(size) malloc(size)
       #define FINITA_CALLOC(count, size) calloc(count, size)
+      #define FINITA_FREE(ptr) free(ptr)
       #define FINITA_ABORT() FinitaAbort(EXIT_FAILURE)
       FINITA_NORETURN(void FinitaAbort(int));
       #define FINITA_OK EXIT_SUCCESS
@@ -75,6 +76,11 @@ class PrologueCode < CodeBuilder::Code
 
       #ifdef FINITA_MPI
         #include <mpi.h>
+        #define FINITA_HEAD if(FinitaProcessIndex == 0)
+        #define FINITA_NHEAD if(FinitaProcessIndex != 0)
+      #else
+        #define FINITA_HEAD
+        #define FINITA_NHEAD
       #endif
     $
   end
@@ -83,7 +89,7 @@ class PrologueCode < CodeBuilder::Code
       #include <stdio.h>
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
           #ifdef FINITA_MPI
-            fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaMPIRank, func, file, line, msg);
+            fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
           #else
             fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
           #endif

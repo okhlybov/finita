@@ -7,7 +7,7 @@ F = Field.new(:F, Float, A)
 Problem.new(:Problem) do |p|
   System.new(:System) do |s|
     s.discretizer = Discretizer::Trivial.new
-    s.solver = Solver::Explicit.new(Mapper::Naive.new)
+    s.solver = Solver::Explicit.new(Mapper::Naive.new, Environment::MPI.new)
     Assignment.new({C+N=>F}, B)
     Assignment.new({1=>F}, A)
   end
