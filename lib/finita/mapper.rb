@@ -1,12 +1,17 @@
 require 'data_struct'
 require 'finita/type'
+require 'finita/environment'
 
 
 module Finita
 
 
 class Mapper
+  include EnvironmentHandler
   attr_reader :fields, :domains
+  def process!(solver)
+    setup_env(solver.environment)
+  end
   def code(problem_code, system_code)
     self.class::Code.new(self, problem_code, system_code)
   end
@@ -42,17 +47,23 @@ end # Mapper
 
 
 class Mapper::Naive < Mapper
-  attr_reader :mappings
-  def process!(problem, system)
+  attr_reader :mappings, :solver
+  def process!(problem, system, solver)
+    super(solver)
     index = -1
     @fields = system.equations.collect {|e| e.unknown}.uniq # an ordered list of unknown fields in the system
     @domains = Set.new(system.equations.collect {|e| e.domain}) # a set of domains in the system
     @mappings = system.equations.collect {|e| [e.unknown, e.domain]}
   end
   class Code < Mapper::Code
-    def entities; super + [@nodeArray, @nodeSet, @nodeMap] + fields end
+    def entities
+      result = super + [@nodeArray, @nodeSet, @nodeMap] + fields
+      result << @intArray if mapper.mpi?
+      result
+    end
     def initialize(*args)
       super
+      @intArray = IntegerArrayCode.instance if mapper.mpi?
       @nodeArray = NodeArrayCode.instance
       @nodeSet = NodeSetCode.instance
       @nodeMap = NodeIndexMapCode.instance
@@ -70,14 +81,20 @@ class Mapper::Naive < Mapper
       field_codes = mapper.fields.collect {|field| field.code(@problem_code)}
       domain_codes = mapper.domains.collect {|domain| domain.code(@problem_code)}
       stream << %$
+        static #{@intArray.type} #{affinity};
+      $ if mapper.mpi?
+      stream << %$
         static #{@nodeArray.type} #{nodes};
         static #{@nodeMap.type} #{indices};
         size_t #{size}(void) {
           return #{@nodeArray.size}(&#{nodes});
         }
         int #{setup}(void) {
-          #{@nodeSet.type} nodes;
-          {size_t approx_node_count = 1;
+          int index, size;
+          FINITA_HEAD {
+            #{@nodeSet.type} nodes;
+            {
+              size_t approx_node_count = 1;
       $
       domain_codes.each {|domain| stream << %$approx_node_count += #{domain.size}(&#{domain.instance});$}
       stream << %$#{@nodeSet.ctor}(&nodes, approx_node_count*#{field_codes.size});$
@@ -93,10 +110,11 @@ class Mapper::Naive < Mapper
         }$
       end
       stream << %$}{
-        size_t index = 0;
         #{@nodeSet.it} it;
-        #{@nodeArray.ctor}(&#{nodes}, #{@nodeSet.size}(&nodes));
-        #{@nodeMap.ctor}(&#{indices}, #{@nodeSet.size}(&nodes));
+        index = 0;
+        size = #{@nodeSet.size}(&nodes);
+        #{@nodeArray.ctor}(&#{nodes}, size);
+        #{@nodeMap.ctor}(&#{indices}, size);
         #{@nodeSet.itCtor}(&it, &nodes);
         while(#{@nodeSet.itHasNext}(&it)) {
           #{@node.type} node = #{@nodeSet.itNext}(&it);
@@ -104,7 +122,56 @@ class Mapper::Naive < Mapper
           #{@nodeMap.put}(&#{indices}, node, index);
           ++index;
         }
-      }$
+      }
+      $
+      if mapper.mpi?
+        stream << %$
+          #{@intArray.ctor}(&#{affinity}, size);
+          for(index = 0; index < size; ++index) {
+            #{@intArray.set}(&#{affinity}, index, FinitaProcessCount*index/size);
+          }
+        $
+      end
+      stream << '}'
+      if mapper.mpi?
+        stream << %$
+          {
+            int ierr, index, position, process;
+            int packed_entry_size, packed_buffer_size;
+            void *packed_buffer;
+            #{@node.type} node;
+            ierr = MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            ierr = MPI_Pack_size(5, MPI_INT, MPI_COMM_WORLD, &packed_entry_size); #{assert}(ierr == MPI_SUCCESS);
+            packed_buffer_size = packed_entry_size*size;
+            packed_buffer = #{malloc}(packed_buffer_size); #{assert}(packed_buffer);
+            FINITA_HEAD {
+              for(position = index = 0; index < size; ++index) {
+                node = #{@nodeArray.get}(&#{nodes}, index);
+                process = #{@intArray.get}(&#{affinity}, index);
+                ierr = MPI_Pack(&node.field, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Pack(&node.x, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Pack(&node.y, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Pack(&node.z, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Pack(&process, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+              }
+            }
+            ierr = MPI_Bcast(packed_buffer, packed_buffer_size, MPI_PACKED, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            FINITA_NHEAD {
+              for(position = index = 0; index < size; ++index) {
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.field, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.x, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.y, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.z, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &process, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                #{@nodeArray.set}(&#{nodes}, index, node);
+                #{@nodeMap.put}(&#{indices}, node, index);
+                #{@intArray.set}(&#{affinity}, index, process);
+              }
+            }
+            #{free}(packed_buffer);
+          }
+        $
+      end
       stream << 'return FINITA_OK;}'
       stream << %$
         #{inline} void #{nodeSet}(#{@node.type} node, #{@result} value) {

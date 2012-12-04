@@ -69,6 +69,14 @@ class Evaluator
 end # Evaluator
 
 
+class IntegerArrayCode < DataStruct::Array
+  include Singleton
+  def initialize
+    super('FinitaIntegerArray', 'int')
+  end
+end # IntegerArrayCode
+
+
 class NodeCode < DataStruct::Code
   include Singleton
   def initialize

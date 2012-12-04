@@ -2,27 +2,30 @@ require 'finita/common'
 require 'finita/system'
 require 'finita/evaluator'
 require 'finita/mapper'
+require 'finita/environment'
 
 
 module Finita
 
 
 class Solver
-  attr_reader :mapper
-  def initialize(mapper)
+  attr_reader :mapper, :environment
+  def initialize(mapper, environment = Environment::Sequential.new)
     @mapper = mapper
+    @environment = environment
   end
   def code(problem_code, system_code)
     self.class::Code.new(self, problem_code, system_code)
   end
   class Code < DataStruct::Code
     attr_reader :solver
-    def entities; super + [@node] end
+    def entities; super + [@node, @environment_code] end
     def initialize(solver, problem_code, system_code)
       @node = NodeCode.instance
       @solver = solver
       @problem_code = problem_code
       @system_code = system_code
+      @environment_code = solver.environment.code(problem_code)
       @system_code.initializers << self
       super("#{@system_code.type}Solver")
     end
@@ -39,7 +42,7 @@ end # Solver
 class Solver::Explicit < Solver
   attr_reader :evaluators
   def process!(problem, system)
-    mapper.process!(problem, system)
+    mapper.process!(problem, system, self)
     @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.assignment.expression, system.type, e.merge?), e.unknown, e.domain]}
   end
   class Code < Solver::Code
@@ -81,10 +84,12 @@ class Solver::Explicit < Solver
           return FINITA_OK;
         }
         int #{@system_code.solve}(void) {
-          int index, size = #{@mapper_code.size}();
-          for(index = 0; index < size; ++index) {
-            #{@node.type} node = #{@mapper_code.getNode}(index);
-            #{@mapper_code.setValue}(index, #{@array.evaluate}(&#{evaluators}, index, node.x, node.y, node.z));
+          FINITA_HEAD {
+            int index, size = #{@mapper_code.size}();
+            for(index = 0; index < size; ++index) {
+              #{@node.type} node = #{@mapper_code.getNode}(index);
+              #{@mapper_code.setValue}(index, #{@array.evaluate}(&#{evaluators}, index, node.x, node.y, node.z));
+            }
           }
           return FINITA_OK;
         }
