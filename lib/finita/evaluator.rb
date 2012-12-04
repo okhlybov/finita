@@ -77,6 +77,22 @@ class IntegerArrayCode < DataStruct::Array
 end # IntegerArrayCode
 
 
+class IntegerListCode < DataStruct::List
+  include Singleton
+  def initialize
+    super('FinitaIntegerList', 'int', 'FinitaIntegerComparator')
+  end
+  def write_intf(stream)
+    stream << %$
+      #{inline} int #{comparator}(int lt, int rt) {
+        return lt == rt;
+      }
+    $
+    super
+  end
+end # IntegerListCode
+
+
 class NodeCode < DataStruct::Code
   include Singleton
   def initialize
@@ -187,10 +203,10 @@ class NodeCoordCode < DataStruct::Code
 end # NodeCoordCode
 
 
-class FuncListCode < DataStruct::List
+class FunctionListCode < DataStruct::List
   include Singleton
   def initialize
-    super('FinitaFuncList', 'FinitaFunc', 'FinitaFuncComparator')
+    super('FinitaFunctionList', 'FinitaFunction', 'FinitaFunctionComparator')
   end
   def write_intf(stream)
     stream << %$
@@ -204,37 +220,37 @@ class FuncListCode < DataStruct::List
 end # FuncListCode
 
 
-class FuncListArrayCode < DataStruct::Array
+class FunctionListArrayCode < DataStruct::Array
   include Singleton
   attr_reader :list
   def entities; super + [list] end
   def initialize
-    @list = FuncListCode.instance
-    super('FinitaFuncListArray', "#{list.type}*")
+    @list = FunctionListCode.instance
+    super('FinitaFunctionListArray', "#{list.type}*")
   end
 end # FuncListArrayCode
 
 
-class FuncNodeMapCode < DataStruct::Map
+class FunctionNodeMapCode < DataStruct::Map
   include Singleton
   attr_reader :key, :list
   def entities; super + [key, list] end
   def initialize
-    @list = FuncListCode.instance
+    @list = FunctionListCode.instance
     @key = NodeCode.instance
-    super('FinitaFuncNodeMap', key.type, "#{list.type}*", key.hasher, key.comparator)
+    super('FinitaFunctionNodeMap', key.type, "#{list.type}*", key.hasher, key.comparator)
   end
 end # FuncNodeMapCode
 
 
-class FuncNodeCoordMapCode < DataStruct::Map
+class FunctionNodeCoordMapCode < DataStruct::Map
   include Singleton
   attr_reader :key, :list
   def entities; super + [key, list] end
   def initialize
-    @list = FuncListCode.instance
+    @list = FunctionListCode.instance
     @key = NodeCoordCode.instance
-    super('FinitaFuncNodeCoordMap', key.type, "#{list.type}*", key.hasher, key.comparator)
+    super('FinitaFunctionNodeCoordMap', key.type, "#{list.type}*", key.hasher, key.comparator)
   end
 end # FuncNodeMapCode
 
@@ -245,7 +261,7 @@ class AbstractEvaluationArrayCode < DataStruct::Structure
   def initialize(type, element_type, return_type)
     super(type, element_type)
     @returnType = return_type
-    @array = FuncListArrayCode.instance
+    @array = FunctionListArrayCode.instance
   end
   def write_intf(stream)
     stream << %$
@@ -292,7 +308,7 @@ end
 class IntegerEvaluationArrayCode < AbstractEvaluationArrayCode
   include Singleton
   def initialize
-    super('FinitaIntegerEvaluationArray', 'FinitaIntegerFuncPtr', NumericType[Integer])
+    super('FinitaIntegerEvaluationArray', 'FinitaIntegerFunctionPtr', NumericType[Integer])
   end
 end # IntegerEvaluationArrayCode
 
@@ -301,7 +317,7 @@ end # IntegerEvaluationArrayCode
 class FloatEvaluationArrayCode < AbstractEvaluationArrayCode
   include Singleton
   def initialize
-    super('FinitaFloatEvaluationArray', 'FinitaFloatFuncPtr', NumericType[Float])
+    super('FinitaFloatEvaluationArray', 'FinitaFloatFunctionPtr', NumericType[Float])
   end
 end # FloatEvaluationArrayCode
 
@@ -309,7 +325,7 @@ end # FloatEvaluationArrayCode
 class ComplexEvaluationArrayCode < AbstractEvaluationArrayCode
   include Singleton
   def initialize
-    super('FinitaComplexEvaluationArray', 'FinitaComplexFuncPtr', NumericType[Complex])
+    super('FinitaComplexEvaluationArray', 'FinitaComplexFunctionPtr', NumericType[Complex])
   end
 end # ComplexEvaluationArrayCode
 
@@ -327,7 +343,7 @@ class AbstractEvaluationVectorCode < DataStruct::Structure
   def initialize(type, element_type, return_type)
     super(type, element_type)
     @returnType = return_type
-    @map = FuncNodeMapCode.instance
+    @map = FunctionNodeMapCode.instance
   end
   def write_intf(stream)
     stream << %$
@@ -374,7 +390,7 @@ end # AbstractEvaluationVectorCode
 class IntegerEvaluationVectorCode < AbstractEvaluationVectorCode
   include Singleton
   def initialize
-    super('FinitaIntegerEvaluationVector', 'FinitaIntegerFuncPtr', NumericType[Integer])
+    super('FinitaIntegerEvaluationVector', 'FinitaIntegerFunctionPtr', NumericType[Integer])
   end
 end # IntegerEvaluationVectorCode
 
@@ -382,7 +398,7 @@ end # IntegerEvaluationVectorCode
 class FloatEvaluationVectorCode < AbstractEvaluationVectorCode
   include Singleton
   def initialize
-    super('FinitaFloatEvaluationVector', 'FinitaFloatFuncPtr', NumericType[Float])
+    super('FinitaFloatEvaluationVector', 'FinitaFloatFunctionPtr', NumericType[Float])
   end
 end # FloatEvaluationVectorCode
 
@@ -390,7 +406,7 @@ end # FloatEvaluationVectorCode
 class ComplexEvaluationVectorCode < AbstractEvaluationVectorCode
   include Singleton
   def initialize
-    super('FinitaComplexEvaluationVector', 'FinitaComplexFuncPtr', NumericType[Complex])
+    super('FinitaComplexEvaluationVector', 'FinitaComplexFunctionPtr', NumericType[Complex])
   end
 end # ComplexEvaluationVectorCode
 
@@ -408,7 +424,7 @@ class AbstractEvaluationMatrixCode < DataStruct::Structure
   def initialize(type, element_type, return_type)
     super(type, element_type)
     @returnType = return_type
-    @map = FuncNodeCoordMapCode.instance
+    @map = FunctionNodeCoordMapCode.instance
     @node = NodeCode.instance
   end
   def write_intf(stream)
@@ -460,7 +476,7 @@ end # AbstractEvaluationMatrixCode
 class IntegerEvaluationMatrixCode < AbstractEvaluationMatrixCode
   include Singleton
   def initialize
-    super('FinitaIntegerEvaluationMatrix', 'FinitaIntegerFuncPtr', NumericType[Integer])
+    super('FinitaIntegerEvaluationMatrix', 'FinitaIntegerFunctionPtr', NumericType[Integer])
   end
 end # IntegerEvaluationMatrixCode
 
@@ -468,7 +484,7 @@ end # IntegerEvaluationMatrixCode
 class FloatEvaluationMatrixCode < AbstractEvaluationMatrixCode
   include Singleton
   def initialize
-    super('FinitaFloatEvaluationMatrix', 'FinitaFloatFuncPtr', NumericType[Float])
+    super('FinitaFloatEvaluationMatrix', 'FinitaFloatFunctionPtr', NumericType[Float])
   end
 end # FloatEvaluationMatrixCode
 
@@ -476,7 +492,7 @@ end # FloatEvaluationMatrixCode
 class ComplexEvaluationMatrixCode < AbstractEvaluationMatrixCode
   include Singleton
   def initialize
-    super('FinitaComplexEvaluationMatrix', 'FinitaComplexFuncPtr', NumericType[Complex])
+    super('FinitaComplexEvaluationMatrix', 'FinitaComplexFunctionPtr', NumericType[Complex])
   end
 end # ComplexEvaluationMatrixCode
 

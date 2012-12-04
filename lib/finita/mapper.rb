@@ -17,12 +17,17 @@ class Mapper
   end
   class Code < DataStruct::Code
     attr_reader :mapper
-    def entities; super + [@node] end
+    def entities
+      result = super + [@node]
+      result << @intList if mapper.mpi?
+      result
+    end
     def initialize(mapper, problem_code, system_code)
       @mapper = mapper
       @problem_code = problem_code
       @system_code = system_code
       @node = NodeCode.instance
+      @intList = IntegerListCode.instance if mapper.mpi?
       @result = @system_code.result
       @system_code.initializers << self
       super("#{system_code.type}Mapper")
@@ -41,6 +46,41 @@ class Mapper
         #{@result} #{getValue}(size_t index);
         void #{setValue}(size_t index, #{@result} value);
       $
+      stream << (mapper.mpi? ? "void #{synchronize}(void);" : "FINITA_INLINE void #{synchronize}(void) {}")
+      stream << (mapper.mpi? ? "void #{synchronizerSetup}(void);" : "FINITA_INLINE void #{synchronizerSetup}(void) {}")
+    end
+    def write_defs(stream)
+      if mapper.mpi?
+        # blocks is an array of [size, i0, i1,...] that is
+        # *blocks[i] is size of line i, *(blocks[i]+1) is i0 of line i and so forth
+        stream << %$
+          static int** #{blocks};
+          void #{synchronize}(void) {
+
+          }
+          void #{synchronizerSetup}(void) {
+            int index, size = #{@intArray.size}(&#{affinity});
+            #{@intList.type}* list = (#{@intList.type}*)#{malloc}(FinitaProcessCount*sizeof(#{@intList.type})); #{assert}(list);
+            #{blocks} = (int**)#{malloc}(FinitaProcessCount*sizeof(int*)); #{assert}(#{blocks});
+            for(index = 0; index < FinitaProcessCount; ++index) {
+              #{@intList.ctor}(&list[index]);
+            }
+            for(index = 0; index < size; ++index) {
+              #{@intList.append}(&list[#{@intArray.get}(&#{affinity}, index)], index);
+            }
+            for(index = 0; index < FinitaProcessCount; ++index) {
+              #{@intList.it} it;
+              int i = 0, size = #{@intList.size}(&list[index]);
+              #{blocks}[index] = (int*)#{malloc}((size+1)*sizeof(int)); #{assert}(#{blocks}[index]);
+              #{blocks}[index][0] = size;
+              #{@intList.itCtor}(&it, &list[index]);
+              while(#{@intList.itHasNext}(&it)) {
+                #{blocks}[index][++i] = #{@intList.itNext}(&it);
+              }
+            }
+          }
+        $
+      end
     end
   end
 end # Mapper
@@ -72,10 +112,8 @@ class Mapper::Naive < Mapper
       mapper.fields.collect {|f| f.code(@problem_code)}
     end
     def write_intf(stream)
+      stream << %$int #{setup}(void);$
       super
-      stream << %$
-        int #{setup}(void);
-      $
     end
     def write_defs(stream)
       field_codes = mapper.fields.collect {|field| field.code(@problem_code)}
@@ -170,6 +208,7 @@ class Mapper::Naive < Mapper
             }
             #{free}(packed_buffer);
           }
+          #{synchronizerSetup}();
         $
       end
       stream << 'return FINITA_OK;}'
@@ -212,6 +251,7 @@ class Mapper::Naive < Mapper
           return #{@nodeMap.get}(&#{indices}, node);
         }
       $
+      super
     end
     def write_initializer(stream)
       stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
