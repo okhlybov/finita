@@ -11,14 +11,26 @@ void PrintF(FILE* out)
 		{
 			fprintf(out, "%d\t%d\t%e\n", x, y, F(x,y,0));
 		}
-		fputs("\n", out);
 	}
 }
 
 int main(int argc, char** argv)
 {
-	N = 5;
+	N = 3;
 	ProblemSetup(argc, argv);
+#ifdef FINITA_MPI
+	printf("[%d]--\n", FinitaProcessIndex);
+{
+	int x, y;
+	for(x = 0; x < N; ++x)
+	{
+		for(y = 0; y < N; ++y)
+		{
+			F(x,y,0) = FinitaProcessIndex;
+		}
+	}
+}
+#endif
 	PrintF(stdout);
 	ProblemSystemSolve();
 	printf("--\n");
