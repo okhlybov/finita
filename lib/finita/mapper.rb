@@ -124,10 +124,12 @@ class Mapper::Naive < Mapper
       if mapper.mpi?
         stream << %${
           int ierr = MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-          #{@nodeArray.ctor}(&#{nodes}, size);
-          #{@nodeMap.ctor}(&#{indices}, size);
         }$
       end
+      stream << %$
+        #{@nodeArray.ctor}(&#{nodes}, size);
+        #{@nodeMap.ctor}(&#{indices}, size);
+      $
       stream << %$FINITA_HEAD {
         #{@nodeSet.it} it;
         index = 0;
