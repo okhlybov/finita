@@ -9,10 +9,14 @@ module Finita
 
 
 class Solver
+  include EnvironmentHandler
   attr_reader :mapper, :environment
   def initialize(mapper, environment = Environment::Sequential.new)
     @mapper = mapper
     @environment = environment
+  end
+  def process!(problem, system)
+    setup_env(environment)
   end
   def code(problem_code, system_code)
     self.class::Code.new(self, problem_code, system_code)
@@ -42,6 +46,7 @@ end # Solver
 class Solver::Explicit < Solver
   attr_reader :evaluators
   def process!(problem, system)
+    super
     mapper.process!(problem, system, self)
     @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.assignment.expression, system.type, e.merge?), e.unknown, e.domain]}
   end
@@ -84,16 +89,23 @@ class Solver::Explicit < Solver
           return FINITA_OK;
         }
         int #{@system_code.solve}(void) {
-          FINITA_HEAD {
-            int index, size = #{@mapper_code.size}();
-            for(index = 0; index < size; ++index) {
-              #{@node.type} node = #{@mapper_code.getNode}(index);
-              #{@mapper_code.setValue}(index, #{@array.evaluate}(&#{evaluators}, index, node.x, node.y, node.z));
-            }
-          }
-          return FINITA_OK;
-        }
+          int index, first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
       $
+      unless solver.mpi?
+        stream << 'FINITA_HEAD {'
+      end
+      stream << '#pragma omp parallel for private(index,node) kind(dynamic)' if solver.omp?
+      stream << %$
+        for(index = first; index <= last; ++index) {
+          #{@node.type} node = #{@mapper_code.getNode}(index);
+          #{@mapper_code.setValue}(index, #{@array.evaluate}(&#{evaluators}, index, node.x, node.y, node.z));
+        }
+        #{@mapper_code.synchronize}();
+      $
+      unless solver.mpi?
+        stream << '}'
+      end
+      stream << %$return FINITA_OK;}$
     end
     def write_initializer(stream)
       stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$

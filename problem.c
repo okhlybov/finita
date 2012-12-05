@@ -1,13 +1,28 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "problem.auto.h"
 
-int main(int argc, char** argv) {
-	N = 10;
+void PrintF(FILE* out)
+{
+	int x, y;
+	for(x = 0; x < N; ++x)
+	{
+		for(y = 0; y < N; ++y)
+		{
+			fprintf(out, "%d\t%d\t%e\n", x, y, F(x,y,0));
+		}
+		fputs("\n", out);
+	}
+}
+
+int main(int argc, char** argv)
+{
+	N = 5;
 	ProblemSetup(argc, argv);
-	printf("%e\n", F(1,1,1));
+	PrintF(stdout);
 	ProblemSystemSolve();
-	printf("%e\n", F(1,1,1));
+	printf("--\n");
+	PrintF(stdout);
 	ProblemCleanup();
 	return 0;
 }

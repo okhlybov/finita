@@ -96,8 +96,9 @@ end # StaticCode
 
 
 class Area
+  Empty = [0,0]
   attr_reader :xrange, :yrange, :zrange
-  def initialize(xs, ys, zs)
+  def initialize(xs = nil, ys = nil, zs = nil)
     @xrange = Area.coerce(xs)
     @yrange = Area.coerce(ys)
     @zrange = Area.coerce(zs)
@@ -114,7 +115,11 @@ class Area
   end
   private
   def self.coerce(obj)
-    obj.is_a?(Array) ? [Finita.simplify(obj.first), Finita.simplify(obj.last)] : [Finita.simplify(0), Finita.simplify(obj-1)]
+    if obj.nil?
+      Empty
+    else
+      obj.is_a?(Array) ? [Finita.simplify(obj.first), Finita.simplify(obj.last)] : [Finita.simplify(0), Finita.simplify(obj-1)]
+    end
   end
   class Code < DataStruct::Code
     class << self

@@ -45,42 +45,10 @@ class Mapper
         size_t #{getIndex}(#{@node.type});
         #{@result} #{getValue}(size_t index);
         void #{setValue}(size_t index, #{@result} value);
+        void #{synchronize}(void);
+        int #{firstIndex}(void);
+        int #{lastIndex}(void);
       $
-      stream << (mapper.mpi? ? "void #{synchronize}(void);" : "FINITA_INLINE void #{synchronize}(void) {}")
-      stream << (mapper.mpi? ? "void #{synchronizerSetup}(void);" : "FINITA_INLINE void #{synchronizerSetup}(void) {}")
-    end
-    def write_defs(stream)
-      if mapper.mpi?
-        # blocks is an array of [size, i0, i1,...] that is
-        # *blocks[i] is size of line i, *(blocks[i]+1) is i0 of line i and so forth
-        stream << %$
-          static int** #{blocks};
-          void #{synchronize}(void) {
-
-          }
-          void #{synchronizerSetup}(void) {
-            int index, size = #{@intArray.size}(&#{affinity});
-            #{@intList.type}* list = (#{@intList.type}*)#{malloc}(FinitaProcessCount*sizeof(#{@intList.type})); #{assert}(list);
-            #{blocks} = (int**)#{malloc}(FinitaProcessCount*sizeof(int*)); #{assert}(#{blocks});
-            for(index = 0; index < FinitaProcessCount; ++index) {
-              #{@intList.ctor}(&list[index]);
-            }
-            for(index = 0; index < size; ++index) {
-              #{@intList.append}(&list[#{@intArray.get}(&#{affinity}, index)], index);
-            }
-            for(index = 0; index < FinitaProcessCount; ++index) {
-              #{@intList.it} it;
-              int i = 0, size = #{@intList.size}(&list[index]);
-              #{blocks}[index] = (int*)#{malloc}((size+1)*sizeof(int)); #{assert}(#{blocks}[index]);
-              #{blocks}[index][0] = size;
-              #{@intList.itCtor}(&it, &list[index]);
-              while(#{@intList.itHasNext}(&it)) {
-                #{blocks}[index][++i] = #{@intList.itNext}(&it);
-              }
-            }
-          }
-        $
-      end
     end
   end
 end # Mapper
@@ -112,14 +80,15 @@ class Mapper::Naive < Mapper
       mapper.fields.collect {|f| f.code(@problem_code)}
     end
     def write_intf(stream)
-      stream << %$int #{setup}(void);$
       super
+      stream << %$int #{setup}(void);$
     end
     def write_defs(stream)
       field_codes = mapper.fields.collect {|field| field.code(@problem_code)}
       domain_codes = mapper.domains.collect {|domain| domain.code(@problem_code)}
       stream << %$
-        static #{@intArray.type} #{affinity};
+        static int* #{counts};
+        static int* #{offsets};
       $ if mapper.mpi?
       stream << %$
         static #{@nodeArray.type} #{nodes};
@@ -129,10 +98,11 @@ class Mapper::Naive < Mapper
         }
         int #{setup}(void) {
           int index, size;
+          #{@nodeSet.type} nodes;
+      $
+      stream << %$
           FINITA_HEAD {
-            #{@nodeSet.type} nodes;
-            {
-              size_t approx_node_count = 1;
+            size_t approx_node_count = 1;
       $
       domain_codes.each {|domain| stream << %$approx_node_count += #{domain.size}(&#{domain.instance});$}
       stream << %$#{@nodeSet.ctor}(&nodes, approx_node_count*#{field_codes.size});$
@@ -147,12 +117,20 @@ class Mapper::Naive < Mapper
           }
         }$
       end
-      stream << %$}{
+      stream << %$
+          size = #{@nodeSet.size}(&nodes);
+        }
+      $
+      if mapper.mpi?
+        stream << %${
+          int ierr = MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+          #{@nodeArray.ctor}(&#{nodes}, size);
+          #{@nodeMap.ctor}(&#{indices}, size);
+        }$
+      end
+      stream << %$FINITA_HEAD {
         #{@nodeSet.it} it;
         index = 0;
-        size = #{@nodeSet.size}(&nodes);
-        #{@nodeArray.ctor}(&#{nodes}, size);
-        #{@nodeMap.ctor}(&#{indices}, size);
         #{@nodeSet.itCtor}(&it, &nodes);
         while(#{@nodeSet.itHasNext}(&it)) {
           #{@node.type} node = #{@nodeSet.itNext}(&it);
@@ -160,37 +138,25 @@ class Mapper::Naive < Mapper
           #{@nodeMap.put}(&#{indices}, node, index);
           ++index;
         }
-      }
+        }
       $
       if mapper.mpi?
         stream << %$
-          #{@intArray.ctor}(&#{affinity}, size);
-          for(index = 0; index < size; ++index) {
-            #{@intArray.set}(&#{affinity}, index, FinitaProcessCount*index/size);
-          }
-        $
-      end
-      stream << '}'
-      if mapper.mpi?
-        stream << %$
           {
-            int ierr, index, position, process;
+            int ierr, index, position;
             int packed_entry_size, packed_buffer_size;
             void *packed_buffer;
             #{@node.type} node;
-            ierr = MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            ierr = MPI_Pack_size(5, MPI_INT, MPI_COMM_WORLD, &packed_entry_size); #{assert}(ierr == MPI_SUCCESS);
+            ierr = MPI_Pack_size(4, MPI_INT, MPI_COMM_WORLD, &packed_entry_size); #{assert}(ierr == MPI_SUCCESS);
             packed_buffer_size = packed_entry_size*size;
             packed_buffer = #{malloc}(packed_buffer_size); #{assert}(packed_buffer);
             FINITA_HEAD {
               for(position = index = 0; index < size; ++index) {
                 node = #{@nodeArray.get}(&#{nodes}, index);
-                process = #{@intArray.get}(&#{affinity}, index);
                 ierr = MPI_Pack(&node.field, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
                 ierr = MPI_Pack(&node.x, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
                 ierr = MPI_Pack(&node.y, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
                 ierr = MPI_Pack(&node.z, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-                ierr = MPI_Pack(&process, 1, MPI_INT, packed_buffer, packed_buffer_size, &position, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
               }
             }
             ierr = MPI_Bcast(packed_buffer, packed_buffer_size, MPI_PACKED, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
@@ -200,18 +166,74 @@ class Mapper::Naive < Mapper
                 ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.x, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
                 ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.y, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
                 ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.z, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &process, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
                 #{@nodeArray.set}(&#{nodes}, index, node);
                 #{@nodeMap.put}(&#{indices}, node, index);
-                #{@intArray.set}(&#{affinity}, index, process);
               }
             }
             #{free}(packed_buffer);
           }
-          #{synchronizerSetup}();
         $
+        if mapper.mpi?
+          stream << %${
+          int base_index, process;
+          #{counts} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{counts});
+          #{offsets} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{offsets});
+          for(base_index = process = index = 0; index < size; ++index) {
+            if(process < FinitaProcessCount*index/size) {
+              #{offsets}[process] = base_index;
+              #{counts}[process] = index - base_index;
+              base_index = index;
+              ++process;
+            }
+          }
+          #{offsets}[process] = base_index;
+          #{counts}[process] = index - base_index + 1;
+        }$
+        end
       end
       stream << 'return FINITA_OK;}'
+      if mapper.mpi?
+        # TODO complex type
+        c_type = @result
+        mpi_type = Finita::MPIType[@system_code.system.type]
+        stream << %$
+          void #{synchronize}(void) {
+            int ierr, index, count, process;
+            #{c_type} *sender, *receiver;
+            sender = (#{c_type}*)#{malloc}(#{counts}[FinitaProcessIndex]*sizeof(#{c_type})); #{assert}(sender);
+            receiver = (#{c_type}*)#{malloc}(#{@nodeArray.size}(&#{nodes})*sizeof(#{c_type})); #{assert}(receiver);
+            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
+              sender[count] = #{getValue}(index);
+            }
+            ierr = MPI_Allgatherv(sender, #{counts}[FinitaProcessIndex], #{mpi_type}, receiver, #{counts}, #{offsets}, #{mpi_type}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            for(process = 0; process < FinitaProcessCount; ++process) {
+              if(process != FinitaProcessIndex) {
+                for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
+                  #{setValue}(index, receiver[index]);
+                }
+              }
+            }
+            #{free}(receiver);
+            #{free}(sender);
+          }
+          int #{firstIndex}(void) {
+            return #{offsets}[FinitaProcessIndex];
+          }
+          int #{lastIndex}(void) {
+            return #{offsets}[FinitaProcessIndex] + #{counts}[FinitaProcessIndex] - 1;
+          }
+        $
+      else
+        stream << %$
+          void #{synchronize}(void) {}
+          int #{firstIndex}(void) {
+            return 0;
+          }
+          int #{lastIndex}(void) {
+            return #{size}() - 1;
+          }
+        $
+      end
       stream << %$
         #{inline} void #{nodeSet}(#{@node.type} node, #{@result} value) {
           switch(node.field) {

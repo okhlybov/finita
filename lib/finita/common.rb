@@ -9,10 +9,17 @@ def self.simplify(obj)
 end
 
 
-  NumericType = {
-    ::Integer => 'int',
-    ::Float => 'double',
-    ::Complex => '_Complex double'
+NumericType = {
+  Integer => 'int',
+  Float => 'double',
+  Complex => '_Complex double'
+}
+
+
+MPIType = {
+  Integer => 'MPI_INT',
+  Float => 'MPI_DOUBLE'
+  # no MPI type for complex
 }
 
 
