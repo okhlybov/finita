@@ -86,6 +86,9 @@ class Problem
     def write_defs(stream)
       stream << %$
         void FinitaAbort(int code) {
+          #ifdef FINITA_MPI
+            MPI_Abort(MPI_COMM_WORLD, code);
+          #endif
           exit(code);
         }
       $
