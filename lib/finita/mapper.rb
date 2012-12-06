@@ -164,10 +164,12 @@ class Mapper::Naive < Mapper
             ierr = MPI_Bcast(packed_buffer, packed_buffer_size, MPI_PACKED, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
             FINITA_NHEAD {
               for(position = index = 0; index < size; ++index) {
-                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.field, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.x, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.y, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &node.z, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                int field, x, y, z;
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &field, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &x, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &y, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                ierr = MPI_Unpack(packed_buffer, packed_buffer_size, &position, &z, 1, MPI_INT, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+                node = FinitaNodeNew(field, x, y, z);
                 #{@nodeArray.set}(&#{nodes}, index, node);
                 #{@nodeMap.put}(&#{indices}, node, index);
               }
