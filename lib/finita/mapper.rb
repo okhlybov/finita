@@ -189,7 +189,7 @@ class Mapper::Naive < Mapper
             }
           }
           #{offsets}[process] = base_index;
-          #{counts}[process] = index - base_index + 1;
+          #{counts}[process] = index - base_index;
         }$
         end
       end

@@ -85,7 +85,7 @@ class StaticCode < DataStruct::Code
         self->index = 0;
       }
       int #{itHasNext}(#{it}* self) {
-        return self->index < #{size}(self->area)-1;
+        return self->index < #{size}(self->area);
       }
       #{node} #{itNext}(#{it}* self) {
         return self->area->nodes[self->index++];
