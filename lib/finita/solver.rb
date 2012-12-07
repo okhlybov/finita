@@ -17,6 +17,7 @@ class Solver
   end
   def process!(problem, system)
     setup_env(environment)
+    self
   end
   def code(problem_code, system_code)
     self.class::Code.new(self, problem_code, system_code)
@@ -49,6 +50,7 @@ class Solver::Explicit < Solver
     super
     mapper.process!(problem, system, self)
     @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.assignment.expression, system.type, e.merge?), e.unknown, e.domain]}
+    self
   end
   class Code < Solver::Code
     def entities; super + [@array, @mapper_code] + Code.linearize(evaluator_codes) end

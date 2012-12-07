@@ -39,7 +39,8 @@ class System
   end
   def process!
     @equations = discretizer.process!(equations)
-    solver.process!(@problem, self)
+    @solver = solver.process!(@problem, self)
+    self
   end
   def code(problem_code)
     Code.new(self, problem_code)

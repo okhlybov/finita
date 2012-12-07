@@ -1,5 +1,5 @@
 require 'data_struct'
-require 'finita/type'
+require 'finita/symbolic'
 require 'finita/environment'
 
 

@@ -19,17 +19,24 @@ module Finita
     def *(other) other.is_a?(Constant) ? self*other.value : finita_mul(other) end
     def /(other) other.is_a?(Constant) ? self/other.value : finita_div(other) end
     def **(other) other.is_a?(Constant) ? self**other.value : finita_pow(other) end
+    def[](*args) self end
   end
 end
 
 
+::Symbol.class_eval do
+  def[](*args) self end
+end
+
+
+Symbolic::Expression.class_eval do
+  def [](*args)
+    Ref.new(self, *args)
+  end
+end
+
 class Collector < Symbolic::Traverser
   attr_reader :constants, :variables, :fields
-  def self.collect(*exprs)
-    collector = Collector.new
-    exprs.each {|e| Symbolic.coerce(e).apply(collector)}
-    collector
-  end
   def initialize
     @constants = Set.new
     @variables = Set.new
@@ -47,7 +54,16 @@ class Collector < Symbolic::Traverser
   def field(obj)
     @fields << obj
   end
-  def numeric(*args) end
+  def ref(obj)
+    obj.arg.apply(self)
+    [obj.xindex.index, obj.yindex.index, obj.zindex.index].each {|e| e.apply(self)}
+  end
+  def numeric(obj) end
+  def symbol(obj) end
+  def apply!(*args)
+    args.each {|e| Symbolic.coerce(e).apply(self)}
+    self
+  end
 end # Collector
 
 
@@ -126,8 +142,6 @@ class Constant < Numeric
 end # Constant
 
 
-
-
 class Variable < Symbolic::Expression
   attr_reader :name, :type
   def initialize(name, type)
@@ -149,6 +163,7 @@ class Variable < Symbolic::Expression
   def convert() self end
   def collect() self end
   def revert() self end
+  def[](*args) self end
   def code(problem_code)
     Code.new(self, problem_code)
   end
@@ -188,8 +203,6 @@ class Variable < Symbolic::Expression
 end # Variable
 
 
-
-
 class Field < Symbolic::Expression
   attr_reader :name, :type, :domain
   def initialize(name, type, domain)
@@ -208,6 +221,10 @@ class Field < Symbolic::Expression
   def apply(obj)
     obj.field(self)
   end
+  def expand() self end
+  def convert() self end
+  def collect() self end
+  def revert() self end
   def code(problem_code)
     Code.new(self, problem_code)
   end
@@ -232,7 +249,7 @@ class Field < Symbolic::Expression
       problem_code.defines << :FINITA_COMPLEX if field.type == Complex
     end
     def hash
-      @field.hash
+      field.hash
     end
     def eql?(other)
       equal?(other) || self.class == other.class && field == other.field
@@ -262,12 +279,231 @@ class Field < Symbolic::Expression
 end # Field
 
 
+class Index
+  Coords = Set.new [:x, :y, :z]
+  class Hash < ::Hash
+    def []=(key, value)
+      raise 'invalid index symbol' unless Index::Coords.include?(key)
+      raise 'duplicate index symbol' if include?(key)
+      super
+    end
+  end # Hash
+  def self.extract(arg)
+    # TODO more informative error messages
+    ex = Finita.expand(arg)
+    if ex.is_a?(Symbolic::Add)
+      # :x+1
+      coords = Set.new
+      rest = []
+      ex.args.each do |op|
+        if Coords.include?(op)
+          raise 'duplicate coordinate symbol found within index expression' if coords.include?(op)
+          coords << op
+        else
+          raise 'unexpected symbols found within index expression' unless Symbol::Collector.new.apply!(op).empty?
+          rest << op
+        end
+      end
+      if coords.size == 0
+        raise 'unexpected symbols found within index expression' unless Symbol::Collector.new.apply!(ex).empty?
+        ex # No offset symbols found - consider argument is an absolute coordinate reference
+      elsif coords.size == 1
+        [coords.to_a.first, Symbolic::Add.make(*rest)]
+      else
+        raise 'invalid index form'
+      end
+    else
+      if Coords.include?(ex)
+        [ex, 0]
+      else
+        raise 'unexpected symbols found within index expression' unless Symbol::Collector.new.apply!(ex).empty?
+        ex
+      end
+    end
+  end
+  attr_reader :hash, :base, :delta, :index
+  def initialize(arg)
+    if arg.is_a?(Index)
+      @base = arg.base
+      @delta = arg.delta
+      @index = arg.index
+    else
+      idx = Index.extract(arg)
+      if idx.is_a?(Array)
+        @base, @delta = idx
+      else
+        @base = idx
+        @delta = nil
+      end
+      @index = Finita.simplify(arg)
+    end
+    @hash = @index.hash
+  end
+  def ==(other)
+    equal?(other) || self.class == other.class && base == other.base && delta == other.delta
+  end
+  alias :eql? :==
+  def to_s
+    CEmitter.emit(index)
+  end
+  def absolute?
+    @delta.nil?
+  end
+  def relative?
+    not @delta.nil?
+  end
+  X = Index.new(:x)
+  Y = Index.new(:y)
+  Z = Index.new(:z)
+end # Index
+
+
+class Ref < Symbolic::UnaryFunction
+  attr_reader :xindex, :yindex, :zindex
+  def initialize(op, *args)
+    super(op)
+    if args.size == 1 && args.first.is_a?(Array)
+      @xindex, @yindex, @zindex = args.first
+    else
+      ids = Index::Hash.new
+      if args.size == 1 && args.first.is_a?(Hash)
+        args.first.each do |k, v|
+          ids[k] = Index.new(v) unless v.nil?
+        end
+      else
+        args.each do |arg|
+          idx = Index.new(arg)
+          raise 'relative index expected' unless idx.relative?
+          ids[idx.base] = idx
+        end
+      end
+      @xindex = ids.include?(:x) ? ids[:x] : Index::X
+      @yindex = ids.include?(:y) ? ids[:y] : Index::Y
+      @zindex = ids.include?(:z) ? ids[:z] : Index::Z
+    end
+  end
+  def hash
+    super ^ (xindex.hash << 1) ^ (yindex.hash << 2) ^ (zindex.hash << 3)
+  end
+  def ==(other)
+    super && xindex == other.xindex && yindex == other.yindex && zindex == other.zindex
+  end
+  alias :eql? :==
+  def apply(obj)
+    obj.ref(self)
+  end
+  def new_instance(arg)
+    self.class.new(arg, [xindex, yindex, zindex])
+  end
+end # Ref
+
+
+class Ref::Merger
+  attr_reader :result
+  def initialize(xindex = nil, yindex = nil, zindex = nil)
+    @xindex = xindex
+    @yindex = yindex
+    @zindex = zindex
+  end
+  def numeric(obj)
+    @result = obj
+  end
+  alias :constant :numeric
+  def variable(obj)
+    @result = obj
+  end
+  def field(obj)
+    @result = Ref.new(obj, {:x=>@xindex, :y=>@yindex, :z=>@zindex})
+  end
+  def ref(obj)
+    ids = Index::Hash.new
+    [[:x,obj.xindex,@xindex], [:y,obj.yindex,@yindex], [:z,obj.zindex,@zindex]].each do |base, obj_index, self_index|
+      if self_index.nil?
+        ids[base] = obj_index
+      else
+        raise 'both indices must be relative' unless obj_index.relative? && self_index.relative?
+        raise 'bases do not coincide' unless base == obj_index.base && base == self_index.base
+        ids[base] = Index.new(Finita.simplify(base + self_index.delta + obj_index.delta))
+      end
+    end
+    merger = self.class.new(ids[:x], ids[:y], ids[:z])
+    obj.arg.apply(merger)
+    @result = merger.result
+  end
+  def add(obj)
+    merge_nary(obj)
+  end
+  def multiply(obj)
+    merge_nary(obj)
+  end
+  def power(obj)
+    merge_nary(obj)
+  end
+  def exp(obj)
+    merge_unary(obj)
+  end
+  def log(obj)
+    merge_unary(obj)
+  end
+  def apply!(obj)
+    obj.convert.apply(self)
+    @result
+  end
+  private
+  def merge_unary(obj)
+    obj.arg.apply(self)
+    @result = obj.class.new(@result)
+  end
+  def merge_nary(obj)
+    ary = []
+    obj.args.each do |arg|
+      arg.apply(self)
+      ary << @result
+    end
+    @result = obj.class.new(*ary)
+  end
+end # Ref::Merger
+
+
+class Symbol::Collector < Symbolic::Traverser
+  attr_reader :symbols
+  def initialize
+    @symbols = Set.new
+  end
+  def symbol(obj)
+    @symbols << obj
+  end
+  def apply!(obj)
+    obj.apply(self)
+    symbols
+  end
+  def method_missing(*args) end
+end # Symbol::Collector
+
+
+class Ref::Collector < Symbolic::Traverser
+  attr_reader :refs
+  def initialize(fields)
+    @fields = fields
+    @refs = Set.new
+  end
+  def ref(obj)
+    raise 'unexpected reference operand' unless obj.arg.is_a?(Field)
+    @refs << obj if @fields.include?(obj.arg)
+  end
+  def apply!(obj)
+    obj.apply(self)
+    refs
+  end
+  def method_missing(*args) end
+end # Ref::Collector
 
 
 class PrecedenceComputer < Symbolic::PrecedenceComputer
   def constant(obj) 100 end
   def variable(obj) 100 end
   def field(obj) 100 end
+  def ref(obj) 100 end
 end # PrecedenceComputer
 
 
@@ -287,8 +523,17 @@ class CEmitter < Symbolic::CEmitter
     @out << obj.name
   end
   def field(obj)
-    @out << obj.name << '(x,y,z)'
+    @out << obj.name
   end
+  def ref(obj)
+    embrace_arg = prec(obj.arg) < prec(obj)
+    @out << '(' if embrace_arg
+    obj.arg.apply(self)
+    @out << ')' if embrace_arg
+    @out << '('
+    @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
+    @out << ')'
+    end
 end # CEmitter
 
 
