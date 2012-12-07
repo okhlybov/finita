@@ -19,7 +19,7 @@ NumericType = {
 MPIType = {
   Integer => 'MPI_INT',
   Float => 'MPI_DOUBLE'
-  # no MPI type for complex
+  # no MPI type for complex so is has to be constructed manually form pair of doubles
 }
 
 

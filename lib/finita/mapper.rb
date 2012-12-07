@@ -198,27 +198,59 @@ class Mapper::Naive < Mapper
       stream << 'return FINITA_OK;}'
       if mapper.mpi?
         # TODO complex type
-        c_type = @result
-        mpi_type = Finita::MPIType[@system_code.system.type]
+        if @system_code.system.type == Complex
+          c_type = Finita::NumericType[Float]
+          mpi_type = Finita::MPIType[Float]
+        else
+          c_type = @result
+          mpi_type = Finita::MPIType[@system_code.system.type]
+        end
         stream << %$
           void #{synchronize}(void) {
             int ierr, index, count, process;
-            #{c_type} *sender, *receiver;
-            sender = (#{c_type}*)#{malloc}(#{counts}[FinitaProcessIndex]*sizeof(#{c_type})); #{assert}(sender);
-            receiver = (#{c_type}*)#{malloc}(#{@nodeArray.size}(&#{nodes})*sizeof(#{c_type})); #{assert}(receiver);
+            #{c_type} *input, *real;
+            input = (#{c_type}*)#{malloc}(#{counts}[FinitaProcessIndex]*sizeof(#{c_type})); #{assert}(input);
+            real = (#{c_type}*)#{malloc}(#{@nodeArray.size}(&#{nodes})*sizeof(#{c_type})); #{assert}(real);
+        $
+        if @system_code.system.type == Complex
+          stream << %${
+            #{c_type} *imaginary;
+            imaginary = (#{c_type}*)#{malloc}(#{@nodeArray.size}(&#{nodes})*sizeof(#{c_type})); #{assert}(imaginary);
             for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              sender[count] = #{getValue}(index);
+              input[count] = creal(#{getValue}(index));
             }
-            ierr = MPI_Allgatherv(sender, #{counts}[FinitaProcessIndex], #{mpi_type}, receiver, #{counts}, #{offsets}, #{mpi_type}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_type}, real, #{counts}, #{offsets}, #{mpi_type}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
+              input[count] = cimag(#{getValue}(index));
+            }
+            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_type}, imaginary, #{counts}, #{offsets}, #{mpi_type}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
             for(process = 0; process < FinitaProcessCount; ++process) {
               if(process != FinitaProcessIndex) {
                 for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                  #{setValue}(index, receiver[index]);
+                  #{setValue}(index, real[index] + _Complex_I*imaginary[index]);
                 }
               }
             }
-            #{free}(receiver);
-            #{free}(sender);
+            #{free}(imaginary);
+          }$
+        else
+          stream << %$
+            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
+              input[count] = #{getValue}(index);
+            }
+            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_type}, real, #{counts}, #{offsets}, #{mpi_type}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            for(process = 0; process < FinitaProcessCount; ++process) {
+              if(process != FinitaProcessIndex) {
+                for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
+                  #{setValue}(index, real[index]);
+                }
+              }
+            }
+          $
+        end
+        stream << %$
+            #{free}(real);
+            #{free}(input);
           }
           int #{firstIndex}(void) {
             return #{offsets}[FinitaProcessIndex];
