@@ -1,7 +1,7 @@
 require 'set'
 require 'symbolic'
 require 'data_struct'
-require 'finita/type'
+require 'finita/symbolic'
 require 'finita/generator'
 
 
@@ -133,7 +133,7 @@ class Area
     @@codes = {}
     attr_reader :area, :instance
     def entities
-      super + [StaticCode.instance] + Collector.collect(*(area.xrange + area.yrange + area.zrange)).instances.collect {|o| o.code(@problem_code)}
+      super + [StaticCode.instance] + Collector.new.apply!(*(area.xrange + area.yrange + area.zrange)).instances.collect {|o| o.code(@problem_code)}
     end
     def initialize(area, problem_code)
       @area = area

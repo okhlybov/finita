@@ -1,4 +1,4 @@
-require 'finita/type'
+require 'finita/symbolic'
 require 'finita/evaluator'
 require 'finita/problem'
 require 'finita/system'

@@ -1,5 +1,5 @@
 require 'symbolic'
-require 'finita/type'
+require 'finita/symbolic'
 require 'finita/domain'
 
 
@@ -21,6 +21,9 @@ class Binding
   # def assignment()
   def code(problem_code, system_code)
     Code.new(self, problem_code, system_code)
+  end
+  def process!
+    @expression = Finita.simplify(Ref::Merger.new.apply!(expression))
   end
   class Code < DataStruct::Code
     attr_reader :binding

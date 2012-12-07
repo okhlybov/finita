@@ -36,7 +36,7 @@ class Evaluator
     end
     @@count = 0
     attr_reader :evaluator, :instance
-    def entities; super + Collector.collect(evaluator.expression).instances.collect {|o| o.code(@problem_code)} end
+    def entities; super + Collector.new.apply!(evaluator.expression).instances.collect {|o| o.code(@problem_code)} end
     def initialize(evaluator, problem_code)
       @evaluator = evaluator
       @problem_code = problem_code

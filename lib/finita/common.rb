@@ -4,6 +4,10 @@ require 'symbolic'
 module Finita
 
 
+def self.expand(obj)
+  Symbolic.coerce(obj).convert.expand
+end
+
 def self.simplify(obj)
   Symbolic.coerce(obj).convert.revert
 end

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "problem.auto.h"
 
 void PrintF(FILE* out)
@@ -16,25 +17,21 @@ void PrintF(FILE* out)
 
 int main(int argc, char** argv)
 {
-	N = 3;
+    clock_t c;
+	N = 5;
 	ProblemSetup(argc, argv);
-#ifdef FINITA_MPI
-	printf("[%d]--\n", FinitaProcessIndex);
 {
 	int x, y;
 	for(x = 0; x < N; ++x)
 	{
 		for(y = 0; y < N; ++y)
 		{
-			F(x,y,0) = FinitaProcessIndex;
+			F(x,y,0) = 1;
 		}
 	}
 }
-#endif
-	PrintF(stdout);
 	ProblemSystemSolve();
-	printf("--\n");
-	PrintF(stdout);
+	FINITA_HEAD PrintF(stdout);
 	ProblemCleanup();
 	return 0;
 }

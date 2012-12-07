@@ -1,6 +1,6 @@
 require 'set'
 require 'data_struct'
-require 'finita/type'
+require 'finita/symbolic'
 require 'finita/system'
 require 'finita/generator'
 
@@ -41,8 +41,9 @@ class Problem
     instances << entity
   end
   def process!
-    systems.each {|s| s.process!}
+    @systems = systems.collect {|s| s.process!}
     new_module(code).generate!
+    self
   end
   def code
     Code.new(self)
