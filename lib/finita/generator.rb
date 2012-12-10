@@ -156,7 +156,7 @@ class Header < CodeBuilder::Header
   def initialize(m)
     super(m)
     @file_name = "#{@module.file_prefix}.auto.h"
-    @header_tag = @module.file_prefix.upcase + "_H"
+    @header_tag = @module.file_prefix.upcase + "_AUTO_H"
   end
   def new_stream
     File.new(file_name, 'wt')
