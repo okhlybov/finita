@@ -16,6 +16,9 @@ class Binding
     @merge = merge
     System.current.equations << self
   end
+  def type
+    TypeInferer.new.apply!(unknown)
+  end
   def merge?; @merge end
   # def linear?(variable = field)
   # def assignment()

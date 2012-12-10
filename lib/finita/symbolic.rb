@@ -6,6 +6,27 @@ require 'finita/domain'
 module Finita
 
 
+class Numeric
+  Precedence = [Integer, Float, Complex]
+  def self.type_of(obj)
+    if obj.is_a?(Integer)
+      Integer
+    elsif obj.is_a?(Numeric)
+      obj.class
+    else
+      raise 'numeric value expected'
+    end
+  end
+  def self.promoted_type(*types)
+    type = types.first
+    types[1..-1].each do |t|
+      type = t if Precedence.index(t) > Precedence.index(type)
+    end
+    type
+  end
+end # Numeric
+
+
 # Constant needs extra treatment
 [::Fixnum, ::Float, ::Complex, ::Bignum, ::Rational].each do |cls|
   cls.class_eval do
@@ -72,13 +93,7 @@ class Constant < Numeric
   def initialize(name, value)
     @name = name.to_s
     @value = value
-    @type = if value.is_a?(Integer)
-              Integer
-            elsif value.is_a?(Numeric)
-              value.class
-            else
-              raise 'numeric value expected'
-            end
+    @type = Numeric.type_of(value)
   end
   def hash
     value.hash
@@ -499,6 +514,42 @@ class Ref::Collector < Symbolic::Traverser
 end # Ref::Collector
 
 
+class TypeInferer < Symbolic::Traverser
+
+  def apply!(obj)
+    obj.apply(self)
+    @type
+  end
+  def numeric(obj)
+    @type = Numeric.type_of(obj)
+  end
+  def constant(obj)
+    @type = obj.type
+  end
+  def variable(obj)
+    @type = obj.type
+  end
+  def field(obj)
+    @type = obj.type
+  end
+  def ref(obj)
+    obj.arg.apply(self)
+  end
+  def exp(obj)
+    super
+    @type = Float if @type.is_a?(Integer)
+  end
+  def log(obj)
+    super
+    @type = Float if @type.is_a?(Integer)
+  end
+  protected
+  def traverse_nary(obj)
+    @type = Numeric.promoted_type(*obj.args.collect {|o| o.apply(self); @type})
+  end
+end #
+
+
 class PrecedenceComputer < Symbolic::PrecedenceComputer
   def constant(obj) 100 end
   def variable(obj) 100 end
@@ -533,7 +584,29 @@ class CEmitter < Symbolic::CEmitter
     @out << '('
     @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
     @out << ')'
+  end
+  def exp(obj)
+    unary_func(TypeInferer.new.apply!(obj).is_a?(Complex) ? 'cexp' : 'exp', obj)
+  end
+  def log(obj)
+    unary_func(TypeInferer.new.apply!(obj).is_a?(Complex) ? 'clog' : 'log', obj)
+  end
+  def power(obj)
+    power_op(obj, *obj.args)
+  end
+  private
+  def power_op(obj, *ops)
+    pow = TypeInferer.new.apply!(obj).is_a?(Complex) ? 'cpow' : 'pow'
+    if ops.size > 1
+      @out << pow << '('
+      power_op(obj, *ops[0..-2])
+      @out <<','
+      ops.last.apply(self)
+      @out << ')'
+    else
+      ops.last.apply(self)
     end
+  end
 end # CEmitter
 
 
