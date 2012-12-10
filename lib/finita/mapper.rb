@@ -30,7 +30,7 @@ class Mapper
       @intList = IntegerListCode.instance if mapper.mpi?
       @result = @system_code.result
       @system_code.initializers << self
-      super("#{system_code.type}Mapper")
+      super("#{system_code.type}Mapping")
     end
     def hash
       mapper.hash

@@ -37,6 +37,9 @@ class Evaluator
     @@count = 0
     attr_reader :evaluator, :instance
     def entities; super + Collector.new.apply!(evaluator.expression).instances.collect {|o| o.code(@problem_code)} end
+    def priority
+      CodeBuilder::Priority::DEFAULT + 1
+    end
     def initialize(evaluator, problem_code)
       @evaluator = evaluator
       @problem_code = problem_code

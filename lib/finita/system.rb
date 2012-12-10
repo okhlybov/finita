@@ -18,7 +18,7 @@ class System
     raise 'nested system contexts are not allowed' if @@current.nil? == system.nil?
     @@current = system
   end
-  attr_reader :name, :equations, :type
+  attr_reader :name, :equations
   attr_accessor :solver, :discretizer
   def initialize(name, &block)
     @name = name.to_s # TODO validate
@@ -35,7 +35,7 @@ class System
     end
   end
   def type
-    Float # TODO FIXME
+    Numeric.promoted_type(*equations.collect {|s| s.type})
   end
   def process!
     @equations = discretizer.process!(equations)
