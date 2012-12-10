@@ -129,4 +129,10 @@ class Solver::Explicit < Solver
 end # Explicit
 
 
+class Solver::Matrix < Solver
+
+end # Matrix
+
+
+
 end # Finita

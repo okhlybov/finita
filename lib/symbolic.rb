@@ -171,7 +171,7 @@ class Expression
   # The code within the Symbolic package assumes the equivalency of #eql? and #== methods and
   # the subclasses of the Expression class redefine the latter to provide object comparison, therefore
   # this definition must be left as is otherwise things might break.
-  alias :eql? :==
+  # Each redefinition of #== should be followed by the corresponding alias :eql? :==
 end
 
 
@@ -183,8 +183,9 @@ class UnaryFunction < Expression
     @hash = arg.hash
   end
   def ==(other)
-    self.class == other.class && arg == other.arg
+    equal?(other) || self.class == other.class && arg == other.arg
   end
+  alias :eql? :==
   def convert
     new_instance(arg.convert)
   end
@@ -256,16 +257,18 @@ end
 # Mixin for commutative N-ary functions.
 module Commutative
   def ==(other)
-    self.class == other.class && contents == other.contents
+    equal?(other) || self.class == other.class && contents == other.contents
   end
+  alias :eql? :==
 end
 
 
 # Mixin for non-commutative N-ary functions.
 module Noncommutative
   def ==(other)
-    self.class == other.class && args.first == other.args.first && contents == other.contents
+    equal?(other) || self.class == other.class && args.first == other.args.first && contents == other.contents
   end
+  alias :eql? :==
 end
 
 
