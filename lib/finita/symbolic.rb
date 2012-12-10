@@ -130,6 +130,9 @@ class Constant < Numeric
       end
     end
     attr_reader :constant, :symbol
+    def priority
+      CodeBuilder::Priority::DEFAULT + 4
+    end
     def initialize(constant, problem_code)
       @constant = constant
       @symbol = constant.name
@@ -191,6 +194,9 @@ class Variable < Symbolic::Expression
       end
     end
     attr_reader :variable, :symbol
+    def priority
+      CodeBuilder::Priority::DEFAULT + 3
+    end
     def initialize(variable, problem_code)
       @variable = variable
       @symbol = variable.name
@@ -515,7 +521,6 @@ end # Ref::Collector
 
 
 class TypeInferer < Symbolic::Traverser
-
   def apply!(obj)
     obj.apply(self)
     @type
@@ -537,11 +542,11 @@ class TypeInferer < Symbolic::Traverser
   end
   def exp(obj)
     super
-    @type = Float if @type.is_a?(Integer)
+    @type = Float if @type.equal?(Integer)
   end
   def log(obj)
     super
-    @type = Float if @type.is_a?(Integer)
+    @type = Float if @type.equal?(Integer)
   end
   protected
   def traverse_nary(obj)
@@ -586,17 +591,17 @@ class CEmitter < Symbolic::CEmitter
     @out << ')'
   end
   def exp(obj)
-    unary_func(TypeInferer.new.apply!(obj).is_a?(Complex) ? 'cexp' : 'exp', obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? 'cexp' : 'exp', obj)
   end
   def log(obj)
-    unary_func(TypeInferer.new.apply!(obj).is_a?(Complex) ? 'clog' : 'log', obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? 'clog' : 'log', obj)
   end
   def power(obj)
     power_op(obj, *obj.args)
   end
   private
   def power_op(obj, *ops)
-    pow = TypeInferer.new.apply!(obj).is_a?(Complex) ? 'cpow' : 'pow'
+    pow = TypeInferer.new.apply!(obj).equal?(Complex) ? 'cpow' : 'pow'
     if ops.size > 1
       @out << pow << '('
       power_op(obj, *ops[0..-2])

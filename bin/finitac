@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+require 'symbolic'
+include Symbolic
 require 'finita'
 include Finita
 load ARGV[0]

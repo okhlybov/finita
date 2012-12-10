@@ -86,6 +86,7 @@ class PrologueCode < CodeBuilder::Code
   end
   def write_defs(stream)
     stream << %$
+      #include <math.h>
       #include <stdio.h>
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
           #ifdef FINITA_MPI
