@@ -64,7 +64,7 @@ class Evaluator
       stream << %$
         FINITA_ARGSUSED
         #{@ctype} #{instance}(int x, int y, int z) {
-          return #{CEmitter.emit(evaluator.expression)};
+          return #{CEmitter.new.emit!(evaluator.expression)};
         }
       $
     end

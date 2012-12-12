@@ -6,12 +6,12 @@ require 'finita/domain'
 module Finita
 
 
-class Numeric
+class ::Numeric
   Precedence = [Integer, Float, Complex]
   def self.type_of(obj)
-    if obj.is_a?(Integer)
+    if obj.is_a?(::Integer)
       Integer
-    elsif obj.is_a?(Numeric)
+    elsif obj.is_a?(::Numeric)
       obj.class
     else
       raise 'numeric value expected'
@@ -50,18 +50,22 @@ end
 end
 
 
-Symbolic::Expression.class_eval do
+class Symbolic::Expression
   def [](*args)
     Ref.new(self, *args)
+  end
+  def to_s
+    Emitter.new.emit!(self)
   end
 end
 
 class Collector < Symbolic::Traverser
-  attr_reader :constants, :variables, :fields
+  attr_reader :constants, :variables, :fields, :refs
   def initialize
     @constants = Set.new
     @variables = Set.new
     @fields = Set.new
+    @refs = Set.new
   end
   def instances
     constants | variables | fields
@@ -76,6 +80,7 @@ class Collector < Symbolic::Traverser
     @fields << obj
   end
   def ref(obj)
+    @refs << obj
     obj.arg.apply(self)
     [obj.xindex.index, obj.yindex.index, obj.zindex.index].each {|e| e.apply(self)}
   end
@@ -131,7 +136,7 @@ class Constant < Numeric
     end
     attr_reader :constant, :symbol
     def priority
-      CodeBuilder::Priority::DEFAULT + 4
+      CodeBuilder::Priority::DEFAULT + 3
     end
     def initialize(constant, problem_code)
       @constant = constant
@@ -195,7 +200,7 @@ class Variable < Symbolic::Expression
     end
     attr_reader :variable, :symbol
     def priority
-      CodeBuilder::Priority::DEFAULT + 3
+      CodeBuilder::Priority::DEFAULT + 2
     end
     def initialize(variable, problem_code)
       @variable = variable
@@ -365,7 +370,7 @@ class Index
   end
   alias :eql? :==
   def to_s
-    CEmitter.emit(index)
+    CEmitter.new.emit!(index)
   end
   def absolute?
     @delta.nil?
@@ -555,6 +560,71 @@ class TypeInferer < Symbolic::Traverser
 end #
 
 
+class ObjectCollector < Symbolic::Traverser
+  attr_reader :objects
+  def initialize(*classes)
+    @classes = classes
+    @objects = Set.new
+  end
+  def apply!(obj)
+    obj.apply(self)
+    @objects
+  end
+  def collect_obj(obj)
+    @classes.each do |c|
+      if obj.is_a?(c)
+        @objects << obj
+        break
+      end
+    end
+  end
+  alias :numeric :collect_obj
+  alias :constant :collect_obj
+  alias :variable :collect_obj
+  alias :field :collect_obj
+  def ref(obj)
+    traverse_unary(obj)
+  end
+  protected
+  def traverse_unary(obj)
+    collect_obj(obj)
+    super
+  end
+  def traverse_nary(obj)
+    collect_obj(obj)
+    super
+  end
+end # ObjectCollector
+
+
+# tries to convert given expression info a product term*rest and returns rest or nil
+class ProductExtractor
+  def apply!(obj, term)
+    @term = term
+    Symbolic.expand(obj).apply(self)
+    @rest
+  end
+  def compare_obj(obj) @rest = (obj == @term ? 1 : nil) end
+  alias :numeric :compare_obj
+  alias :constant :compare_obj
+  alias :variable :compare_obj
+  alias :field :compare_obj
+  alias :ref :compare_obj
+  alias :add :compare_obj
+  alias :exp :compare_obj
+  alias :ln :compare_obj
+  def multiply(obj)
+    index = obj.args.index(@term)
+    if index.nil?
+      @rest = nil
+    else
+      args = obj.args.dup; args.slice!(index)
+      @rest = Multiply.make(*args)
+    end
+  end
+end # TermExtractor
+
+
 class PrecedenceComputer < Symbolic::PrecedenceComputer
   def constant(obj) 100 end
   def variable(obj) 100 end
@@ -563,12 +633,32 @@ class PrecedenceComputer < Symbolic::PrecedenceComputer
 end # PrecedenceComputer
 
 
-class CEmitter < Symbolic::CEmitter
-  def self.emit(e)
-    emitter = CEmitter.new
-    e.apply(emitter)
-    emitter.to_s
+class Emitter < Symbolic::Emitter
+  def initialize(pc = PrecedenceComputer.new)
+    super
   end
+  def constant(obj)
+    @out << obj.name
+  end
+  def variable(obj)
+    @out << obj.name
+  end
+  def field(obj)
+    @out << obj.name
+  end
+  def ref(obj)
+    embrace_arg = prec(obj.arg) < prec(obj)
+    @out << '(' if embrace_arg
+    obj.arg.apply(self)
+    @out << ')' if embrace_arg
+    @out << '('
+    @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
+    @out << ')'
+  end
+end # Emitter
+
+
+class CEmitter < Symbolic::CEmitter
   def initialize(pc = PrecedenceComputer.new)
     super
   end

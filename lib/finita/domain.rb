@@ -159,7 +159,7 @@ class Area
     $
     end
     def write_initializer(stream)
-      args = (area.xrange + area.yrange + area.zrange).collect {|e| CEmitter.emit(e)}.join(',')
+      args = (area.xrange + area.yrange + area.zrange).collect {|e| CEmitter.new.emit!(e)}.join(',')
       stream << %$
       #{ctor}(&#{instance}, #{args});
     $

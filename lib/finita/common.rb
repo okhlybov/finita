@@ -23,7 +23,7 @@ NumericType = {
 MPIType = {
   Integer => 'MPI_INT',
   Float => 'MPI_DOUBLE'
-  # no MPI type for complex so is has to be constructed manually form pair of doubles
+  # no MPI type corrsponding to C complex therefore is has to be constructed manually from a pair of floats
 }
 
 

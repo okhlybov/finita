@@ -37,8 +37,22 @@ class System
   def type
     Numeric.promoted_type(*equations.collect {|s| s.type})
   end
+  def unknowns
+    Set.new(equations.collect {|e| e.unknown})
+  end
+  def linear?
+    @linear
+  end
   def process!
+    uns = unknowns
     @equations = discretizer.process!(equations)
+    @linear = true
+    equations.each do |e|
+      unless e.decomposition(uns).linear?
+        @linear = false
+        break
+      end
+    end
     @solver = solver.process!(@problem, self)
     self
   end
