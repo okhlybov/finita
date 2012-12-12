@@ -12,7 +12,7 @@ Problem.new(:Problem) do |p|
     s.solver = Solver::Explicit.new(Mapper::Naive.new, Environment::MPI.new)
     #s.solver = Solver::Explicit.new(Mapper::Naive.new)
 #    Assignment.new({(F[:x+1]-F[:x-1]+F[:y+1]-F[:y-1])/4=>F}, B)
-    Assignment.new({F*G => F}, B)
-    #Assignment.new({Log.new(Z)=>F}, B)
+    Assignment.new({(F[:x+1]-F[:x-1]+F[:y+1]-F[:y-1])/4 => F}, B)
+    Assignment.new({Log.new(Z)=>G}, B)
   end
 end
