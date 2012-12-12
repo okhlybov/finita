@@ -160,9 +160,7 @@ class Expression
   include Operators
   # Returns string representation of self. Employs Emitter class for string rendering.
   def to_s
-    emitter = Emitter.new
-    apply(emitter)
-    emitter.to_s
+    Emitter.new.emit!(self)
   end
   # Performs object comparison.
   # def ==(other)

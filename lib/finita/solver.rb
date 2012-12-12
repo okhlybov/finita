@@ -49,7 +49,7 @@ class Solver::Explicit < Solver
   def process!(problem, system)
     super
     mapper.process!(problem, system, self)
-    @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.assignment.expression, system.type, e.merge?), e.unknown, e.domain]}
+    @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.assignment, system.type, e.merge?), e.unknown, e.domain]}
     self
   end
   class Code < Solver::Code
