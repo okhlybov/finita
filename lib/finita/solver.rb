@@ -72,9 +72,9 @@ class Solver::Explicit < Solver
       stream << %$
         static #{@array.type} #{evaluators};
         int #{setup}(void) {
-          int index, size = #{@mapper_code.size}();
+          int index, size = #{@mapper_code.size}(), first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
           #{@array.ctor}(&#{evaluators}, size);
-          for(index = 0; index < size; ++index) {
+          for(index = first; index <= last; ++index) {
             #{@node.type} node = #{@mapper_code.getNode}(index);
       $
       evaluator_codes.each do |evaluator, field, domain|
