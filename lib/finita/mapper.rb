@@ -82,6 +82,29 @@ class Mapper::Naive < Mapper
     def write_intf(stream)
       super
       stream << %$int #{setup}(void);$
+      stream << %$
+      #{inline} void #{nodeSet}(#{@node.type} node, #{@result} value) {
+          switch(node.field) {
+        $
+      index = 0
+      mapper.fields.each do |field|
+        stream << %$case #{index}: #{field.name}(node.x, node.y, node.z) = value; break;$
+        index += 1
+      end
+      stream << %$default : #{abort}();$
+      stream << '}}'
+      stream << %$
+      #{inline} #{@result} #{nodeGet}(#{@node.type} node) {
+          #{@result} value;
+          switch(node.field) {
+      $
+      index = 0
+      mapper.fields.each do |field|
+        stream << %$case #{index}: value = #{field.name}(node.x, node.y, node.z); break;$
+        index += 1
+      end
+      stream << %$default : #{abort}();$
+      stream << '}return value;}'
     end
     def write_defs(stream)
       field_codes = mapper.fields.collect {|field| field.code(@problem_code)}
@@ -270,29 +293,6 @@ class Mapper::Naive < Mapper
           }
         $
       end
-      stream << %$
-        #{inline} void #{nodeSet}(#{@node.type} node, #{@result} value) {
-          switch(node.field) {
-        $
-      index = 0
-      mapper.fields.each do |field|
-        stream << %$case #{index}: #{field.name}(node.x, node.y, node.z) = value; break;$
-        index += 1
-      end
-      stream << %$default : #{abort}();$
-      stream << '}}'
-      stream << %$
-        #{inline} #{@result} #{nodeGet}(#{@node.type} node) {
-          #{@result} value;
-          switch(node.field) {
-      $
-      index = 0
-      mapper.fields.each do |field|
-        stream << %$case #{index}: value = #{field.name}(node.x, node.y, node.z); break;$
-        index += 1
-      end
-      stream << %$default : #{abort}();$
-      stream << '}return value;}'
       stream << %$
         #{@result} #{getValue}(size_t index) {
           return #{nodeGet}(#{@nodeArray.get}(&#{nodes}, index));

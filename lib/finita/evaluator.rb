@@ -46,7 +46,7 @@ class Evaluator
       @instance = "#{@problem_code.type}#{@@count += 1}"
       @ctype = Finita::NumericType[evaluator.type]
       @problem_code.defines << :FINITA_COMPLEX if evaluator.type == Complex
-      super('FinitaCode')
+      super('FinitaEvaluator')
     end
     def merge?
       evaluator.merge?

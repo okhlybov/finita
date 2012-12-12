@@ -13,6 +13,20 @@ def self.simplify(obj)
 end
 
 
+def self.shallow_flatten(ary)
+  # a helper function to circumvent Array#flatten unwanted internal call to Object#to_ary; mimics Array#flatten(1)
+  result = []
+  ary.each do |o|
+    if o.is_a?(Array)
+      result.concat(o)
+    else
+      result << o
+    end
+  end
+  result
+end
+
+
 NumericType = {
   Integer => 'int',
   Float => 'double',
