@@ -102,17 +102,7 @@ class NodeCode < DataStruct::Code
     super('FinitaNode')
   end
   def write_intf(stream)
-    # Thomas Wang's mixing algorithm, 32-bit version
-    # http://www.concentric.net/~ttwang/tech/inthash.htm
     stream << %$
-      FINITA_INLINE size_t FinitaHashMix(size_t hash) {
-        hash = (hash ^ 61) ^ (hash >> 16);
-        hash = hash + (hash << 3);
-        hash = hash ^ (hash >> 4);
-        hash = hash * 0x27d4eb2d;
-        hash = hash ^ (hash >> 15);
-        return hash;
-      }
       typedef struct {
         int field, x, y, z;
         size_t hash;
@@ -209,7 +199,7 @@ end # NodeCoordCode
 class FunctionListCode < DataStruct::List
   include Singleton
   def initialize
-    super('FinitaFunctionList', 'FinitaFunction', 'FinitaFunctionComparator')
+    super('FinitaFunctionList', 'FinitaFunctionPtr', 'FinitaFunctionComparator')
   end
   def write_intf(stream)
     stream << %$
@@ -339,7 +329,7 @@ EvaluationArrayCode = {
     Complex => ComplexEvaluationArrayCode.instance
 }
 
-
+if false # Obsolete code
 class AbstractEvaluationVectorCode < DataStruct::Structure
   attr_reader :returnType, :map
   def entities; super + [map] end
@@ -504,6 +494,408 @@ EvaluationMatrixCode = {
     Integer => IntegerEvaluationMatrixCode.instance,
     Float => FloatEvaluationMatrixCode.instance,
     Complex => ComplexEvaluationMatrixCode.instance
+}
+end
+
+
+class AbstractMatrixEntryCode < DataStruct::Structure
+  attr_reader :returnType
+  def entities; super + [@node, @key, @list] end
+  def initialize(type, element_type, return_type)
+    super(type, element_type)
+    @node = NodeCode.instance
+    @key = NodeCoordCode.instance
+    @list = FunctionListCode.instance
+    @returnType = return_type
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef #{returnType} (*#{elementType})(int, int, int);
+      typedef struct #{type} #{type};
+      struct #{type} {
+        #{@key.type} coord;
+        #{@list.type} list;
+      };
+      #{type}* #{new}(#{@node.type}, #{@node.type});
+      void #{ctor}(#{type}*, #{@node.type}, #{@node.type});
+      void #{merge}(#{type}*, #{elementType});
+      #{returnType} #{evaluate}(#{type}*);
+      #{inline} size_t #{hasher}(#{type}* self) {
+        #{assert}(self);
+        return #{@key.hasher}(self->coord);
+      }
+      #{inline} int #{comparator}(#{type}* lt, #{type}* rt) {
+        #{assert}(lt);
+        #{assert}(rt);
+        return #{@key.comparator}(lt->coord, rt->coord);
+      }
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      void #{ctor}(#{type}* self, #{@node.type} row, #{@node.type} column) {
+        self->coord = #{@key.new}(row, column);
+        #{@list.ctor}(&self->list);
+      }
+      #{type}* #{new}(#{@node.type} row, #{@node.type} column) {
+        #{type}* result = (#{type}*) #{malloc}(sizeof(#{type})); #{assert}(result);
+        #{ctor}(result, row, column);
+        return result;
+      }
+      void #{merge}(#{type}* self, #{elementType} fp) {
+        #{@list.append}(&self->list, (#{@list.elementType})fp);  
+      }
+      #{returnType} #{evaluate}(#{type}* self) {
+        #{@list.it} it;
+        #{returnType} result = 0;
+        int x = self->coord.column.x, y = self->coord.column.y, z = self->coord.column.z;
+        #{@list.itCtor}(&it, &self->list);
+        while(#{@list.itHasNext}(&it)) result += ((#{elementType})#{@list.itNext}(&it))(x, y, z);
+        return result;
+      }
+    $
+  end
+end # AbstractMatrixEntryCode
+
+
+class IntegerMatrixEntryCode < AbstractMatrixEntryCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerMatrixEntry', 'FinitaIntegerFunctionPtr', NumericType[Integer])
+  end
+end # IntegerMatrixEntryCode
+
+
+class FloatMatrixEntryCode < AbstractMatrixEntryCode
+  include Singleton
+  def initialize
+    super('FinitaFloatMatrixEntry', 'FinitaFloatFunctionPtr', NumericType[Float])
+  end
+end # FloatMatrixEntryCode
+
+
+class ComplexMatrixEntryCode < AbstractMatrixEntryCode
+  include Singleton
+  def initialize
+    super('FinitaComplexMatrixEntry', 'FinitaComplexFunctionPtr', NumericType[Complex])
+  end
+end # ComplexMatrixEntryCode
+
+
+MatrixEntryCode = {
+    Integer => IntegerMatrixEntryCode.instance,
+    Float => FloatMatrixEntryCode.instance,
+    Complex => ComplexMatrixEntryCode.instance
+}
+
+
+class AbstractVectorEntryCode < DataStruct::Structure
+  attr_reader :returnType
+  def entities; super + [@node, @list] end
+  def initialize(type, element_type, return_type)
+    super(type, element_type)
+    @node = NodeCode.instance
+    @list = FunctionListCode.instance
+    @returnType = return_type
+  end
+  def write_intf(stream)
+    stream << %$
+      typedef #{returnType} (*#{elementType})(int, int, int);
+      typedef struct #{type} #{type};
+      struct #{type} {
+        #{@node.type} node;
+        #{@list.type} list;
+      };
+      #{type}* #{new}(#{@node.type});
+      void #{ctor}(#{type}*, #{@node.type});
+      void #{merge}(#{type}*, #{elementType});
+      #{returnType} #{evaluate}(#{type}*);
+      #{inline} size_t #{hasher}(#{type}* self) {
+        return #{@node.hasher}(self->node);
+      }
+      #{inline} int #{comparator}(#{type}* lt, #{type}* rt) {
+        return #{@node.comparator}(lt->node, rt->node);
+      }
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      void #{ctor}(#{type}* self, #{@node.type} node) {
+        self->node = node;
+        #{@list.ctor}(&self->list);
+      }
+      #{type}* #{new}(#{@node.type} node) {
+        #{type}* result = (#{type}*) #{malloc}(sizeof(#{type})); #{assert}(result);
+        #{ctor}(result, node);
+        return result;
+      }
+      void #{merge}(#{type}* self, #{elementType} fp) {
+        #{@list.append}(&self->list, (#{@list.elementType})fp);  
+      }
+      #{returnType} #{evaluate}(#{type}* self) {
+        #{@list.it} it;
+        #{returnType} result = 0;
+        int x = self->node.x, y = self->node.y, z = self->node.z;
+        #{@list.itCtor}(&it, &self->list);
+        while(#{@list.itHasNext}(&it)) result += ((#{elementType})#{@list.itNext}(&it))(x, y, z);
+        return result;
+      }
+    $
+  end
+end # AbstractVectorEntryCode
+
+
+class IntegerVectorEntryCode < AbstractVectorEntryCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerVectorEntry', 'FinitaIntegerFunctionPtr', NumericType[Integer])
+  end
+end # IntegerVectorEntryCode
+
+
+class FloatVectorEntryCode < AbstractVectorEntryCode
+  include Singleton
+  def initialize
+    super('FinitaFloatVectorEntry', 'FinitaFloatFunctionPtr', NumericType[Float])
+  end
+end # FloatVectorEntryCode
+
+
+class ComplexVectorEntryCode < AbstractVectorEntryCode
+  include Singleton
+  def initialize
+    super('FinitaComplexVectorEntry', 'FinitaComplexFunctionPtr', NumericType[Complex])
+  end
+end # ComplexVectorEntryCode
+
+
+VectorEntryCode = {
+    Integer => IntegerVectorEntryCode.instance,
+    Float => FloatVectorEntryCode.instance,
+    Complex => ComplexVectorEntryCode.instance
+}
+
+
+class AbstractEntryArrayCode < DataStruct::Array
+  attr_reader :returnType
+  def entities; super + [@element] end
+  def initialize(type, element, return_type)
+    super(type, "#{element.type}*")
+    @element = element
+    @returnType = return_type
+  end
+end # AbstractEntryArrayCode
+
+
+class IntegerMatrixArrayCode < AbstractEntryArrayCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerMatrixArray', MatrixEntryCode[Integer], NumericType[Integer])
+  end
+end # IntegerMatrixArrayCode
+
+
+class FloatMatrixArrayCode < AbstractEntryArrayCode
+  include Singleton
+  def initialize
+    super('FinitaFloatMatrixArray', MatrixEntryCode[Float], NumericType[Float])
+  end
+end # FloatMatrixArrayCode
+
+
+class ComplexMatrixArrayCode < AbstractEntryArrayCode
+  include Singleton
+  def initialize
+    super('FinitaComplexMatrixArray', MatrixEntryCode[Complex], NumericType[Complex])
+  end
+end # ComplexMatrixArrayCode
+
+
+MatrixArrayCode = {
+    Integer => IntegerMatrixArrayCode.instance,
+    Float => FloatMatrixArrayCode.instance,
+    Complex => ComplexMatrixArrayCode.instance
+}
+
+
+class IntegerVectorArrayCode < AbstractEntryArrayCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerVectorArray', VectorEntryCode[Integer], NumericType[Integer])
+  end
+end # IntegerVectorArrayCode
+
+
+class FloatVectorArrayCode < AbstractEntryArrayCode
+  include Singleton
+  def initialize
+    super('FinitaFloatVectorArray', VectorEntryCode[Float], NumericType[Float])
+  end
+end # FloatVectorArrayCode
+
+
+class ComplexVectorArrayCode < AbstractEntryArrayCode
+  include Singleton
+  def initialize
+    super('FinitaComplexVectorArray', VectorEntryCode[Complex], NumericType[Complex])
+  end
+end # ComplexVectorArrayCode
+
+
+VectorArrayCode = {
+    Integer => IntegerVectorArrayCode.instance,
+    Float => FloatVectorArrayCode.instance,
+    Complex => ComplexVectorArrayCode.instance
+}
+
+
+class AbstractMatrixCode < DataStruct::Set
+  attr_reader :returnType
+  def entities; super + [@node, @element] end
+  def initialize(type, element, return_type)
+    super(type, "#{element.type}*", element.hasher, element.comparator)
+    @node = NodeCode.instance
+    @element = element
+    @returnType = return_type
+  end
+  def write_intf(stream)
+    super
+    stream << %$
+      void #{merge}(#{type}*, #{@node.type}, #{@node.type}, #{@element.elementType});
+      #{returnType} #{evaluate}(#{type}*, #{@node.type}, #{@node.type});
+    $
+  end
+  def write_defs(stream)
+    super
+    # In the code below it is assumed that element constructor does not allocate memory
+    # otherwise memory leak will occur since no destructor is called
+    stream << %$
+      void #{merge}(#{type}* self, #{@node.type} row, #{@node.type} column, #{@element.elementType} fp) {
+        #{@element.type} element, *element_ptr;
+        #{assert}(self);
+        #{@element.ctor}(&element, row, column);
+        if(#{contains}(self, &element)) {
+          element_ptr = #{get}(self, &element);
+        } else {
+          #{put}(self, element_ptr = #{@element.new}(row, column));
+        }
+        #{@element.merge}(element_ptr, fp);
+      }
+      #{returnType} #{evaluate}(#{type}* self, #{@node.type} row, #{@node.type} column) {
+        #{@element.type} element;
+        #{assert}(self);
+        #{@element.ctor}(&element, row, column);
+        #{assert}(#{contains}(self, &element));
+        return #{@element.evaluate}(#{get}(self, &element));
+      }
+    $
+  end
+end # AbstractMatrixCode
+
+
+class IntegerMatrixCode < AbstractMatrixCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerMatrix', MatrixEntryCode[Integer], NumericType[Integer])
+  end
+end # IntegerMatrixCode
+
+
+class FloatMatrixCode < AbstractMatrixCode
+  include Singleton
+  def initialize
+    super('FinitaFloatMatrix', MatrixEntryCode[Float], NumericType[Float])
+  end
+end # FloatMatrixCode
+
+
+class ComplexMatrixCode < AbstractMatrixCode
+  include Singleton
+  def initialize
+    super('FinitaComplexMatrix', MatrixEntryCode[Complex], NumericType[Complex])
+  end
+end # ComplexMatrixCode
+
+
+MatrixCode = {
+    Integer => IntegerMatrixCode.instance,
+    Float => FloatMatrixCode.instance,
+    Complex => ComplexMatrixCode.instance
+}
+
+
+class AbstractVectorCode < DataStruct::Set
+  attr_reader :returnType
+  def entities; super + [@node, @element] end
+  def initialize(type, element, return_type)
+    super(type, "#{element.type}*", element.hasher, element.comparator)
+    @node = NodeCode.instance
+    @element = element
+    @returnType = return_type
+  end
+  def write_intf(stream)
+    super
+    stream << %$
+      void #{merge}(#{type}*, #{@node.type}, #{@element.elementType});
+      #{returnType} #{evaluate}(#{type}*, #{@node.type});
+    $
+  end
+  def write_defs(stream)
+    super
+    # In the code below it is assumed that element constructor does not allocate memory
+    # otherwise memory leak will occur since no destructor is called
+    stream << %$
+      void #{merge}(#{type}* self, #{@node.type} node, #{@element.elementType} fp) {
+        #{@element.type} element, *element_ptr;
+        #{assert}(self);
+        #{@element.ctor}(&element, node);
+        if(#{contains}(self, &element)) {
+          element_ptr = #{get}(self, &element);
+        } else {
+          #{put}(self, element_ptr = #{@element.new}(node));
+        }
+        #{@element.merge}(element_ptr, fp);
+      }
+      #{returnType} #{evaluate}(#{type}* self, #{@node.type} node) {
+        #{@element.type} element;
+        #{assert}(self);
+        #{@element.ctor}(&element, node);
+        #{assert}(#{contains}(self, &element));
+        return #{@element.evaluate}(#{get}(self, &element));
+      }
+    $
+  end
+end # AbstractVectorCode
+
+
+class IntegerVectorCode < AbstractVectorCode
+  include Singleton
+  def initialize
+    super('FinitaIntegerVector', VectorEntryCode[Integer], NumericType[Integer])
+  end
+end # IntegerVectorCode
+
+
+class FloatVectorCode < AbstractVectorCode
+  include Singleton
+  def initialize
+    super('FinitaFloatVector', VectorEntryCode[Float], NumericType[Float])
+  end
+end # FloatVectorCode
+
+
+class ComplexVectorCode < AbstractVectorCode
+  include Singleton
+  def initialize
+    super('FinitaComplexVector', VectorEntryCode[Complex], NumericType[Complex])
+  end
+end # ComplexVectorCode
+
+
+VectorCode = {
+    Integer => IntegerVectorCode.instance,
+    Float => FloatVectorCode.instance,
+    Complex => ComplexVectorCode.instance
 }
 
 

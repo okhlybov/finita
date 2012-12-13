@@ -26,8 +26,8 @@ class Solver
     attr_reader :solver
     def entities; super + [@node, @environment_code] end
     def initialize(solver, problem_code, system_code)
-      @node = NodeCode.instance
       @solver = solver
+      @node = NodeCode.instance
       @problem_code = problem_code
       @system_code = system_code
       @environment_code = solver.environment.code(problem_code)
@@ -43,7 +43,6 @@ class Solver
   end # Code
 end # Solver
 
-
 class Solver::Explicit < Solver
   attr_reader :evaluators
   def process!(problem, system)
@@ -53,7 +52,7 @@ class Solver::Explicit < Solver
     self
   end
   class Code < Solver::Code
-    def entities; super + [@array, @mapper_code] + Code.linearize(evaluator_codes) end
+    def entities; super + [@array, @mapper_code] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(*args)
       super
       @array = EvaluationArrayCode[@system_code.system.type]
@@ -111,19 +110,6 @@ class Solver::Explicit < Solver
     end
     def write_initializer(stream)
       stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
-    end
-    private
-    # a helper function to circumvent Array#flatten unwanted internal call to Object#to_ary; mimics Array#flatten(1)
-    def self.linearize(ary)
-      result = []
-      ary.each do |o|
-        if o.is_a?(Array)
-          result.concat(o)
-        else
-          result << o
-        end
-      end
-      result
     end
   end
 end # Explicit

@@ -82,36 +82,47 @@ class PrologueCode < CodeBuilder::Code
         #define FINITA_HEAD
         #define FINITA_NHEAD
       #endif
+
+      FINITA_INLINE size_t FinitaHashMix(size_t hash) {
+        hash = (hash ^ 61) ^ (hash >> 16);
+        hash = hash + (hash << 3);
+        hash = hash ^ (hash >> 4);
+        hash = hash * 0x27d4eb2d;
+        hash = hash ^ (hash >> 15);
+        return hash;
+      }
     $
+    # Thomas Wang's mixing algorithm, 32-bit version
+    # http://www.concentric.net/~ttwang/tech/inthash.htm
   end
   def write_defs(stream)
     stream << %$
       #include <math.h>
       #include <stdio.h>
-        void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
-          #ifdef FINITA_MPI
-            fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
-          #else
-            fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
-          #endif
-          FinitaAbort(EXIT_FAILURE);
-        }
-        #ifndef NDEBUG
-        #if defined _MSC_VER || defined __PGI
-          #define FINITA_SNPRINTF sprintf_s
+      void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
+        #ifdef FINITA_MPI
+          fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
         #else
-          #define FINITA_SNPRINTF snprintf
+          fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
         #endif
-        void FinitaAssert(const char* func, const char* file, int line, const char* test) {
-          char msg[1024];
-          #if defined __DMC__
-            sprintf(msg, "assertion %s failed", test);
-          #else
-            FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
-          #endif
-          FinitaFailure(func, file, line, msg);
-        }
+        FinitaAbort(EXIT_FAILURE);
+      }
+      #ifndef NDEBUG
+      #if defined _MSC_VER || defined __PGI
+        #define FINITA_SNPRINTF sprintf_s
+      #else
+        #define FINITA_SNPRINTF snprintf
+      #endif
+      void FinitaAssert(const char* func, const char* file, int line, const char* test) {
+        char msg[1024];
+        #if defined __DMC__
+          sprintf(msg, "assertion %s failed", test);
+        #else
+          FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
         #endif
+        FinitaFailure(func, file, line, msg);
+      }
+      #endif
     $
   end
 end # PrologueCode

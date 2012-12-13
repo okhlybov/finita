@@ -50,7 +50,7 @@ class Jacobian::Numeric < Jacobian
     def entities; super + [@matrix] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(*args)
       super
-      @matrix = EvaluationMatrixCode[@system_code.system.type]
+      @matrix = MatrixCode[@system_code.system.type]
     end
     def evaluator_codes
       jacobian.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
@@ -94,9 +94,9 @@ class Jacobian::Numeric < Jacobian
           #{@system_code.result} result = 0, original = #{@mapper_code.nodeGet}(column);
           #{@system_code.result} delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
           #{@mapper_code.nodeSet}(column, original + delta);
-          result += #{@matrix.get}(&#{matrix}, row, column);
+          result += #{@matrix.evaluate}(&#{matrix}, row, column);
           #{@mapper_code.nodeSet}(column, original - delta);
-          result -= #{@matrix.get}(&#{matrix}, row, column);
+          result -= #{@matrix.evaluate}(&#{matrix}, row, column);
           #{@mapper_code.nodeSet}(column, original);
           return result/(2*delta);
         }
