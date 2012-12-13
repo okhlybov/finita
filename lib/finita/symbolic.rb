@@ -266,7 +266,7 @@ class Field < Symbolic::Expression
     attr_reader :field, :symbol, :instance
     def initialize(field, problem_code)
       @field = field
-      super("#{problem_code.problem.name}Field#{field.name}")
+      super("#{problem_code.problem.name}#{field.name}")
       @instance = type
       @symbol = field.name
       @domain_code = field.domain.code(problem_code)

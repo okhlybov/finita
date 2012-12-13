@@ -514,7 +514,7 @@ class AbstractMatrixCode < DataStruct::Set
     stream << %$
       void #{merge}(#{type}*, #{@node.type}, #{@node.type}, #{@element.elementType});
       #{returnType} #{evaluate}(#{type}*, #{@node.type}, #{@node.type});
-      void #{store}(#{type}*, #{@array.type}*);
+      void #{linearize}(#{type}*, #{@array.type}*);
     $
   end
   def write_defs(stream)
@@ -540,7 +540,7 @@ class AbstractMatrixCode < DataStruct::Set
         #{assert}(#{contains}(self, &element));
         return #{@element.evaluate}(#{get}(self, &element));
       }
-      void #{store}(#{type}* self, #{@array.type}* array) {
+      void #{linearize}(#{type}* self, #{@array.type}* array) {
         #{it} it;
         size_t index = 0;
         #{@array.ctor}(array, #{size}(self));
@@ -600,7 +600,7 @@ class AbstractVectorCode < DataStruct::Set
     stream << %$
       void #{merge}(#{type}*, #{@node.type}, #{@element.elementType});
       #{returnType} #{evaluate}(#{type}*, #{@node.type});
-      void #{store}(#{type}*, #{@array.type}*);
+      void #{linearize}(#{type}*, #{@array.type}*);
     $
   end
   def write_defs(stream)
@@ -626,7 +626,7 @@ class AbstractVectorCode < DataStruct::Set
         #{assert}(#{contains}(self, &element));
         return #{@element.evaluate}(#{get}(self, &element));
       }
-      void #{store}(#{type}* self, #{@array.type}* array) {
+      void #{linearize}(#{type}* self, #{@array.type}* array) {
         #{it} it;
         size_t index = 0;
         #{@array.ctor}(array, #{size}(self));

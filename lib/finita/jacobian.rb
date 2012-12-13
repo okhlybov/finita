@@ -47,10 +47,11 @@ class Jacobian::Numeric < Jacobian
     @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.equation, system.type, e.merge?), e.unknown, e.domain]}
   end
   class Code < Jacobian::Code
-    def entities; super + [@matrix] + Finita.shallow_flatten(evaluator_codes) end
+    def entities; super + [@matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(*args)
       super
       @matrix = MatrixCode[@system_code.system.type]
+      @array = MatrixArrayCode[@system_code.system.type]
     end
     def evaluator_codes
       jacobian.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
@@ -65,6 +66,7 @@ class Jacobian::Numeric < Jacobian
       # TODO proper estimation of bucket size
       stream << %$
         static #{@matrix.type} #{matrix};
+        static #{@array.type} #{array};
         int #{setup}(void) {
           int index, size = #{@mapper_code.size}(), first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
           #{@matrix.ctor}(&#{matrix}, pow(last-first+1, 1.1));
@@ -88,6 +90,7 @@ class Jacobian::Numeric < Jacobian
       rt = jacobian.relative_tolerance
       stream << %$
           }
+          #{@matrix.linearize}(&#{matrix}, &#{array});
           return FINITA_OK;
         }
         #{@system_code.result} #{evaluate}(#{@node.type} row, #{@node.type} column) {
