@@ -501,18 +501,20 @@ VectorArrayCode = {
 
 class AbstractMatrixCode < DataStruct::Set
   attr_reader :returnType
-  def entities; super + [@node, @element] end
-  def initialize(type, element, return_type)
-    super(type, "#{element.type}*", element.hasher, element.comparator)
+  def entities; super + [@node, @element, @array] end
+  def initialize(type, numeric_type)
     @node = NodeCode.instance
-    @element = element
-    @returnType = return_type
+    @element = MatrixEntryCode[numeric_type]
+    @array = MatrixArrayCode[numeric_type]
+    @returnType = NumericType[numeric_type]
+    super(type, "#{@element.type}*", @element.hasher, @element.comparator)
   end
   def write_intf(stream)
     super
     stream << %$
       void #{merge}(#{type}*, #{@node.type}, #{@node.type}, #{@element.elementType});
       #{returnType} #{evaluate}(#{type}*, #{@node.type}, #{@node.type});
+      void #{store}(#{type}*, #{@array.type}*);
     $
   end
   def write_defs(stream)
@@ -538,6 +540,15 @@ class AbstractMatrixCode < DataStruct::Set
         #{assert}(#{contains}(self, &element));
         return #{@element.evaluate}(#{get}(self, &element));
       }
+      void #{store}(#{type}* self, #{@array.type}* array) {
+        #{it} it;
+        size_t index = 0;
+        #{@array.ctor}(array, #{size}(self));
+        #{itCtor}(&it, self);
+        while(#{itHasNext}(&it)) {
+         #{@array.set}(array, index++, #{itNext}(&it));
+        }
+      }
     $
   end
 end # AbstractMatrixCode
@@ -546,7 +557,7 @@ end # AbstractMatrixCode
 class IntegerMatrixCode < AbstractMatrixCode
   include Singleton
   def initialize
-    super('FinitaIntegerMatrix', MatrixEntryCode[Integer], NumericType[Integer])
+    super('FinitaIntegerMatrix', Integer)
   end
 end # IntegerMatrixCode
 
@@ -554,7 +565,7 @@ end # IntegerMatrixCode
 class FloatMatrixCode < AbstractMatrixCode
   include Singleton
   def initialize
-    super('FinitaFloatMatrix', MatrixEntryCode[Float], NumericType[Float])
+    super('FinitaFloatMatrix', Float)
   end
 end # FloatMatrixCode
 
@@ -562,7 +573,7 @@ end # FloatMatrixCode
 class ComplexMatrixCode < AbstractMatrixCode
   include Singleton
   def initialize
-    super('FinitaComplexMatrix', MatrixEntryCode[Complex], NumericType[Complex])
+    super('FinitaComplexMatrix', Complex)
   end
 end # ComplexMatrixCode
 
@@ -576,18 +587,20 @@ MatrixCode = {
 
 class AbstractVectorCode < DataStruct::Set
   attr_reader :returnType
-  def entities; super + [@node, @element] end
-  def initialize(type, element, return_type)
-    super(type, "#{element.type}*", element.hasher, element.comparator)
+  def entities; super + [@node, @element, @array] end
+  def initialize(type, numeric_type)
     @node = NodeCode.instance
-    @element = element
-    @returnType = return_type
+    @element = VectorEntryCode[numeric_type]
+    @array = VectorArrayCode[numeric_type]
+    @returnType = NumericType[numeric_type]
+    super(type, "#{@element.type}*", @element.hasher, @element.comparator)
   end
   def write_intf(stream)
     super
     stream << %$
       void #{merge}(#{type}*, #{@node.type}, #{@element.elementType});
       #{returnType} #{evaluate}(#{type}*, #{@node.type});
+      void #{store}(#{type}*, #{@array.type}*);
     $
   end
   def write_defs(stream)
@@ -613,6 +626,15 @@ class AbstractVectorCode < DataStruct::Set
         #{assert}(#{contains}(self, &element));
         return #{@element.evaluate}(#{get}(self, &element));
       }
+      void #{store}(#{type}* self, #{@array.type}* array) {
+        #{it} it;
+        size_t index = 0;
+        #{@array.ctor}(array, #{size}(self));
+        #{itCtor}(&it, self);
+        while(#{itHasNext}(&it)) {
+         #{@array.set}(array, index++, #{itNext}(&it));
+        }
+      }
     $
   end
 end # AbstractVectorCode
@@ -621,7 +643,7 @@ end # AbstractVectorCode
 class IntegerVectorCode < AbstractVectorCode
   include Singleton
   def initialize
-    super('FinitaIntegerVector', VectorEntryCode[Integer], NumericType[Integer])
+    super('FinitaIntegerVector', Integer)
   end
 end # IntegerVectorCode
 
@@ -629,7 +651,7 @@ end # IntegerVectorCode
 class FloatVectorCode < AbstractVectorCode
   include Singleton
   def initialize
-    super('FinitaFloatVector', VectorEntryCode[Float], NumericType[Float])
+    super('FinitaFloatVector', Float)
   end
 end # FloatVectorCode
 
@@ -637,7 +659,7 @@ end # FloatVectorCode
 class ComplexVectorCode < AbstractVectorCode
   include Singleton
   def initialize
-    super('FinitaComplexVector', VectorEntryCode[Complex], NumericType[Complex])
+    super('FinitaComplexVector', Complex)
   end
 end # ComplexVectorCode
 
