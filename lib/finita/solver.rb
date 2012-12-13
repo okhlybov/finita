@@ -52,10 +52,11 @@ class Solver::Explicit < Solver
     self
   end
   class Code < Solver::Code
-    def entities; super + [@array, @mapper_code] + Finita.shallow_flatten(evaluator_codes) end
+    def entities; super + [@entry, @array, @mapper_code] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(*args)
       super
-      @array = EvaluationArrayCode[@system_code.system.type]
+      @entry = VectorEntryCode[@system_code.system.type]
+      @array = VectorArrayCode[@system_code.system.type]
       @mapper_code = solver.mapper.code(@problem_code, @system_code)
     end
     def evaluator_codes
@@ -80,7 +81,12 @@ class Solver::Explicit < Solver
         merge_stmt = evaluator.merge? ? nil : 'continue;'
         stream << %$
           if(node.field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, node.x, node.y, node.z)) {
-            #{@array.merge}(&#{evaluators}, index, #{evaluator.instance});
+            #{@entry.type}* entry = #{@array.get}(&#{evaluators}, index);
+            if(!entry) {
+              entry = #{@entry.new}(node);
+              #{@array.set}(&#{evaluators}, index, entry);
+            }
+            #{@entry.merge}(entry, #{evaluator.instance});
             #{merge_stmt}
           }
         $
@@ -99,7 +105,7 @@ class Solver::Explicit < Solver
       stream << %$
         for(index = first; index <= last; ++index) {
           #{@node.type} node = #{@mapper_code.getNode}(index);
-          #{@mapper_code.setValue}(index, #{@array.evaluate}(&#{evaluators}, index, node.x, node.y, node.z));
+          #{@mapper_code.setValue}(index, #{@entry.evaluate}(#{@array.get}(&#{evaluators}, index)));
         }
         #{@mapper_code.synchronize}();
       $
