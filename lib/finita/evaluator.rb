@@ -248,11 +248,55 @@ class FunctionNodeCoordMapCode < DataStruct::Map
 end # FuncNodeMapCode
 
 
+class AbstractFunctionPtrCode < CodeBuilder::Code
+  attr_reader :type
+  def initialize(type)
+    @type = "Finita#{type}FunctionPtr"
+    @return = NumericType[type]
+  end
+  def write_intf(stream)
+    stream << %$typedef #{@return} (*#{@type})(int,int,int);$
+  end
+end # AbstractFunctionPtrCode
+
+
+class IntegerFunctionPtrCode < AbstractFunctionPtrCode
+  include Singleton
+  def initialize
+    super(Integer)
+  end
+end # IntegerFunctionPtrCode
+
+
+class FloatFunctionPtrCode < AbstractFunctionPtrCode
+  include Singleton
+  def initialize
+    super(Float)
+  end
+end # FloatFunctionPtrCode
+
+
+class ComplexFunctionPtrCode < AbstractFunctionPtrCode
+  include Singleton
+  def initialize
+    super(Complex)
+  end
+end # ComplexFunctionPtrCode
+
+
+FunctionPtrCode = {
+    Integer => IntegerFunctionPtrCode.instance,
+    Float => FloatFunctionPtrCode.instance,
+    Complex => ComplexFunctionPtrCode.instance
+}
+
+
 class AbstractMatrixEntryCode < DataStruct::Structure
   attr_reader :returnType
-  def entities; super + [@node, @key, @list] end
+  def entities; super + [@fp, @node, @key, @list] end
   def initialize(type, element_type, return_type)
-    super(type, element_type)
+    super(type, element_type.type)
+    @fp = element_type
     @node = NodeCode.instance
     @key = NodeCoordCode.instance
     @list = FunctionListCode.instance
@@ -260,7 +304,6 @@ class AbstractMatrixEntryCode < DataStruct::Structure
   end
   def write_intf(stream)
     stream << %$
-      typedef #{returnType} (*#{elementType})(int, int, int);
       typedef struct #{type} #{type};
       struct #{type} {
         #{@key.type} coord;
@@ -311,7 +354,7 @@ end # AbstractMatrixEntryCode
 class IntegerMatrixEntryCode < AbstractMatrixEntryCode
   include Singleton
   def initialize
-    super('FinitaIntegerMatrixEntry', 'FinitaIntegerFunctionPtr', NumericType[Integer])
+    super('FinitaIntegerMatrixEntry', FunctionPtrCode[Integer], NumericType[Integer])
   end
 end # IntegerMatrixEntryCode
 
@@ -319,7 +362,7 @@ end # IntegerMatrixEntryCode
 class FloatMatrixEntryCode < AbstractMatrixEntryCode
   include Singleton
   def initialize
-    super('FinitaFloatMatrixEntry', 'FinitaFloatFunctionPtr', NumericType[Float])
+    super('FinitaFloatMatrixEntry', FunctionPtrCode[Float], NumericType[Float])
   end
 end # FloatMatrixEntryCode
 
@@ -327,7 +370,7 @@ end # FloatMatrixEntryCode
 class ComplexMatrixEntryCode < AbstractMatrixEntryCode
   include Singleton
   def initialize
-    super('FinitaComplexMatrixEntry', 'FinitaComplexFunctionPtr', NumericType[Complex])
+    super('FinitaComplexMatrixEntry', FunctionPtrCode[Complex], NumericType[Complex])
   end
 end # ComplexMatrixEntryCode
 
@@ -341,16 +384,16 @@ MatrixEntryCode = {
 
 class AbstractVectorEntryCode < DataStruct::Structure
   attr_reader :returnType
-  def entities; super + [@node, @list] end
+  def entities; super + [@fp, @node, @list] end
   def initialize(type, element_type, return_type)
-    super(type, element_type)
+    super(type, element_type.type)
+    @fp = element_type
     @node = NodeCode.instance
     @list = FunctionListCode.instance
     @returnType = return_type
   end
   def write_intf(stream)
     stream << %$
-      typedef #{returnType} (*#{elementType})(int, int, int);
       typedef struct #{type} #{type};
       struct #{type} {
         #{@node.type} node;
@@ -398,7 +441,7 @@ end # AbstractVectorEntryCode
 class IntegerVectorEntryCode < AbstractVectorEntryCode
   include Singleton
   def initialize
-    super('FinitaIntegerVectorEntry', 'FinitaIntegerFunctionPtr', NumericType[Integer])
+    super('FinitaIntegerVectorEntry', FunctionPtrCode[Integer], NumericType[Integer])
   end
 end # IntegerVectorEntryCode
 
@@ -406,7 +449,7 @@ end # IntegerVectorEntryCode
 class FloatVectorEntryCode < AbstractVectorEntryCode
   include Singleton
   def initialize
-    super('FinitaFloatVectorEntry', 'FinitaFloatFunctionPtr', NumericType[Float])
+    super('FinitaFloatVectorEntry', FunctionPtrCode[Float], NumericType[Float])
   end
 end # FloatVectorEntryCode
 
@@ -414,7 +457,7 @@ end # FloatVectorEntryCode
 class ComplexVectorEntryCode < AbstractVectorEntryCode
   include Singleton
   def initialize
-    super('FinitaComplexVectorEntry', 'FinitaComplexFunctionPtr', NumericType[Complex])
+    super('FinitaComplexVectorEntry', FunctionPtrCode[Complex], NumericType[Complex])
   end
 end # ComplexVectorEntryCode
 
