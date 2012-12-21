@@ -29,9 +29,7 @@ class Jacobian
       equal?(other) || self.class == other.class && jacobian == other.jacobian
     end
     def write_intf(stream)
-      stream << %$
-        #{@system_code.result} #{evaluate}(#{@node.type}, #{@node.type});
-      $
+      stream << %$#{@system_code.result} #{evaluate}(#{@node.type}, #{@node.type});$
     end
   end # Code
 end # Jacobian
@@ -58,9 +56,7 @@ class Jacobian::Numeric < Jacobian
     end
     def write_intf(stream)
       super
-      stream << %$
-        int #{setup}(void);
-      $
+      stream << %$int #{setup}(void);$
     end
     def write_defs(stream)
       # TODO proper estimation of bucket size

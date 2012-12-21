@@ -89,7 +89,6 @@ class System
       stream << %$
         int #{setup}(void);
         int #{cleanup}(void);
-        int #{solve}(void);
       $
     end
     def write_defs(stream)

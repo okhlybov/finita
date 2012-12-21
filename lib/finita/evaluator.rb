@@ -313,6 +313,14 @@ class AbstractMatrixEntryCode < DataStruct::Structure
       void #{ctor}(#{type}*, #{@node.type}, #{@node.type});
       void #{merge}(#{type}*, #{elementType});
       #{returnType} #{evaluate}(#{type}*);
+      #{inline} #{@node.type} #{row}(#{type}* self) {
+        #{assert}(self);
+        return self->coord.row;
+      }
+      #{inline} #{@node.type} #{column}(#{type}* self) {
+        #{assert}(self);
+        return self->coord.column;
+      }
       #{inline} size_t #{hasher}(#{type}* self) {
         #{assert}(self);
         return #{@key.hasher}(self->coord);
@@ -403,6 +411,10 @@ class AbstractVectorEntryCode < DataStruct::Structure
       void #{ctor}(#{type}*, #{@node.type});
       void #{merge}(#{type}*, #{elementType});
       #{returnType} #{evaluate}(#{type}*);
+      #{inline} #{@node.type} #{node}(#{type}* self) {
+        #{assert}(self);
+        return self->node;
+      }
       #{inline} size_t #{hasher}(#{type}* self) {
         return #{@node.hasher}(self->node);
       }
@@ -563,7 +575,7 @@ class AbstractMatrixCode < DataStruct::Set
   def write_defs(stream)
     super
     # In the code below it is assumed that element constructor does not allocate memory
-    # otherwise memory leak will occur since no destructor is called
+    # otherwise memory leak will occur since no destructor is ever called
     stream << %$
       void #{merge}(#{type}* self, #{@node.type} row, #{@node.type} column, #{@element.elementType} fp) {
         #{@element.type} element, *element_ptr;

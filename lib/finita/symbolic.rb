@@ -695,7 +695,7 @@ class CEmitter < Symbolic::CEmitter
     if ops.size > 1
       @out << pow << '('
       power_op(obj, *ops[0..-2])
-      @out <<','
+      @out << ','
       ops.last.apply(self)
       @out << ')'
     else

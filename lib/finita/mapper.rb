@@ -58,7 +58,6 @@ class Mapper::Naive < Mapper
   attr_reader :mappings, :solver
   def process!(problem, system, solver)
     super(solver)
-    index = -1
     @fields = system.equations.collect {|e| e.unknown}.uniq # an ordered list of unknown fields in the system
     @domains = Set.new(system.equations.collect {|e| e.domain}) # a set of domains in the system
     @mappings = system.equations.collect {|e| [e.unknown, e.domain]}
