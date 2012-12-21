@@ -11,12 +11,13 @@ module Finita
 class Solver
   include EnvironmentHandler
   attr_reader :mapper, :environment
-  def initialize(mapper, environment = Environment::Sequential.new)
+  def initialize(mapper, environment)
     @mapper = mapper
     @environment = environment
   end
   def process!(problem, system)
     setup_env(environment)
+    mapper.process!(problem, system, self)
     self
   end
   def code(problem_code, system_code)
@@ -30,6 +31,7 @@ class Solver
       @node = NodeCode.instance
       @problem_code = problem_code
       @system_code = system_code
+      @mapper_code = solver.mapper.code(@problem_code, @system_code)
       @environment_code = solver.environment.code(problem_code)
       @system_code.initializers << self
       super("#{@system_code.type}Solver")
@@ -40,14 +42,17 @@ class Solver
     def eql?(other)
       equal?(other) || self.class == other.class && self.solver == other.solver
     end
+    def write_intf(stream)
+      stream << %$int #{@system_code.solve}(void);$
+    end
   end # Code
 end # Solver
+
 
 class Solver::Explicit < Solver
   attr_reader :evaluators
   def process!(problem, system)
     super
-    mapper.process!(problem, system, self)
     @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.assignment, system.type, e.merge?), e.unknown, e.domain]}
     self
   end
@@ -57,16 +62,13 @@ class Solver::Explicit < Solver
       super
       @entry = VectorEntryCode[@system_code.system.type]
       @array = VectorArrayCode[@system_code.system.type]
-      @mapper_code = solver.mapper.code(@problem_code, @system_code)
     end
     def evaluator_codes
       solver.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
     end
     def write_intf(stream)
-      evaluator_codes
-      stream << %$
-        int #{setup}(void);
-      $
+      super
+      stream << %$int #{setup}(void);$
     end
     def write_defs(stream)
       stream << %$
@@ -91,16 +93,11 @@ class Solver::Explicit < Solver
           }
         $
       end
-      stream << %$
-          }
-          return FINITA_OK;
-        }
+      stream << %$}return FINITA_OK;}
         int #{@system_code.solve}(void) {
           int index, first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
       $
-      unless solver.mpi?
-        stream << 'FINITA_HEAD {'
-      end
+      stream << 'FINITA_HEAD {' unless solver.mpi?
       stream << '#pragma omp parallel for private(index,node) kind(dynamic)' if solver.omp?
       stream << %$
         for(index = first; index <= last; ++index) {
@@ -109,9 +106,7 @@ class Solver::Explicit < Solver
         }
         #{@mapper_code.synchronize}();
       $
-      unless solver.mpi?
-        stream << '}'
-      end
+      stream << '}' unless solver.mpi?
       stream << %$return FINITA_OK;}$
     end
     def write_initializer(stream)
@@ -121,10 +116,35 @@ class Solver::Explicit < Solver
 end # Explicit
 
 
+require 'finita/jacobian'
+require 'finita/residual'
+
+
 class Solver::Matrix < Solver
-
+  attr_reader :jacobian, :residual
+  def initialize(mapper, environment, jacobian, residual = Residual.new)
+    super(mapper, environment)
+    @jacobian = jacobian
+    @residual = residual
+  end
+  def process!(problem, system)
+    super
+    jacobian.process!(problem, system)
+    residual.process!(problem, system)
+    self
+  end
+  class Code < Solver::Code
+    def entities; super + [@jacobian_code, @residual_code] end
+    def initialize(*args)
+      super
+      @jacobian_code = solver.jacobian.code(@problem_code, @system_code, @mapper_code)
+      @residual_code = solver.residual.code(@problem_code, @system_code, @mapper_code)
+    end
+    def write_initializer(stream)
+      #stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+    end
+  end # Code
 end # Matrix
-
 
 
 end # Finita
