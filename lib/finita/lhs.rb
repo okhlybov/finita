@@ -11,12 +11,12 @@ class LHS
     self.class::Code.new(self, problem_code, system_code, mapper_code)
   end
   def process!(problem, system)
-    @evaluators = []
-    system.equations.each do |e|
+    @evaluators = system.equations.collect do |e|
+      hash = {}
       e.decomposition(system.unknowns).each do |r, x|
-        @evaluators << [Evaluator.new(x, system.type, e.merge?), e.unknown, e.domain, r] unless r.nil?
+        hash[r] = Evaluator.new(x, system.type, e.merge?) unless r.nil?
       end
-
+      [hash, e.unknown, e.domain, e.merge?]
     end
   end
   class Code < DataStruct::Code
@@ -34,7 +34,13 @@ class LHS
       super("#{@system_code.type}LHS")
     end
     def evaluator_codes
-      lhs.evaluators.collect {|e| e[0..-2].collect {|o| o.code(@problem_code)}}
+      lhs.evaluators.collect do |e|
+        result = []
+        e[0].each do |r,x|
+          result << x.code(@problem_code)
+        end
+        result << e[1].code(@problem_code) << e[2].code(@problem_code)
+      end
     end
     def hash
       lhs.hash
@@ -60,15 +66,15 @@ class LHS
             #{@node.type} row = #{@mapper_code.getNode}(index);
             int field = row.field, x = row.x, y = row.y, z = row.z;
         $
-      lhs.evaluators.each do |e, f, d, r|
-        evaluator = e.code(@problem_code)
+      lhs.evaluators.each do |h, f, d, m|
         field = f.code(@problem_code)
         domain = d.code(@problem_code)
-        stream << %$
-          if(field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, x, y, z)) {
-          #{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.mapper.fields.index(r.arg)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});
-        $
-        stream << (evaluator.merge? ? nil : 'continue;') << '}'
+        stream << %$if(field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, x, y, z)) {$
+        h.each do |r, e|
+          evaluator = e.code(@problem_code)
+          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.mapper.fields.index(r.arg)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
+        end
+        stream << (m ? nil : 'continue;') << '}'
       end
       abs = @system_code.system.type == Complex ? 'cabs' : 'fabs'
       stream << %$
