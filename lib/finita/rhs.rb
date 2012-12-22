@@ -5,19 +5,22 @@ require 'finita/evaluator'
 module Finita
 
 
-class Residual
+class RHS
   attr_reader :evaluators
   def process!(problem, system)
-    @evaluators = system.equations.collect {|e| [Evaluator.new(e.equation, system.type, e.merge?), e.unknown, e.domain]}
+    @evaluators = system.equations.collect do |e|
+      d13n = e.decomposition(system.unknowns)
+      [Evaluator.new(d13n.include?(nil) ? Finita.simplify(-d13n[nil]) : 0, system.type, e.merge?), e.unknown, e.domain]
+    end
   end
   def code(problem_code, system_code, mapper_code)
     self.class::Code.new(self, problem_code, system_code, mapper_code)
   end
   class Code < DataStruct::Code
-    attr_reader :residual
+    attr_reader :rhs
     def entities; super + [@vector, @array] + Finita.shallow_flatten(evaluator_codes) end
-    def initialize(residual, problem_code, system_code, mapper_code)
-      @residual = residual
+    def initialize(rhs, problem_code, system_code, mapper_code)
+      @rhs = rhs
       @node = NodeCode.instance
       @problem_code = problem_code
       @system_code = system_code
@@ -25,16 +28,16 @@ class Residual
       @vector = VectorCode[@system_code.system.type]
       @array = VectorArrayCode[@system_code.system.type]
       @system_code.initializers << self
-      super("#{@system_code.type}Residual")
+      super("#{@system_code.type}RHS")
     end
     def hash
-      residual.hash
+      rhs.hash
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && residual == other.residual
+      equal?(other) || self.class == other.class && rhs == other.rhs
     end
     def evaluator_codes
-      residual.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
+      rhs.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
     end
     def write_intf(stream)
       stream << %$
@@ -75,7 +78,7 @@ class Residual
       stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
     end
   end # Code
-end # Residual
+end # RHS
 
 
 end
