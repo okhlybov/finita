@@ -9,6 +9,7 @@ module Finita
 class Evaluator
   attr_reader :expression, :type
   def initialize(expression, type, merge)
+    # TODO merge attribute is not needed
     @expression = expression
     @type = type
     @merge = merge

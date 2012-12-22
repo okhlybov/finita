@@ -118,27 +118,48 @@ end # Explicit
 
 require 'finita/jacobian'
 require 'finita/residual'
+require 'finita/lhs'
+require 'finita/rhs'
 
 
 class Solver::Matrix < Solver
-  attr_reader :jacobian, :residual
-  def initialize(mapper, environment, jacobian, residual = Residual.new)
+  attr_reader :jacobian
+  def residual
+    @residual.nil? ? @residual = Residual.new : @residual
+  end
+  def lhs
+    @lhs.nil? ? @lhs = LHS.new : @lhs
+  end
+  def lhs=(lhs)
+    @lhs = lhs
+  end
+  def rhs
+    @rhs.nil? ? @rhs = RHS.new : @rhs
+  end
+  def rhs=(rhs)
+    @rhs = rhs
+  end
+  def initialize(mapper, environment, jacobian, &block)
     super(mapper, environment)
     @jacobian = jacobian
-    @residual = residual
+    block.call(self) if block_given?
   end
   def process!(problem, system)
     super
     jacobian.process!(problem, system)
     residual.process!(problem, system)
+    lhs.process!(problem, system)
+    rhs.process!(problem, system)
     self
   end
   class Code < Solver::Code
-    def entities; super + [@jacobian_code, @residual_code] end
+    def entities; super + [@jacobian_code, @residual_code, @lhs_code, @rhs_code] end
     def initialize(*args)
       super
       @jacobian_code = solver.jacobian.code(@problem_code, @system_code, @mapper_code)
       @residual_code = solver.residual.code(@problem_code, @system_code, @mapper_code)
+      @lhs_code = solver.lhs.code(@problem_code, @system_code, @mapper_code)
+      @rhs_code = solver.rhs.code(@problem_code, @system_code, @mapper_code)
     end
     def write_initializer(stream)
       #stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$

@@ -42,7 +42,7 @@ class Jacobian::Numeric < Jacobian
   end
   def process!(problem, system)
     super
-    @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.equation, system.type, e.merge?), e.unknown, e.domain]}
+    @evaluators = system.equations.collect {|e| [Evaluator.new(e.equation, system.type, e.merge?), e.unknown, e.domain]}
   end
   class Code < Jacobian::Code
     def entities; super + [@matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
