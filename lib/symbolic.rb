@@ -856,6 +856,8 @@ class RubyEmitter < Emitter
   def numeric(obj)
     if obj.is_a?(Complex)
       @out << 'Complex(' << obj.real.to_s << ',' << obj.imag.to_s << ')'
+    elsif obj.is_a?(Rational)
+      @out << 'Rational(' << obj.numerator.to_s << ',' << obj.denominator.to_s << ')'
     else
       @out << obj.to_s
     end
@@ -888,6 +890,10 @@ class CEmitter < Emitter
       @out << obj.real.to_s
       @out << '+' if obj.imag >= 0
       @out << obj.imag.to_s << '*_Complex_I'
+    elsif obj.is_a?(Rational)
+      f = obj.to_f
+      i = obj.to_i
+      @out << (i == f ? i : f).to_s
     else
       @out << obj.to_s
     end
