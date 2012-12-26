@@ -10,7 +10,9 @@ Problem.new(:Problem) do |p|
   System.new(:System) do |s|
     s.discretizer = Discretizer::Trivial.new
     s.solver = Solver::Explicit.new(Mapper::Naive.new, Environment::MPI.new)
-    s.solver = Solver::Matrix.new(Mapper::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new(1e-3))
+    s.solver = Solver::Matrix.new(Mapper::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new(1e-3)) { |s|
+     #s.nonlinear!
+    }
 #    Assignment.new({(F[:x+1]-F[:x-1]+F[:y+1]-F[:y-1])/4=>F}, B)
     Assignment.new({(F[:x+1]-F[:x-1]+F[:y+1]-F[:y-1])/4 => F}, B)
     Assignment.new({Log.new(Z)=>G}, B)

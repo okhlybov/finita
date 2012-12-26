@@ -14,7 +14,7 @@ class LHS
     @evaluators = system.equations.collect do |e|
       hash = {}
       e.decomposition(system.unknowns).each do |r, x|
-        hash[r] = Evaluator.new(x, system.type, e.merge?) unless r.nil?
+        hash[r] = Evaluator.new(x, system.type) unless r.nil?
       end
       [hash, e.unknown, e.domain, e.merge?]
     end
@@ -25,11 +25,13 @@ class LHS
     def initialize(lhs, problem_code, system_code, mapper_code)
       @lhs = lhs
       @node = NodeCode.instance
+      @coord = NodeCoordCode.instance
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code
       @matrix = MatrixCode[@system_code.system.type]
       @array = MatrixArrayCode[@system_code.system.type]
+      @entry = MatrixEntryCode[@system_code.system.type]
       @system_code.initializers << self
       super("#{@system_code.type}LHS")
     end
@@ -51,7 +53,7 @@ class LHS
     def write_intf(stream)
       stream << %$
         int #{setup}(void);
-        #{@system_code.result} #{evaluate}(#{@node.type}, #{@node.type});
+        #{@system_code.result} #{evaluate}(size_t);
       $
     end
     def write_defs(stream)
@@ -77,13 +79,20 @@ class LHS
         stream << (m ? nil : 'continue;') << '}'
       end
       abs = @system_code.system.type == Complex ? 'cabs' : 'fabs'
+      result = @system_code.result
       stream << %$
           }
           #{@matrix.linearize}(&#{matrix}, &#{array});
           return FINITA_OK;
         }
-        #{@system_code.result} #{evaluate}(#{@node.type} row, #{@node.type} column) {
-          return #{@matrix.evaluate}(&#{matrix}, row, column);
+        #{result} #{evaluate}(size_t index) {
+          return #{@entry.evaluate}(#{@array.get}(&#{array}, index));
+        }
+        size_t #{size}(void) {
+          return #{@array.size}(&#{array});
+        }
+        #{@coord.type} #{coord}(size_t index) {
+          return #{@array.get}(&#{array}, index)->coord;
         }
       $
     end

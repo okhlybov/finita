@@ -219,7 +219,6 @@ class Mapper::Naive < Mapper
       end
       stream << 'return FINITA_OK;}'
       if mapper.mpi?
-        # TODO complex type
         if @system_code.system.type == Complex
           c_type = Finita::NumericType[Float]
           mpi_type = Finita::MPIType[Float]
