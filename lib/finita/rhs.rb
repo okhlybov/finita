@@ -10,7 +10,7 @@ class RHS
   def process!(problem, system)
     @evaluators = system.equations.collect do |e|
       d13n = e.decomposition(system.unknowns)
-      [Evaluator.new(d13n.include?(nil) ? Finita.simplify(-d13n[nil]) : 0, system.type, e.merge?), e.unknown, e.domain]
+      [Evaluator.new(d13n.include?(nil) ? Finita.simplify(-d13n[nil]) : 0, system.type), e.unknown, e.domain, e.merge?]
     end
   end
   def code(problem_code, system_code, mapper_code)
@@ -27,6 +27,7 @@ class RHS
       @mapper_code = mapper_code
       @vector = VectorCode[@system_code.system.type]
       @array = VectorArrayCode[@system_code.system.type]
+      @entry = VectorEntryCode[@system_code.system.type]
       @system_code.initializers << self
       super("#{@system_code.type}RHS")
     end
@@ -37,12 +38,12 @@ class RHS
       equal?(other) || self.class == other.class && rhs == other.rhs
     end
     def evaluator_codes
-      rhs.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
+      rhs.evaluators.collect {|e| e[0..-2].collect {|o| o.code(@problem_code)}}
     end
     def write_intf(stream)
       stream << %$
         int #{setup}(void);
-        #{@system_code.result} #{evaluate}(#{@node.type});
+        #{@system_code.result} #{evaluate}(size_t);
       $
     end
     def write_defs(stream)
@@ -56,7 +57,7 @@ class RHS
             #{@node.type} node = #{@mapper_code.getNode}(index);
       $
       evaluator_codes.each do |evaluator, field, domain|
-        merge_stmt = evaluator.merge? ? nil : 'continue;'
+        merge_stmt = evaluator.merge? ? nil : 'continue;' # TODO FIXME FIXME FIXME
         stream << %$
           if(node.field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, node.x, node.y, node.z)) {
             #{@vector.merge}(&#{vector}, node, #{evaluator.instance});
@@ -64,13 +65,20 @@ class RHS
           }
         $
       end
+      result = @system_code.result
       stream << %$
           }
           #{@vector.linearize}(&#{vector}, &#{array});
           return FINITA_OK;
         }
-        #{@system_code.result} #{evaluate}(#{@node.type} node) {
-          return #{@vector.evaluate}(&#{vector}, node);
+        #{result} #{evaluate}(size_t index) {
+          return #{@entry.evaluate}(#{@array.get}(&#{array}, index));
+        }
+        size_t #{size}(void) {
+          return #{@array.size}(&#{array});
+        }
+        #{@node.type} #{node}(size_t index) {
+          return #{@array.get}(&#{array}, index)->node;
         }
       $
     end

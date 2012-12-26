@@ -29,7 +29,7 @@ class Jacobian
       equal?(other) || self.class == other.class && jacobian == other.jacobian
     end
     def write_intf(stream)
-      stream << %$#{@system_code.result} #{evaluate}(#{@node.type}, #{@node.type});$
+      stream << %$#{@system_code.result} #{evaluate}(size_t);$
     end
   end # Code
 end # Jacobian
@@ -42,17 +42,19 @@ class Jacobian::Numeric < Jacobian
   end
   def process!(problem, system)
     super
-    @evaluators = system.equations.collect {|e| [Evaluator.new(e.equation, system.type, e.merge?), e.unknown, e.domain]}
+    @evaluators = system.equations.collect {|e| [Evaluator.new(e.equation, system.type), e.unknown, e.domain, e.merge?]}
   end
   class Code < Jacobian::Code
     def entities; super + [@matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(*args)
       super
+      @coord = NodeCoordCode.instance
       @matrix = MatrixCode[@system_code.system.type]
       @array = MatrixArrayCode[@system_code.system.type]
+      @entry = MatrixEntryCode[@system_code.system.type]
     end
     def evaluator_codes
-      jacobian.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
+      jacobian.evaluators.collect {|e| e[0..-2].collect {|o| o.code(@problem_code)}}
     end
     def write_intf(stream)
       super
@@ -70,7 +72,7 @@ class Jacobian::Numeric < Jacobian
             #{@node.type} row = #{@mapper_code.getNode}(index);
             int field = row.field, x = row.x, y = row.y, z = row.z;
         $
-      evaluator_codes.each do |evaluator, field, domain|
+      evaluator_codes.each do |evaluator, field, domain, merge|
         stream << %$
           if(field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, x, y, z)) {
         $
@@ -80,24 +82,33 @@ class Jacobian::Numeric < Jacobian
             #{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.mapper.fields.index(r.arg)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});
           $
         end
-        stream << (evaluator.merge? ? nil : 'continue;') << '}'
+        stream << (merge ? nil : 'continue;') << '}'
       end
       abs = @system_code.system.type == Complex ? 'cabs' : 'fabs'
       rt = jacobian.relative_tolerance
+      result = @system_code.result
       stream << %$
           }
           #{@matrix.linearize}(&#{matrix}, &#{array});
           return FINITA_OK;
         }
-        #{@system_code.result} #{evaluate}(#{@node.type} row, #{@node.type} column) {
-          #{@system_code.result} result = 0, original = #{@mapper_code.nodeGet}(column);
-          #{@system_code.result} delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
+        #{result} #{evaluate}(size_t index) {
+          #{@entry.type}* entry = #{@array.get}(&#{array}, index);
+          #{@node.type} column = entry->coord.column;
+          #{result} result = 0, original = #{@mapper_code.nodeGet}(column);
+          #{result} delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
           #{@mapper_code.nodeSet}(column, original + delta);
-          result += #{@matrix.evaluate}(&#{matrix}, row, column);
+          result += #{@entry.evaluate}(entry);
           #{@mapper_code.nodeSet}(column, original - delta);
-          result -= #{@matrix.evaluate}(&#{matrix}, row, column);
+          result -= #{@entry.evaluate}(entry);
           #{@mapper_code.nodeSet}(column, original);
           return result/(2*delta);
+        }
+        size_t #{size}(void) {
+          return #{@array.size}(&#{array});
+        }
+        #{@coord.type} #{coord}(size_t index) {
+          return #{@array.get}(&#{array}, index)->coord;
         }
       $
     end

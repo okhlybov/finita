@@ -8,7 +8,7 @@ module Finita
 class Residual
   attr_reader :evaluators
   def process!(problem, system)
-    @evaluators = system.equations.collect {|e| [Evaluator.new(e.equation, system.type, e.merge?), e.unknown, e.domain]}
+    @evaluators = system.equations.collect {|e| [Evaluator.new(e.equation, system.type), e.unknown, e.domain]}
   end
   def code(problem_code, system_code, mapper_code)
     self.class::Code.new(self, problem_code, system_code, mapper_code)
@@ -24,6 +24,7 @@ class Residual
       @mapper_code = mapper_code
       @vector = VectorCode[@system_code.system.type]
       @array = VectorArrayCode[@system_code.system.type]
+      @entry = VectorEntryCode[@system_code.system.type]
       @system_code.initializers << self
       super("#{@system_code.type}Residual")
     end
@@ -39,7 +40,7 @@ class Residual
     def write_intf(stream)
       stream << %$
         int #{setup}(void);
-        #{@system_code.result} #{evaluate}(#{@node.type});
+        #{@system_code.result} #{evaluate}(size_t);
       $
     end
     def write_defs(stream)
@@ -61,13 +62,20 @@ class Residual
           }
         $
       end
+      result = @system_code.result
       stream << %$
           }
           #{@vector.linearize}(&#{vector}, &#{array});
           return FINITA_OK;
         }
-        #{@system_code.result} #{evaluate}(#{@node.type} node) {
-          return #{@vector.evaluate}(&#{vector}, node);
+        #{result} #{evaluate}(size_t index) {
+          return #{@entry.evaluate}(#{@array.get}(&#{array}, index));
+        }
+        size_t #{size}(void) {
+          return #{@array.size}(&#{array});
+        }
+        #{@node.type} #{node}(size_t index) {
+          return #{@array.get}(&#{array}, index)->node;
         }
       $
     end

@@ -139,30 +139,43 @@ class Solver::Matrix < Solver
   def rhs=(rhs)
     @rhs = rhs
   end
+  def nonlinear!
+    @force_nonlinear = true
+  end
   def initialize(mapper, environment, jacobian, &block)
     super(mapper, environment)
     @jacobian = jacobian
     block.call(self) if block_given?
   end
+  def linear?
+    @linear && !@force_nonlinear
+  end
   def process!(problem, system)
     super
-    jacobian.process!(problem, system)
-    residual.process!(problem, system)
-    lhs.process!(problem, system)
-    rhs.process!(problem, system)
+    @linear = system.linear?
+    if linear?
+      lhs.process!(problem, system)
+      rhs.process!(problem, system)
+    else
+      jacobian.process!(problem, system)
+      residual.process!(problem, system)
+    end
     self
   end
   class Code < Solver::Code
-    def entities; super + [@jacobian_code, @residual_code, @lhs_code, @rhs_code] end
+    def entities; super + (solver.linear? ? [@lhs_code, @rhs_code] : [@jacobian_code, @residual_code]) end
     def initialize(*args)
       super
-      @jacobian_code = solver.jacobian.code(@problem_code, @system_code, @mapper_code)
-      @residual_code = solver.residual.code(@problem_code, @system_code, @mapper_code)
-      @lhs_code = solver.lhs.code(@problem_code, @system_code, @mapper_code)
-      @rhs_code = solver.rhs.code(@problem_code, @system_code, @mapper_code)
+      if solver.linear?
+        @lhs_code = solver.lhs.code(@problem_code, @system_code, @mapper_code)
+        @rhs_code = solver.rhs.code(@problem_code, @system_code, @mapper_code)
+      else
+        @jacobian_code = solver.jacobian.code(@problem_code, @system_code, @mapper_code)
+        @residual_code = solver.residual.code(@problem_code, @system_code, @mapper_code)
+      end
     end
     def write_initializer(stream)
-      #stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+      #stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$ TODO
     end
   end # Code
 end # Matrix

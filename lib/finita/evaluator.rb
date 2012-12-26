@@ -8,14 +8,10 @@ module Finita
 
 class Evaluator
   attr_reader :expression, :type
-  def initialize(expression, type, merge)
+  def initialize(expression, type)
     # TODO merge attribute is not needed
     @expression = expression
     @type = type
-    @merge = merge
-  end
-  def merge?
-    @merge
   end
   def hash
     expression.hash ^ type.hash # TODO
@@ -48,9 +44,6 @@ class Evaluator
       @ctype = Finita::NumericType[evaluator.type]
       @problem_code.defines << :FINITA_COMPLEX if evaluator.type == Complex
       super('FinitaEvaluator')
-    end
-    def merge?
-      evaluator.merge?
     end
     def hash
       evaluator.hash
