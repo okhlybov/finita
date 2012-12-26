@@ -18,16 +18,13 @@ class Mapper
   class Code < DataStruct::Code
     attr_reader :mapper
     def entities
-      result = super + [@node]
-      result << @intList if mapper.mpi?
-      result
+      super + [@node]
     end
     def initialize(mapper, problem_code, system_code)
       @mapper = mapper
       @problem_code = problem_code
       @system_code = system_code
       @node = NodeCode.instance
-      @intList = IntegerListCode.instance if mapper.mpi?
       @result = @system_code.result
       @system_code.initializers << self
       super("#{system_code.type}Mapping")
@@ -64,13 +61,10 @@ class Mapper::Naive < Mapper
   end
   class Code < Mapper::Code
     def entities
-      result = super + [@nodeArray, @nodeSet, @nodeMap] + fields
-      result << @intArray if mapper.mpi?
-      result
+      super + [@nodeArray, @nodeSet, @nodeMap] + fields
     end
     def initialize(*args)
       super
-      @intArray = IntegerArrayCode.instance if mapper.mpi?
       @nodeArray = NodeArrayCode.instance
       @nodeSet = NodeSetCode.instance
       @nodeMap = NodeIndexMapCode.instance

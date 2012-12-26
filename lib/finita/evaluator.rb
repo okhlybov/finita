@@ -66,30 +66,6 @@ class Evaluator
 end # Evaluator
 
 
-class IntegerArrayCode < DataStruct::Array
-  include Singleton
-  def initialize
-    super('FinitaIntegerArray', 'int')
-  end
-end # IntegerArrayCode
-
-
-class IntegerListCode < DataStruct::List
-  include Singleton
-  def initialize
-    super('FinitaIntegerList', 'int', 'FinitaIntegerComparator')
-  end
-  def write_intf(stream)
-    stream << %$
-      #{inline} int #{comparator}(int lt, int rt) {
-        return lt == rt;
-      }
-    $
-    super
-  end
-end # IntegerListCode
-
-
 class NodeCode < DataStruct::Code
   include Singleton
   def initialize
