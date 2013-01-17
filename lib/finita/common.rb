@@ -28,7 +28,7 @@ def self.shallow_flatten(ary)
 end
 
 
-NumericType = {
+CType = {
   Integer => 'int',
   Float => 'double',
   Complex => '_Complex double'

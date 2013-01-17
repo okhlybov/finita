@@ -17,7 +17,6 @@ class RHS
     self.class::Code.new(self, problem_code, system_code, mapper_code)
   end
   class Code < DataStruct::Code
-    attr_reader :rhs
     def entities; super + [@vector, @array] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(rhs, problem_code, system_code, mapper_code)
       @rhs = rhs
@@ -25,25 +24,27 @@ class RHS
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code
-      @vector = VectorCode[@system_code.system.type]
-      @array = VectorArrayCode[@system_code.system.type]
-      @entry = VectorEntryCode[@system_code.system.type]
+      @vector = VectorCode[@system_code.type]
+      @array = VectorArrayCode[@system_code.type]
+      @entry = VectorEntryCode[@system_code.type]
       @system_code.initializers << self
       super("#{@system_code.type}RHS")
     end
     def hash
-      rhs.hash
+      @rhs.hash # TODO
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && rhs == other.rhs
+      equal?(other) || self.class == other.class && @rhs == other.instance_variable_get(:@rhs)
     end
     def evaluator_codes
-      rhs.evaluators.collect {|e| e[0..-2].collect {|o| o.code(@problem_code)}}
+      @rhs.evaluators.collect {|e| e[0..-2].collect {|o| o.code(@problem_code)}}
     end
     def write_intf(stream)
       stream << %$
         int #{setup}(void);
-        #{@system_code.result} #{evaluate}(size_t);
+        size_t #{size}(void);
+        #{@node.type} #{node}(size_t);
+        #{@system_code.result} #{value}(size_t);
       $
     end
     def write_defs(stream)
@@ -71,7 +72,7 @@ class RHS
           #{@vector.linearize}(&#{vector}, &#{array});
           return FINITA_OK;
         }
-        #{result} #{evaluate}(size_t index) {
+        #{result} #{value}(size_t index) {
           return #{@entry.evaluate}(#{@array.get}(&#{array}, index));
         }
         size_t #{size}(void) {

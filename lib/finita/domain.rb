@@ -131,9 +131,9 @@ class Area
     end
     @@count = 0
     @@codes = {}
-    attr_reader :area, :instance
+    attr_reader :instance
     def entities
-      super + [StaticCode.instance] + Collector.new.apply!(*(area.xrange + area.yrange + area.zrange)).instances.collect {|o| o.code(@problem_code)}
+      super + [StaticCode.instance] + Collector.new.apply!(*(@area.xrange + @area.yrange + @area.zrange)).instances.collect {|o| o.code(@problem_code)}
     end
     def initialize(area, problem_code)
       @area = area
@@ -143,10 +143,10 @@ class Area
       problem_code.initializers << self
     end
     def hash
-      area.hash
+      @area.hash
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && area == other.area
+      equal?(other) || self.class == other.class && @area == other.instance_variable_get(:@area)
     end
     def write_intf(stream)
       stream << %$
@@ -159,7 +159,7 @@ class Area
     $
     end
     def write_initializer(stream)
-      args = (area.xrange + area.yrange + area.zrange).collect {|e| CEmitter.new.emit!(e)}.join(',')
+      args = (@area.xrange + @area.yrange + @area.zrange).collect {|e| CEmitter.new.emit!(e)}.join(',')
       stream << %$
       #{ctor}(&#{instance}, #{args});
     $

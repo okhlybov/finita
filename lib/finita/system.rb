@@ -37,6 +37,15 @@ class System
   def type
     Numeric.promoted_type(*equations.collect {|s| s.type})
   end
+  def integer?
+    type == Integer
+  end
+  def float?
+    type == Float
+  end
+  def complex?
+    type == Complex
+  end
   def unknowns
     Set.new(equations.collect {|e| e.unknown})
   end
@@ -57,33 +66,45 @@ class System
     self
   end
   def code(problem_code)
-    Code.new(self, problem_code)
+    self.class::Code.new(self, problem_code)
   end
   class Code < DataStruct::Code
-    attr_reader :system, :initializers, :finalizers, :result
+    attr_reader :initializers, :finalizers, :result
     def entities; super + [solver_code] + equation_codes + (initializers | finalizers).to_a end
     def initialize(system, problem_code)
       @system = system
       @problem_code = problem_code
       @initializers = Set.new
       @finalizers = Set.new
-      @result = NumericType[system.type]
+      @result = CType[system.type]
       @problem_code.initializers << self
       @problem_code.finalizers << self
-      @problem_code.defines << :FINITA_COMPLEX if system.type == Complex
+      @problem_code.defines << :FINITA_COMPLEX if complex?
       super(@problem_code.type + system.name)
     end
     def hash
-      system.hash
+      @system.hash # TODO
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && system == other.system
+      equal?(other) || self.class == other.class && @system == other.instance_variable_get(:@system)
+    end
+    def type
+      @system.type
+    end
+    def integer?
+      @system.integer?
+    end
+    def float?
+      @system.float?
+    end
+    def complex?
+      @system.complex?
     end
     def solver_code
-      system.solver.code(@problem_code, self)
+      @system.solver.code(@problem_code, self)
     end
     def equation_codes
-      system.equations.collect {|e| e.code(@problem_code, self)}
+      @system.equations.collect {|e| e.code(@problem_code, self)}
     end
     def write_intf(stream)
       stream << %$

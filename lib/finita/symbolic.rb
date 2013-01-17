@@ -158,7 +158,7 @@ class Constant < Numeric
               end
       stream << %$
       #define #{constant.name} #{@problem_code.problem.name}#{constant.name}
-      static const #{NumericType[constant.type]} #{constant.name} = #{value};
+      static const #{CType[constant.type]} #{constant.name} = #{value};
     $
     end
   end # Code
@@ -168,7 +168,7 @@ end # Constant
 class Variable < Symbolic::Expression
   attr_reader :name, :type
   def initialize(name, type)
-    raise 'numeric type expected' unless NumericType.key?(type)
+    raise 'numeric type expected' unless CType.key?(type)
     @name = name.to_s
     @type = type
   end
@@ -217,12 +217,12 @@ class Variable < Symbolic::Expression
     def write_intf(stream)
       stream << %$
       #define #{variable.name} #{@problem_code.type}#{variable.name}
-      extern #{NumericType[variable.type]} #{variable.name};
+      extern #{CType[variable.type]} #{variable.name};
     $
     end
     def write_defs(stream)
       stream << %$
-      #{NumericType[variable.type]} #{variable.name};
+      #{CType[variable.type]} #{variable.name};
     $
     end
   end # Code
@@ -232,7 +232,7 @@ end # Variable
 class Field < Symbolic::Expression
   attr_reader :name, :type, :domain
   def initialize(name, type, domain)
-    raise 'numeric type expected' unless NumericType.key?(type)
+    raise 'numeric type expected' unless CType.key?(type)
     @name = name.to_s # TODO validate
     @type = type # TODO validate
     @domain = domain
@@ -266,11 +266,11 @@ class Field < Symbolic::Expression
     attr_reader :field, :symbol, :instance
     def initialize(field, problem_code)
       @field = field
-      super("#{problem_code.problem.name}#{field.name}")
+      super("#{problem_code.name}#{field.name}")
       @instance = type
       @symbol = field.name
       @domain_code = field.domain.code(problem_code)
-      @ctype = Finita::NumericType[field.type]
+      @c_type = Finita::CType[field.type]
       problem_code.initializers << self
       problem_code.defines << :FINITA_COMPLEX if field.type == Complex
     end
@@ -284,7 +284,7 @@ class Field < Symbolic::Expression
       stream << %$
         #define #{field.name}(x,y,z) (#{instance}.data[#{@domain_code.index}(#{instance}.area, x, y, z)])
         struct #{type} {
-          #{@ctype}* data;
+          #{@c_type}* data;
           #{@domain_code.type}* area;
         };
         extern struct #{type} #{instance};
@@ -298,7 +298,7 @@ class Field < Symbolic::Expression
     def write_initializer(stream)
       stream << %${
         #{instance}.area = &#{@domain_code.instance};
-        #{instance}.data = (#{@ctype}*)#{calloc}(#{@domain_code.size}(#{instance}.area), sizeof(#{@ctype})); #{assert}(#{instance}.data);
+        #{instance}.data = (#{@c_type}*)#{calloc}(#{@domain_code.size}(#{instance}.area), sizeof(#{@c_type})); #{assert}(#{instance}.data);
       }$
     end
   end # Code
