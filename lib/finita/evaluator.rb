@@ -13,6 +13,15 @@ class Evaluator
     @expression = expression
     @type = type
   end
+  def integer?
+    type == Integer
+  end
+  def float?
+    type == Float
+  end
+  def complex?
+    type == Complex
+  end
   def hash
     expression.hash ^ type.hash # TODO
   end
@@ -32,8 +41,8 @@ class Evaluator
       end
     end
     @@count = 0
-    attr_reader :evaluator, :instance
-    def entities; super + Collector.new.apply!(evaluator.expression).instances.collect {|o| o.code(@problem_code)} end
+    attr_reader :instance
+    def entities; super + Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)} end
     def priority
       CodeBuilder::Priority::DEFAULT + 1
     end
@@ -41,29 +50,63 @@ class Evaluator
       @evaluator = evaluator
       @problem_code = problem_code
       @instance = "#{@problem_code.type}#{@@count += 1}"
-      @ctype = Finita::NumericType[evaluator.type]
-      @problem_code.defines << :FINITA_COMPLEX if evaluator.type == Complex
+      @c_type = Finita::CType[evaluator.type]
+      @problem_code.defines << :FINITA_COMPLEX if evaluator.complex?
       super('FinitaEvaluator')
     end
     def hash
-      evaluator.hash
+      @evaluator.hash # TODO
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && evaluator == other.evaluator
+      equal?(other) || self.class == other.class && @evaluator == other.instance_variable_get(:@evaluator)
+    end
+    def expression
+      @evaluator.expression
     end
     def write_intf(stream)
-      stream << %$#{@ctype} #{instance}(int, int, int);$
+      stream << %$#{@c_type} #{instance}(int, int, int);$
     end
     def write_defs(stream)
       stream << %$
         FINITA_ARGSUSED
-        #{@ctype} #{instance}(int x, int y, int z) {
-          return #{CEmitter.new.emit!(evaluator.expression)};
+        #{@c_type} #{instance}(int x, int y, int z) {
+          return #{CEmitter.new.emit!(@evaluator.expression)};
         }
       $
     end
   end # Code
 end # Evaluator
+
+
+class IntegerArrayCode < DataStruct::Array
+  include Singleton
+  def initialize
+    super('FinitaIntegerArray', CType[Integer])
+  end
+end # IntegerArrayCode
+
+
+class FloatArrayCode < DataStruct::Array
+  include Singleton
+  def initialize
+    super('FinitaFloatArray', CType[Float])
+  end
+end # FloatArrayCode
+
+
+class ComplexArrayCode < DataStruct::Array
+  include Singleton
+  def initialize
+    super('FinitaComplexArray', CType[Complex])
+  end
+end # ComplexArrayCode
+
+
+NumericArrayCode = {
+  Integer => IntegerArrayCode.instance,
+  Float => FloatArrayCode.instance,
+  Complex => ComplexArrayCode.instance
+}
 
 
 class NodeCode < DataStruct::Code
@@ -222,10 +265,10 @@ class AbstractFunctionPtrCode < CodeBuilder::Code
   attr_reader :type
   def initialize(type)
     @type = "Finita#{type}FunctionPtr"
-    @return = NumericType[type]
+    @c_type = CType[type]
   end
   def write_intf(stream)
-    stream << %$typedef #{@return} (*#{@type})(int,int,int);$
+    stream << %$typedef #{@c_type} (*#{@type})(int,int,int);$
   end
 end # AbstractFunctionPtrCode
 
@@ -332,7 +375,7 @@ end # AbstractMatrixEntryCode
 class IntegerMatrixEntryCode < AbstractMatrixEntryCode
   include Singleton
   def initialize
-    super('FinitaIntegerMatrixEntry', FunctionPtrCode[Integer], NumericType[Integer])
+    super('FinitaIntegerMatrixEntry', FunctionPtrCode[Integer], CType[Integer])
   end
 end # IntegerMatrixEntryCode
 
@@ -340,7 +383,7 @@ end # IntegerMatrixEntryCode
 class FloatMatrixEntryCode < AbstractMatrixEntryCode
   include Singleton
   def initialize
-    super('FinitaFloatMatrixEntry', FunctionPtrCode[Float], NumericType[Float])
+    super('FinitaFloatMatrixEntry', FunctionPtrCode[Float], CType[Float])
   end
 end # FloatMatrixEntryCode
 
@@ -348,7 +391,7 @@ end # FloatMatrixEntryCode
 class ComplexMatrixEntryCode < AbstractMatrixEntryCode
   include Singleton
   def initialize
-    super('FinitaComplexMatrixEntry', FunctionPtrCode[Complex], NumericType[Complex])
+    super('FinitaComplexMatrixEntry', FunctionPtrCode[Complex], CType[Complex])
   end
 end # ComplexMatrixEntryCode
 
@@ -423,7 +466,7 @@ end # AbstractVectorEntryCode
 class IntegerVectorEntryCode < AbstractVectorEntryCode
   include Singleton
   def initialize
-    super('FinitaIntegerVectorEntry', FunctionPtrCode[Integer], NumericType[Integer])
+    super('FinitaIntegerVectorEntry', FunctionPtrCode[Integer], CType[Integer])
   end
 end # IntegerVectorEntryCode
 
@@ -431,7 +474,7 @@ end # IntegerVectorEntryCode
 class FloatVectorEntryCode < AbstractVectorEntryCode
   include Singleton
   def initialize
-    super('FinitaFloatVectorEntry', FunctionPtrCode[Float], NumericType[Float])
+    super('FinitaFloatVectorEntry', FunctionPtrCode[Float], CType[Float])
   end
 end # FloatVectorEntryCode
 
@@ -439,7 +482,7 @@ end # FloatVectorEntryCode
 class ComplexVectorEntryCode < AbstractVectorEntryCode
   include Singleton
   def initialize
-    super('FinitaComplexVectorEntry', FunctionPtrCode[Complex], NumericType[Complex])
+    super('FinitaComplexVectorEntry', FunctionPtrCode[Complex], CType[Complex])
   end
 end # ComplexVectorEntryCode
 
@@ -465,7 +508,7 @@ end # AbstractEntryArrayCode
 class IntegerMatrixArrayCode < AbstractEntryArrayCode
   include Singleton
   def initialize
-    super('FinitaIntegerMatrixArray', MatrixEntryCode[Integer], NumericType[Integer])
+    super('FinitaIntegerMatrixArray', MatrixEntryCode[Integer], CType[Integer])
   end
 end # IntegerMatrixArrayCode
 
@@ -473,7 +516,7 @@ end # IntegerMatrixArrayCode
 class FloatMatrixArrayCode < AbstractEntryArrayCode
   include Singleton
   def initialize
-    super('FinitaFloatMatrixArray', MatrixEntryCode[Float], NumericType[Float])
+    super('FinitaFloatMatrixArray', MatrixEntryCode[Float], CType[Float])
   end
 end # FloatMatrixArrayCode
 
@@ -481,7 +524,7 @@ end # FloatMatrixArrayCode
 class ComplexMatrixArrayCode < AbstractEntryArrayCode
   include Singleton
   def initialize
-    super('FinitaComplexMatrixArray', MatrixEntryCode[Complex], NumericType[Complex])
+    super('FinitaComplexMatrixArray', MatrixEntryCode[Complex], CType[Complex])
   end
 end # ComplexMatrixArrayCode
 
@@ -496,7 +539,7 @@ MatrixArrayCode = {
 class IntegerVectorArrayCode < AbstractEntryArrayCode
   include Singleton
   def initialize
-    super('FinitaIntegerVectorArray', VectorEntryCode[Integer], NumericType[Integer])
+    super('FinitaIntegerVectorArray', VectorEntryCode[Integer], CType[Integer])
   end
 end # IntegerVectorArrayCode
 
@@ -504,7 +547,7 @@ end # IntegerVectorArrayCode
 class FloatVectorArrayCode < AbstractEntryArrayCode
   include Singleton
   def initialize
-    super('FinitaFloatVectorArray', VectorEntryCode[Float], NumericType[Float])
+    super('FinitaFloatVectorArray', VectorEntryCode[Float], CType[Float])
   end
 end # FloatVectorArrayCode
 
@@ -512,7 +555,7 @@ end # FloatVectorArrayCode
 class ComplexVectorArrayCode < AbstractEntryArrayCode
   include Singleton
   def initialize
-    super('FinitaComplexVectorArray', VectorEntryCode[Complex], NumericType[Complex])
+    super('FinitaComplexVectorArray', VectorEntryCode[Complex], CType[Complex])
   end
 end # ComplexVectorArrayCode
 
@@ -531,7 +574,7 @@ class AbstractMatrixCode < DataStruct::Set
     @node = NodeCode.instance
     @element = MatrixEntryCode[numeric_type]
     @array = MatrixArrayCode[numeric_type]
-    @returnType = NumericType[numeric_type]
+    @returnType = CType[numeric_type]
     super(type, "#{@element.type}*", @element.hasher, @element.comparator)
   end
   def write_intf(stream)
@@ -617,7 +660,7 @@ class AbstractVectorCode < DataStruct::Set
     @node = NodeCode.instance
     @element = VectorEntryCode[numeric_type]
     @array = VectorArrayCode[numeric_type]
-    @returnType = NumericType[numeric_type]
+    @returnType = CType[numeric_type]
     super(type, "#{@element.type}*", @element.hasher, @element.comparator)
   end
   def write_intf(stream)

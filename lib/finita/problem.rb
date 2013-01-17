@@ -49,8 +49,8 @@ class Problem
     Code.new(self)
   end
   class Code < DataStruct::Code
-    attr_reader :problem, :initializers, :finalizers, :defines
-    def entities; super + [Finita::Generator::PrologueCode.new(defines)] + @codes.values + (problem.systems + problem.instances.to_a).collect {|s| s.code(self)} + (initializers | finalizers).to_a end
+    attr_reader :name, :initializers, :finalizers, :defines
+    def entities; super + [Finita::Generator::PrologueCode.new(defines)] + @codes.values + (@problem.systems + @problem.instances.to_a).collect {|s| s.code(self)} + (initializers | finalizers).to_a end
     def initialize(problem)
       @problem = problem
       super(problem.name)
@@ -59,12 +59,13 @@ class Problem
       @defines = Set.new
       @symbols = {}
       @codes = {}
+      @name = problem.name
     end
     def hash
-      problem.hash
+      @problem.hash # TODO
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && problem == other.problem
+      equal?(other) || self.class == other.class && @problem == other.instance_variable_get(:@problem)
     end
     def <<(code)
       if @codes.key?(code)

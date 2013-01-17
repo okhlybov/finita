@@ -75,7 +75,6 @@ class Binding
     Code.new(self, problem_code, system_code)
   end
   class Code < DataStruct::Code
-    attr_reader :binding
     def entities; super + [unknown_code, domain_code] end
     def initialize(binding, problem_code, system_code)
       @binding = binding
@@ -84,16 +83,16 @@ class Binding
       super("#{system_code.type}Binding")
     end
     def hash
-      binding.hash
+      @binding.hash # TODO
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && binding == other.binding
+      equal?(other) || self.class == other.class && @binding == other.instance_variable_get(:@binding)
     end
     def unknown_code
-      binding.unknown.code(@problem_code)
+      @binding.unknown.code(@problem_code)
     end
     def domain_code
-      binding.domain.code(@problem_code)
+      @binding.domain.code(@problem_code)
     end
   end
 end # Binding

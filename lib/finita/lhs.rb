@@ -20,7 +20,6 @@ class LHS
     end
   end
   class Code < DataStruct::Code
-    attr_reader :lhs
     def entities; super + [@mapper_code, @matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(lhs, problem_code, system_code, mapper_code)
       @lhs = lhs
@@ -29,14 +28,14 @@ class LHS
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code
-      @matrix = MatrixCode[@system_code.system.type]
-      @array = MatrixArrayCode[@system_code.system.type]
-      @entry = MatrixEntryCode[@system_code.system.type]
+      @matrix = MatrixCode[@system_code.type]
+      @array = MatrixArrayCode[@system_code.type]
+      @entry = MatrixEntryCode[@system_code.type]
       @system_code.initializers << self
       super("#{@system_code.type}LHS")
     end
     def evaluator_codes
-      lhs.evaluators.collect do |e|
+      @lhs.evaluators.collect do |e|
         result = []
         e[0].each do |r,x|
           result << x.code(@problem_code)
@@ -45,15 +44,17 @@ class LHS
       end
     end
     def hash
-      lhs.hash
+      @lhs.hash # TODO
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && lhs == other.lhs
+      equal?(other) || self.class == other.class && @lhs == other.instance_variable_get(:@lhs)
     end
     def write_intf(stream)
       stream << %$
         int #{setup}(void);
-        #{@system_code.result} #{evaluate}(size_t);
+        size_t #{size}(void);
+        #{@coord.type} #{coord}(size_t);
+        #{@system_code.result} #{value}(size_t);
       $
     end
     def write_defs(stream)
@@ -68,24 +69,24 @@ class LHS
             #{@node.type} row = #{@mapper_code.getNode}(index);
             int field = row.field, x = row.x, y = row.y, z = row.z;
         $
-      lhs.evaluators.each do |h, f, d, m|
+      @lhs.evaluators.each do |h, f, d, m|
         field = f.code(@problem_code)
         domain = d.code(@problem_code)
         stream << %$if(field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, x, y, z)) {$
         h.each do |r, e|
           evaluator = e.code(@problem_code)
-          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.mapper.fields.index(r.arg)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
+          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(r.arg)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
         end
         stream << (m ? nil : 'continue;') << '}'
       end
-      abs = @system_code.system.type == Complex ? 'cabs' : 'fabs'
+      abs = @system_code.complex? ? 'cabs' : 'fabs'
       result = @system_code.result
       stream << %$
           }
           #{@matrix.linearize}(&#{matrix}, &#{array});
           return FINITA_OK;
         }
-        #{result} #{evaluate}(size_t index) {
+        #{result} #{value}(size_t index) {
           return #{@entry.evaluate}(#{@array.get}(&#{array}, index));
         }
         size_t #{size}(void) {

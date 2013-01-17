@@ -96,6 +96,7 @@ class PrologueCode < CodeBuilder::Code
     # http://www.concentric.net/~ttwang/tech/inthash.htm
   end
   def write_defs(stream)
+    # TODO portable version of snprintf
     stream << %$
       #include <math.h>
       #include <stdio.h>
