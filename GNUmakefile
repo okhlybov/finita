@@ -4,7 +4,7 @@ program = problem
 
 sources = problem.c problem.auto1.c
 
-packages = MUMPS_DMO
+packages = MUMPS_DSO
 
 CPPFLAGS = -ansi -pedantic -std=c99
 
