@@ -97,15 +97,15 @@ class Solver::Matrix < Solver
     self
   end
   class Code < Solver::Code
-    def entities; super + (@solver.linear? ? [@lhs_code, @rhs_code] : [@jacobian_code, @residual_code]) end
+    def entities; super + [@matrix_code, @vector_code] end
     def initialize(*args)
       super
       if @solver.linear?
-        @lhs_code = @solver.lhs.code(@problem_code, @system_code, @mapper_code)
-        @rhs_code = @solver.rhs.code(@problem_code, @system_code, @mapper_code)
+        @matrix_code = @solver.lhs.code(@problem_code, @system_code, @mapper_code)
+        @vector_code = @solver.rhs.code(@problem_code, @system_code, @mapper_code)
       else
-        @jacobian_code = @solver.jacobian.code(@problem_code, @system_code, @mapper_code)
-        @residual_code = @solver.residual.code(@problem_code, @system_code, @mapper_code)
+        @matrix_code = @solver.jacobian.code(@problem_code, @system_code, @mapper_code)
+        @vector_code = @solver.residual.code(@problem_code, @system_code, @mapper_code)
       end
     end
     def write_initializer(stream)
