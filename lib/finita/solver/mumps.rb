@@ -24,8 +24,6 @@ class Solver::MUMPS < Solver::Matrix
             #include "zmumps_c.h"
           $
       end
-      matrix_code = @solver.linear? ? @lhs_code : @jacobian_code
-      vector_code = @solver.linear? ? @rhs_code : @residual_code
       stream << %$
         #define ICNTL(x) icntl[(x)-1]
         #define INFO(x) info[(x)-1]
@@ -56,7 +54,7 @@ class Solver::MUMPS < Solver::Matrix
           #{ctx}.ICNTL(20) = 0; /* centralized vector format */
           #{ctx}.ICNTL(21) = 0; /* centralized solution format */
           #{ctx}.n = #{@mapper_code.size}();
-          #{ctx}.nz_loc = #{matrix_code.size}();
+          #{ctx}.nz_loc = #{@matrix_code.size}();
           #{ctx}.irn_loc = (int*) #{malloc}(#{ctx}.nz_loc*sizeof(int)); #{assert}(#{ctx}.irn_loc);
           #{ctx}.jcn_loc = (int*) #{malloc}(#{ctx}.nz_loc*sizeof(int)); #{assert}(#{ctx}.jcn_loc);
           #{ctx}.a_loc = (#{@system_code.result}*) #{malloc}(#{ctx}.nz_loc*sizeof(#{@system_code.result})); #{assert}(#{ctx}.a_loc);
@@ -66,11 +64,12 @@ class Solver::MUMPS < Solver::Matrix
           }
           #{ctx}.nrhs = 1;
           for(index = 0; index < #{ctx}.nz_loc; ++index) {
-            #{@coord.type} coord = #{matrix_code.coord}(index);
+            #{@coord.type} coord = #{@matrix_code.coord}(index);
             #{ctx}.irn_loc[index] = #{@mapper_code.getIndex}(coord.row) + 1;
             #{ctx}.jcn_loc[index] = #{@mapper_code.getIndex}(coord.column) + 1;
           }
           #{invoke}();
+          return 0;
       $
       stream << '}'
       stream << %$
@@ -78,10 +77,10 @@ class Solver::MUMPS < Solver::Matrix
           size_t index;
           #{ctx}.job = 5; /* factorization & solve phase */
           for(index = 0; index < #{ctx}.nz_loc; ++index) {
-            #{ctx}.a_loc[index] = #{matrix_code.value}(index);
+            #{ctx}.a_loc[index] = #{@matrix_code.value}(index);
           }
-          for(index = 0; index < #{vector_code.size}(); ++index) {
-            #{@array.set}(&#{array}, #{vector_code.value}(index), #{@mapper_code.getIndex}(#{vector_code.node}(index)));
+          for(index = 0; index < #{@vector_code.size}(); ++index) {
+            #{@array.set}(&#{array}, #{@mapper_code.getIndex}(#{@vector_code.node}(index)), #{@vector_code.value}(index));
           }
           #{@mapper_code.gatherArray}(&#{array});
           FINITA_HEAD {

@@ -63,7 +63,7 @@ class LHS
         static #{@matrix.type} #{matrix};
         static #{@array.type} #{array};
         int #{setup}(void) {
-          int index, size = #{@mapper_code.size}(), first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
+          int index,  first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
           #{@matrix.ctor}(&#{matrix}, pow(last-first+1, 1.1));
           for(index = first; index <= last; ++index) {
             #{@node.type} row = #{@mapper_code.getNode}(index);
