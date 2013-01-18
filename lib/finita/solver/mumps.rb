@@ -4,11 +4,13 @@ module Finita
 class Solver::MUMPS < Solver::Matrix
   class Code < Solver::Matrix::Code
     @@mumps = {Float=>:dmumps, Complex=>:zmumps}
+    def entities; super + [@array] end
     def initialize(*args)
       super
       @mumps = @@mumps[@system_code.system_type]
       @mumps_c = "#{@mumps}_c".to_sym
       @MUMPS = @mumps.to_s.upcase.to_sym
+      @array = NumericArrayCode[@system_code.system_type]
     end
     def write_defs(stream)
       super
@@ -29,6 +31,7 @@ class Solver::MUMPS < Solver::Matrix
         #define INFO(x) info[(x)-1]
         #define INFOG(x) infog[(x)-1]
         static #{@MUMPS}_STRUC_C #{ctx};
+        static #{@array.type} #{array};
         static void #{invoke}() {
           #{@mumps_c}(&#{ctx});
           FINITA_HEAD if(#{ctx}.INFOG(1) < 0) {
@@ -57,6 +60,7 @@ class Solver::MUMPS < Solver::Matrix
           #{ctx}.irn_loc = (int*) #{malloc}(#{ctx}.nz_loc*sizeof(int)); #{assert}(#{ctx}.irn_loc);
           #{ctx}.jcn_loc = (int*) #{malloc}(#{ctx}.nz_loc*sizeof(int)); #{assert}(#{ctx}.jcn_loc);
           #{ctx}.a_loc = (#{@system_code.result}*) #{malloc}(#{ctx}.nz_loc*sizeof(#{@system_code.result})); #{assert}(#{ctx}.a_loc);
+          #{@array.ctor}(&#{array}, #{ctx}.n);
           FINITA_HEAD {
             #{ctx}.rhs = (#{@system_code.result}*) #{malloc}(#{ctx}.n*sizeof(#{@system_code.result})); #{assert}(#{ctx}.rhs);
           }
@@ -76,12 +80,25 @@ class Solver::MUMPS < Solver::Matrix
           for(index = 0; index < #{ctx}.nz_loc; ++index) {
             #{ctx}.a_loc[index] = #{matrix_code.value}(index);
           }
+          for(index = 0; index < #{vector_code.size}(); ++index) {
+            #{@array.set}(&#{array}, #{vector_code.value}(index), #{@mapper_code.getIndex}(#{vector_code.node}(index)));
+          }
+          #{@mapper_code.gatherArray}(&#{array});
           FINITA_HEAD {
             for(index = 0; index < #{ctx}.n; ++index) {
-              #{ctx}.rhs[index] = #{vector_code.value}(index);
+              #{ctx}.rhs[index] = #{@array.get}(&#{array}, index);
             }
           }
           #{invoke}();
+          FINITA_HEAD {
+            for(index = 0; index < #{ctx}.n; ++index) {
+              #{@array.set}(&#{array}, index, #{ctx}.rhs[index]);
+            }
+          }
+          #{@mapper_code.scatterArray}(&#{array});
+          for(index = 0; index < #{ctx}.n; ++index) {
+            #{@mapper_code.setValue}(index, #{@array.get}(&#{array}, index));
+          }
           return 0;
         }
       $
