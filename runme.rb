@@ -16,7 +16,7 @@ Problem.new(:Problem) do |p|
     }
     end
     s.solver = Solver::MUMPS.new(Mapper::Naive.new, Environment::MPI.new, Jacobian::Numeric.new(1e-3)) { |s|
-      #s.nonlinear!
+      s.nonlinear!
     }
     Assignment.new({(F[:x+1]-F[:x-1]+F[:y+1]-F[:y-1])/4=>F}, B)
     Assignment.new({(F[:x+1]-F[:x-1]+F[:y+1]-F[:y-1])/4 => F}, B)

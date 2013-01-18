@@ -80,7 +80,7 @@ class Binding
       @binding = binding
       @problem_code = problem_code
       @system_code = system_code
-      super("#{system_code.type}Binding")
+      super("#{@system_code.type}Binding")
     end
     def hash
       @binding.hash # TODO

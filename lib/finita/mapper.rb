@@ -24,10 +24,10 @@ class Mapper
       @problem_code = problem_code
       @system_code = system_code
       @node = NodeCode.instance
-      @numericArray = NumericArrayCode[@system_code.type]
+      @numericArray = NumericArrayCode[@system_code.system_type]
       @result = @system_code.result
       @system_code.initializers << self
-      super("#{system_code.type}Mapping")
+      super("#{@system_code.type}Mapping")
     end
     def hash
       @mapper.hash # TODO

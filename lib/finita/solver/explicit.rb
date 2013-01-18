@@ -12,8 +12,8 @@ class Solver::Explicit < Solver
     def entities; super + [@entry, @array, @mapper_code] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(*args)
       super
-      @entry = VectorEntryCode[@system_code.type]
-      @array = VectorArrayCode[@system_code.type]
+      @entry = VectorEntryCode[@system_code.system_type]
+      @array = VectorArrayCode[@system_code.system_type]
     end
     def evaluator_codes
       @solver.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}

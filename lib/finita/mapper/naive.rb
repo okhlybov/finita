@@ -167,7 +167,7 @@ class Mapper::Naive < Mapper
           mpi_type = Finita::MPIType[Float]
         else
           c_type = @result
-          mpi_type = Finita::MPIType[@system_code.type]
+          mpi_type = Finita::MPIType[@system_code.system_type]
         end
         stream << %$
           void #{synchronize}(void) {

@@ -21,9 +21,9 @@ class Residual
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code
-      @vector = VectorCode[@system_code.type]
-      @array = VectorArrayCode[@system_code.type]
-      @entry = VectorEntryCode[@system_code.type]
+      @vector = VectorCode[@system_code.system_type]
+      @array = VectorArrayCode[@system_code.system_type]
+      @entry = VectorEntryCode[@system_code.system_type]
       @system_code.initializers << self
       super("#{@system_code.type}Residual")
     end
@@ -31,7 +31,7 @@ class Residual
       @residual.hash # TODO
     end
     def eql?(other)
-      equal?(other) || self.class == other.class && @residual == other.instance_vatiable_get(:@residual)
+      equal?(other) || self.class == other.class && @residual == other.instance_variable_get(:@residual)
     end
     def evaluator_codes
       @residual.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}

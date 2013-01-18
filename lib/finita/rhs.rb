@@ -24,9 +24,9 @@ class RHS
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code
-      @vector = VectorCode[@system_code.type]
-      @array = VectorArrayCode[@system_code.type]
-      @entry = VectorEntryCode[@system_code.type]
+      @vector = VectorCode[@system_code.system_type]
+      @array = VectorArrayCode[@system_code.system_type]
+      @entry = VectorEntryCode[@system_code.system_type]
       @system_code.initializers << self
       super("#{@system_code.type}RHS")
     end

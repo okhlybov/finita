@@ -15,9 +15,9 @@ class Jacobian::Numeric < Jacobian
     def initialize(*args)
       super
       @coord = NodeCoordCode.instance
-      @matrix = MatrixCode[@system_code.type]
-      @array = MatrixArrayCode[@system_code.type]
-      @entry = MatrixEntryCode[@system_code.type]
+      @matrix = MatrixCode[@system_code.system_type]
+      @array = MatrixArrayCode[@system_code.system_type]
+      @entry = MatrixEntryCode[@system_code.system_type]
     end
     def evaluator_codes
       @jacobian.evaluators.collect {|e| e[0..-2].collect {|o| o.code(@problem_code)}}
@@ -44,8 +44,9 @@ class Jacobian::Numeric < Jacobian
         $
         refs = ObjectCollector.new(Ref).apply!(evaluator.expression)
         refs.keep_if {|r| @system_code.unknowns.include?(r.arg)}.each do |r|
+          f = r.arg.code(@problem_code)
           stream << %$
-            #{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(r.arg)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});
+            #{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(f)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});
           $
         end
         stream << (merge ? nil : 'continue;') << '}'
