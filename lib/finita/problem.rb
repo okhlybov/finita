@@ -53,13 +53,13 @@ class Problem
     def entities; super + [Finita::Generator::PrologueCode.new(defines)] + @codes.values + (@problem.systems + @problem.instances.to_a).collect {|s| s.code(self)} + (initializers | finalizers).to_a end
     def initialize(problem)
       @problem = problem
-      super(problem.name)
       @initializers = Set.new
       @finalizers = Set.new
       @defines = Set.new
       @symbols = {}
       @codes = {}
       @name = problem.name
+      super(problem.name)
     end
     def hash
       @problem.hash # TODO

@@ -4,7 +4,9 @@ program = problem
 
 sources = problem.c problem.auto1.c
 
-packages = MPI
+packages = MUMPS_DMO
+
+CPPFLAGS = -ansi -pedantic -std=c99
 
 ### End custom definitions
 

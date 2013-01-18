@@ -28,9 +28,9 @@ class LHS
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code
-      @matrix = MatrixCode[@system_code.type]
-      @array = MatrixArrayCode[@system_code.type]
-      @entry = MatrixEntryCode[@system_code.type]
+      @matrix = MatrixCode[@system_code.system_type]
+      @array = MatrixArrayCode[@system_code.system_type]
+      @entry = MatrixEntryCode[@system_code.system_type]
       @system_code.initializers << self
       super("#{@system_code.type}LHS")
     end
@@ -74,8 +74,9 @@ class LHS
         domain = d.code(@problem_code)
         stream << %$if(field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, x, y, z)) {$
         h.each do |r, e|
+          f = r.arg.code(@problem_code)
           evaluator = e.code(@problem_code)
-          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(r.arg)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
+          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(f)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
         end
         stream << (m ? nil : 'continue;') << '}'
       end

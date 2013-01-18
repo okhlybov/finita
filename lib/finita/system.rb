@@ -69,7 +69,7 @@ class System
     self.class::Code.new(self, problem_code)
   end
   class Code < DataStruct::Code
-    attr_reader :initializers, :finalizers, :result
+    attr_reader :unknowns, :initializers, :finalizers, :result
     def entities; super + [solver_code] + equation_codes + (initializers | finalizers).to_a end
     def initialize(system, problem_code)
       @system = system
@@ -80,6 +80,7 @@ class System
       @problem_code.initializers << self
       @problem_code.finalizers << self
       @problem_code.defines << :FINITA_COMPLEX if complex?
+      @unknowns = @system.unknowns # FIXME shouldnt be exposed
       super(@problem_code.type + system.name)
     end
     def hash
@@ -88,7 +89,7 @@ class System
     def eql?(other)
       equal?(other) || self.class == other.class && @system == other.instance_variable_get(:@system)
     end
-    def type
+    def system_type # TODO rename
       @system.type
     end
     def integer?

@@ -6,7 +6,7 @@ class Solver::MUMPS < Solver::Matrix
     @@mumps = {Float=>:dmumps, Complex=>:zmumps}
     def initialize(*args)
       super
-      @mumps = @@mumps[@system_code.type]
+      @mumps = @@mumps[@system_code.system_type]
       @mumps_c = "#{@mumps}_c".to_sym
       @MUMPS = @mumps.to_s.upcase.to_sym
     end
