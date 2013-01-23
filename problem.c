@@ -18,7 +18,7 @@ void PrintF(FILE* out)
 int main(int argc, char** argv)
 {
     clock_t c;
-	N = 5;
+	N = 3;
 	ProblemSetup(argc, argv);
 {
 	int x, y;

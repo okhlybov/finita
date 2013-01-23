@@ -45,9 +45,7 @@ class Jacobian::Numeric < Jacobian
         refs = ObjectCollector.new(Ref).apply!(evaluator.expression)
         refs.keep_if {|r| @system_code.unknowns.include?(r.arg)}.each do |r|
           f = r.arg.code(@problem_code)
-          stream << %$
-            #{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(f)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});
-          $
+          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(f)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
         end
         stream << (merge ? nil : 'continue;') << '}'
       end
