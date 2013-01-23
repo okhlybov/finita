@@ -378,13 +378,14 @@ class Mapper::Naive < Mapper
         void #{setValue}(size_t index, #{@result} value) {
           #{nodeSet}(#{@nodeArray.get}(&#{nodes}, index), value);
         }
-      $
-      stream << %$
         #{@node.type} #{getNode}(size_t index) {
           return #{@nodeArray.get}(&#{nodes}, index);
         }
         size_t #{getIndex}(#{@node.type} node) {
           return #{@nodeMap.get}(&#{indices}, node);
+        }
+        int #{within}(#{@node.type} node) {
+          return #{@nodeMap.containsKey}(&#{indices}, node);
         }
       $
       super

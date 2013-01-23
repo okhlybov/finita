@@ -40,6 +40,7 @@ class Mapper
         size_t #{size}(void);
         #{@node.type} #{getNode}(size_t);
         size_t #{getIndex}(#{@node.type});
+        int #{within}(#{@node.type});
         #{@result} #{getValue}(size_t index);
         void #{setValue}(size_t index, #{@result} value);
         void #{synchronize}(void);

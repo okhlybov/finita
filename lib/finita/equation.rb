@@ -120,7 +120,6 @@ end # Assignment
 class Equation < Binding
   def initialize(lhs, unknown, domain, merge = false)
     super
-    System.current.equations << self
   end
   def equation
     expression
