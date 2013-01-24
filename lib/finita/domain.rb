@@ -12,11 +12,7 @@ end # Finita::Domain
 module Finita::Domain::Cubic
 
 
-class StaticCode < DataStruct::Code
-  include Singleton
-  def initialize
-    super('FinitaCubicArea')
-  end
+StaticCode = Class.new(DataStruct::Code) do
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -92,7 +88,7 @@ class StaticCode < DataStruct::Code
       }
     $
   end
-end # StaticCode
+end.new('FinitaCubicArea') # StaticCode
 
 
 class Area
@@ -133,13 +129,13 @@ class Area
     @@codes = {}
     attr_reader :instance
     def entities
-      super + [StaticCode.instance] + Collector.new.apply!(*(@area.xrange + @area.yrange + @area.zrange)).instances.collect {|o| o.code(@problem_code)}
+      super + [StaticCode] + Collector.new.apply!(*(@area.xrange + @area.yrange + @area.zrange)).instances.collect {|o| o.code(@problem_code)}
     end
     def initialize(area, problem_code)
       @area = area
-      @instance = "#{StaticCode.instance.type}#{@@count += 1}"
+      @instance = "#{StaticCode.type}#{@@count += 1}"
       @problem_code = problem_code
-      super(StaticCode.instance.type)
+      super(StaticCode.type)
       problem_code.initializers << self
     end
     def hash

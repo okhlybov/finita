@@ -23,8 +23,8 @@ class LHS
     def entities; super + [@mapper_code, @matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(lhs, problem_code, system_code, mapper_code)
       @lhs = lhs
-      @node = NodeCode.instance
-      @coord = NodeCoordCode.instance
+      @node = NodeCode
+      @coord = NodeCoordCode
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code
@@ -68,7 +68,7 @@ class LHS
           for(index = first; index <= last; ++index) {
             #{@node.type} row = #{@mapper_code.getNode}(index);
             int field = row.field, x = row.x, y = row.y, z = row.z;
-        $
+      $
       @lhs.evaluators.each do |h, f, d, m|
         field = f.code(@problem_code)
         domain = d.code(@problem_code)

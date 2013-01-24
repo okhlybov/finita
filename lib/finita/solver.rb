@@ -34,8 +34,8 @@ class Solver
     def entities; super + [@node, @environment_code] end
     def initialize(solver, problem_code, system_code)
       @solver = solver
-      @node = NodeCode.instance
-      @coord = NodeCoordCode.instance
+      @node = NodeCode
+      @coord = NodeCoordCode
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = solver.mapper.code(@problem_code, @system_code)

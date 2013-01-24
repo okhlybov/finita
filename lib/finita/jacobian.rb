@@ -14,7 +14,7 @@ class Jacobian
     def entities; super + [@mapper_code] end
     def initialize(jacobian, problem_code, system_code, mapper_code)
       @jacobian = jacobian
-      @node = NodeCode.instance
+      @node = NodeCode
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code

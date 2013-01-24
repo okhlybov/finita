@@ -15,9 +15,9 @@ class Mapper::Naive < Mapper
     end
     def initialize(*args)
       super
-      @nodeArray = NodeArrayCode.instance
-      @nodeSet = NodeSetCode.instance
-      @nodeMap = NodeIndexMapCode.instance
+      @nodeArray = NodeArrayCode
+      @nodeSet = NodeSetCode
+      @nodeMap = NodeIndexMapCode
     end
     def fields
       @mapper.fields.collect {|f| f.code(@problem_code)}

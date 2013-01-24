@@ -17,7 +17,7 @@ class Residual
     def entities; super + [@vector, @array] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(residual, problem_code, system_code, mapper_code)
       @residual = residual
-      @node = NodeCode.instance
+      @node = NodeCode
       @problem_code = problem_code
       @system_code = system_code
       @mapper_code = mapper_code

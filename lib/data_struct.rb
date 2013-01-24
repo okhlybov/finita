@@ -1,12 +1,10 @@
-require 'singleton'
 require 'code_builder'
 
 
 module DataStruct
 
 
-class Prologue < CodeBuilder::Code
-  include Singleton
+PrologueCode = Class.new(CodeBuilder::Code) do
   def write_intf(stream)
     stream << %$
       #include <stddef.h>
@@ -15,7 +13,7 @@ class Prologue < CodeBuilder::Code
       #include <assert.h>
     $
   end
-end # Prologue
+end.new # PrologueCode
 
 
 class Code < CodeBuilder::Code
@@ -45,7 +43,7 @@ class Structure < Code
     super(type)
     @elementType = element_type
   end
-  def entities; [Prologue.instance] end
+  def entities; [PrologueCode] end
 end # Struct
 
 
