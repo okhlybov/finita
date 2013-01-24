@@ -1,4 +1,3 @@
-require 'singleton'
 require 'code_builder'
 require 'data_struct'
 

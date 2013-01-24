@@ -14,7 +14,7 @@ class Jacobian::Numeric < Jacobian
     def entities; super + [@matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
     def initialize(*args)
       super
-      @coord = NodeCoordCode.instance
+      @coord = NodeCoordCode
       @matrix = MatrixCode[@system_code.system_type]
       @array = MatrixArrayCode[@system_code.system_type]
       @entry = MatrixEntryCode[@system_code.system_type]

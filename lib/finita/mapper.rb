@@ -23,7 +23,7 @@ class Mapper
       @mapper = mapper
       @problem_code = problem_code
       @system_code = system_code
-      @node = NodeCode.instance
+      @node = NodeCode
       @numericArray = NumericArrayCode[@system_code.system_type]
       @result = @system_code.result
       @system_code.initializers << self
