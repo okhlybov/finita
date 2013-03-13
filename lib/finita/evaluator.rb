@@ -49,7 +49,7 @@ class Evaluator
       @evaluator = evaluator
       @problem_code = problem_code
       @instance = "#{@problem_code.type}#{@@count += 1}"
-      @c_type = Finita::CType[evaluator.type]
+      @c_type = CType[evaluator.type]
       @problem_code.defines << :FINITA_COMPLEX if evaluator.complex?
       super('FinitaEvaluator')
     end

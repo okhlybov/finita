@@ -12,5 +12,5 @@ Problem.new(:Problem) do |p|
     s.solver = Solver::MUMPS.new(Mapper::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new(1e-3))
     Equation.new((F[:x+1]-F[:x-1]+F[:y+1]-F[:y-1])/4, F, B)
     #Equation.new(5-F, F, B)
-  end
+    end
 end

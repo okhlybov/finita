@@ -70,7 +70,7 @@ class System
   end
   class Code < DataStruct::Code
     attr_reader :unknowns, :initializers, :finalizers, :result
-    def entities; super + [solver_code] + equation_codes + (initializers | finalizers).to_a end
+    def entities; super + [SparseMatrix.new('SM', Float).code(@problem_code, self), solver_code] + equation_codes + (initializers | finalizers).to_a end
     def initialize(system, problem_code)
       @system = system
       @problem_code = problem_code
