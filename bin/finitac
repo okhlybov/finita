@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
-require 'symbolic'
-include Symbolic
 require 'finita'
+include Symbolic
 include Finita
-load ARGV[0]
+eval(IO.read(ARGV[0]), binding, ARGV[0], 1)
 Problem.problems.each {|p| p.process!}

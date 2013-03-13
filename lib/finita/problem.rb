@@ -95,9 +95,9 @@ class Problem
         }
       $
       stream << %$
-      FINITA_ARGSUSED
-      int #{setup}(int argc, char** argv) {int result = FINITA_OK;
-    $
+        FINITA_ARGSUSED
+        int #{setup}(int argc, char** argv) {int result = FINITA_OK;
+      $
       CodeBuilder.priority_sort(initializers, false).each do |e|
         e.write_initializer(stream)
       end
