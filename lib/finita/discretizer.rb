@@ -1,4 +1,4 @@
-require 'finita/common'
+require "finita/common"
 
 
 module Finita

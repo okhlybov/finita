@@ -1,6 +1,6 @@
-require 'symbolic'
-require 'finita/common'
-require 'finita/domain'
+require "symbolic"
+require "finita/common"
+require "finita/domain"
 
 
 module Finita
@@ -14,15 +14,19 @@ class ::Numeric
     elsif obj.is_a?(::Numeric)
       obj.class
     else
-      raise 'numeric value expected'
+      raise "numeric value expected"
     end
   end
   def self.promoted_type(*types)
-    type = types.first
-    types[1..-1].each do |t|
-      type = t if Precedence.index(t) > Precedence.index(type)
+    if types.empty?
+      Integer
+    else
+      type = types.first
+      types[1..-1].each do |t|
+        type = t if Precedence.index(t) > Precedence.index(type)
+      end
+      type
     end
-    type
   end
 end # Numeric
 
@@ -157,9 +161,9 @@ class Constant < Numeric
                 constant.value
               end
       stream << %$
-      #define #{constant.name} #{@problem_code.problem.name}#{constant.name}
-      static const #{CType[constant.type]} #{constant.name} = #{value};
-    $
+        #define #{constant.name} #{@problem_code.problem.name}#{constant.name}
+        static const #{CType[constant.type]} #{constant.name} = #{value};
+      $
     end
   end # Code
 end # Constant
@@ -168,7 +172,7 @@ end # Constant
 class Variable < Symbolic::Expression
   attr_reader :name, :type
   def initialize(name, type)
-    raise 'numeric type expected' unless CType.key?(type)
+    raise "numeric type expected" unless CType.key?(type)
     @name = name.to_s
     @type = type
   end
@@ -216,14 +220,14 @@ class Variable < Symbolic::Expression
     end
     def write_intf(stream)
       stream << %$
-      #define #{variable.name} #{@problem_code.type}#{variable.name}
-      extern #{CType[variable.type]} #{variable.name};
-    $
+        #define #{variable.name} #{@problem_code.type}#{variable.name}
+        extern #{CType[variable.type]} #{variable.name};
+      $
     end
     def write_defs(stream)
       stream << %$
-      #{CType[variable.type]} #{variable.name};
-    $
+        #{CType[variable.type]} #{variable.name};
+      $
     end
   end # Code
 end # Variable
@@ -232,7 +236,7 @@ end # Variable
 class Field < Symbolic::Expression
   attr_reader :name, :type, :domain
   def initialize(name, type, domain)
-    raise 'numeric type expected' unless CType.key?(type)
+    raise "numeric type expected" unless CType.key?(type)
     @name = name.to_s # TODO validate
     @type = type # TODO validate
     @domain = domain
@@ -254,7 +258,7 @@ class Field < Symbolic::Expression
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < DataStruct::Code
+  class Code < DataStructBuilder::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -266,12 +270,12 @@ class Field < Symbolic::Expression
     attr_reader :field, :symbol, :instance
     def initialize(field, problem_code)
       @field = field
-      super("#{problem_code.name}#{field.name}")
+      super("#{problem_code.type}#{field.name}")
       @instance = type
       @symbol = field.name
       @domain_code = field.domain.code(problem_code)
-      @c_type = Finita::CType[field.type]
-      problem_code.initializers << self
+      @ctype = Finita::CType[field.type]
+      problem_code.initializer_codes << self
       problem_code.defines << :FINITA_COMPLEX if field.type == Complex
     end
     def hash
@@ -284,7 +288,7 @@ class Field < Symbolic::Expression
       stream << %$
         #define #{field.name}(x,y,z) (#{instance}.data[#{@domain_code.index}(#{instance}.area, x, y, z)])
         struct #{type} {
-          #{@c_type}* data;
+          #{@ctype}* data;
           #{@domain_code.type}* area;
         };
         extern struct #{type} #{instance};
@@ -298,7 +302,7 @@ class Field < Symbolic::Expression
     def write_initializer(stream)
       stream << %${
         #{instance}.area = &#{@domain_code.instance};
-        #{instance}.data = (#{@c_type}*)#{calloc}(#{@domain_code.size}(#{instance}.area), sizeof(#{@c_type})); #{assert}(#{instance}.data);
+        #{instance}.data = (#{@ctype}*)#{calloc}(#{@domain_code.size}(#{instance}.area), sizeof(#{@ctype})); #{assert}(#{instance}.data);
       }$
     end
   end # Code
@@ -309,8 +313,8 @@ class Index
   Coords = Set.new [:x, :y, :z]
   class Hash < ::Hash
     def []=(key, value)
-      raise 'invalid index symbol' unless Index::Coords.include?(key)
-      raise 'duplicate index symbol' if include?(key)
+      raise "invalid index symbol" unless Index::Coords.include?(key)
+      raise "duplicate index symbol" if include?(key)
       super
     end
   end # Hash
@@ -323,26 +327,26 @@ class Index
       rest = []
       ex.args.each do |op|
         if Coords.include?(op)
-          raise 'duplicate coordinate symbol found within index expression' if coords.include?(op)
+          raise "duplicate coordinate symbol found within index expression" if coords.include?(op)
           coords << op
         else
-          raise 'unexpected symbols found within index expression' unless Symbol::Collector.new.apply!(op).empty?
+          raise "unexpected symbols found within index expression" unless Symbol::Collector.new.apply!(op).empty?
           rest << op
         end
       end
       if coords.size == 0
-        raise 'unexpected symbols found within index expression' unless Symbol::Collector.new.apply!(ex).empty?
+        raise "unexpected symbols found within index expression" unless Symbol::Collector.new.apply!(ex).empty?
         ex # No offset symbols found - consider argument is an absolute coordinate reference
       elsif coords.size == 1
         [coords.to_a.first, Symbolic::Add.make(*rest)]
       else
-        raise 'invalid index form'
+        raise "invalid index form"
       end
     else
       if Coords.include?(ex)
         [ex, 0]
       else
-        raise 'unexpected symbols found within index expression' unless Symbol::Collector.new.apply!(ex).empty?
+        raise "unexpected symbols found within index expression" unless Symbol::Collector.new.apply!(ex).empty?
         ex
       end
     end
@@ -399,7 +403,7 @@ class Ref < Symbolic::UnaryFunction
       else
         args.each do |arg|
           idx = Index.new(arg)
-          raise 'relative index expected' unless idx.relative?
+          raise "relative index expected" unless idx.relative?
           ids[idx.base] = idx
         end
       end
@@ -407,6 +411,9 @@ class Ref < Symbolic::UnaryFunction
       @yindex = ids.include?(:y) ? ids[:y] : Index::Y
       @zindex = ids.include?(:z) ? ids[:z] : Index::Z
     end
+  end
+  def xyz?
+    xindex == Index::X && yindex == Index::Y && zindex == Index::Z
   end
   def hash
     super ^ (xindex.hash << 1) ^ (yindex.hash << 2) ^ (zindex.hash << 3)
@@ -447,8 +454,8 @@ class Ref::Merger
       if self_index.nil?
         ids[base] = obj_index
       else
-        raise 'both indices must be relative' unless obj_index.relative? && self_index.relative?
-        raise 'bases do not coincide' unless base == obj_index.base && base == self_index.base
+        raise "both indices must be relative" unless obj_index.relative? && self_index.relative?
+        raise "bases do not coincide" unless base == obj_index.base && base == self_index.base
         ids[base] = Index.new(Finita.simplify(base + self_index.delta + obj_index.delta))
       end
     end
@@ -514,7 +521,7 @@ class Ref::Collector < Symbolic::Traverser
     @refs = Set.new
   end
   def ref(obj)
-    raise 'unexpected reference operand' unless obj.arg.is_a?(Field)
+    raise "unexpected reference operand" unless obj.arg.is_a?(Field)
     @refs << obj if @fields.include?(obj.arg)
   end
   def apply!(obj)
@@ -648,12 +655,12 @@ class Emitter < Symbolic::Emitter
   end
   def ref(obj)
     embrace_arg = prec(obj.arg) < prec(obj)
-    @out << '(' if embrace_arg
+    @out << "(" if embrace_arg
     obj.arg.apply(self)
-    @out << ')' if embrace_arg
-    @out << '('
-    @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
-    @out << ')'
+    @out << ")" if embrace_arg
+    @out << "("
+    @out << [obj.xindex, obj.yindex, obj.zindex].join(",")
+    @out << ")"
   end
 end # Emitter
 
@@ -673,31 +680,31 @@ class CEmitter < Symbolic::CEmitter
   end
   def ref(obj)
     embrace_arg = prec(obj.arg) < prec(obj)
-    @out << '(' if embrace_arg
+    @out << "(" if embrace_arg
     obj.arg.apply(self)
-    @out << ')' if embrace_arg
-    @out << '('
-    @out << [obj.xindex, obj.yindex, obj.zindex].join(',')
-    @out << ')'
+    @out << ")" if embrace_arg
+    @out << "("
+    @out << [obj.xindex, obj.yindex, obj.zindex].join(",")
+    @out << ")"
   end
   def exp(obj)
-    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? 'cexp' : 'exp', obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "cexp" : "exp", obj)
   end
   def log(obj)
-    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? 'clog' : 'log', obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "clog" : "log", obj)
   end
   def power(obj)
     power_op(obj, *obj.args)
   end
   private
   def power_op(obj, *ops)
-    pow = TypeInferer.new.apply!(obj).equal?(Complex) ? 'cpow' : 'pow'
+    pow = TypeInferer.new.apply!(obj).equal?(Complex) ? "cpow" : "pow"
     if ops.size > 1
-      @out << pow << '('
+      @out << pow << "("
       power_op(obj, *ops[0..-2])
-      @out << ','
+      @out << ","
       ops.last.apply(self)
-      @out << ')'
+      @out << ")"
     else
       ops.last.apply(self)
     end

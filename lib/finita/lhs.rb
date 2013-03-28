@@ -1,48 +1,34 @@
-require 'data_struct'
-require 'finita/evaluator'
+require "autoc"
+require "finita/evaluator"
 
 
 module Finita
 
 
 class LHS
-  attr_reader :evaluators
-  def code(problem_code, system_code, mapper_code)
-    self.class::Code.new(self, problem_code, system_code, mapper_code)
+  def process!(solver)
+    @solver = check_type(solver, Solver::Matrix)
+    self
   end
-  def process!(problem, system)
-    @evaluators = system.equations.collect do |e|
-      hash = {}
-      e.decomposition(system.unknowns).each do |r, x|
-        hash[r] = Evaluator.new(x, system.type) unless r.nil?
-      end
-      [hash, e.unknown, e.domain, e.merge?]
-    end
+  attr_reader :solver
+  def code(solver_code)
+    self.class::Code.new(self, solver_code)
   end
-  class Code < DataStruct::Code
-    def entities; super + [@mapper_code, @matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
-    def initialize(lhs, problem_code, system_code, mapper_code)
-      @lhs = lhs
-      @node = NodeCode
-      @coord = NodeCoordCode
-      @problem_code = problem_code
-      @system_code = system_code
-      @mapper_code = mapper_code
-      @matrix = MatrixCode[@system_code.system_type]
-      @array = MatrixArrayCode[@system_code.system_type]
-      @entry = MatrixEntryCode[@system_code.system_type]
-      @system_code.initializers << self
-      super("#{@system_code.type}LHS")
+  class Code < DataStructBuilder::Code
+    def initialize(lhs, solver_code)
+      @lhs = check_type(lhs, LHS)
+      @solver_code = check_type(solver_code, Solver::Matrix::Code)
+      super("#{solver_code.system_code.type}LHS")
+      sc = solver_code.system_code
+      @matrix_code = SparseMatrixCode[sc.result]
+      @function_list_code = FunctionListCode[sc.result]
+      @mapping_codes = solver_code.mapping_codes
+      sc.initializer_codes << self
     end
-    def evaluator_codes
-      @lhs.evaluators.collect do |e|
-        result = []
-        e[0].each do |r,x|
-          result << x.code(@problem_code)
-        end
-        result << e[1].code(@problem_code) << e[2].code(@problem_code)
-      end
+    def entities
+      super + [NodeCode, @matrix_code, @function_list_code] + solver_code.all_dependent_codes
     end
+    attr_reader :solver_code
     def hash
       @lhs.hash # TODO
     end
@@ -51,58 +37,54 @@ class LHS
     end
     def write_intf(stream)
       stream << %$
-        int #{setup}(void);
-        size_t #{size}(void);
-        #{@coord.type} #{coord}(size_t);
-        #{@system_code.result} #{value}(size_t);
+        void #{setup}(void);
+        #{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type}, #{NodeCode.type});
       $
     end
     def write_defs(stream)
-      # TODO proper estimation of bucket size
+      mc = solver_code.mapper_code
+      sc = solver_code.system_code
       stream << %$
-        static #{@matrix.type} #{matrix};
-        static #{@array.type} #{array};
-        int #{setup}(void) {
-          int index,  first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
-          #{@matrix.ctor}(&#{matrix}, pow(last-first+1, 1.1));
+        static #{@matrix_code.type} #{matrix};
+        void #{setup}(void) {
+          int x, y, z;
+          size_t index, first = #{mc.firstIndex}(), last = #{mc.lastIndex}();
+          #{@matrix_code.ctor}(&#{matrix});
           for(index = first; index <= last; ++index) {
-            #{@node.type} row = #{@mapper_code.getNode}(index);
-            int field = row.field, x = row.x, y = row.y, z = row.z;
+            #{NodeCode.type} column, row = #{mc.node}(index);
+            x = row.x; y = row.y; z = row.z;
       $
-      @lhs.evaluators.each do |h, f, d, m|
-        field = f.code(@problem_code)
-        domain = d.code(@problem_code)
-        stream << %$if(field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, x, y, z)) {$
-        h.each do |r, e|
-          f = r.arg.code(@problem_code)
-          evaluator = e.code(@problem_code)
-          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(f)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
+      @mapping_codes.each do |mc|
+        stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, x, y, z)) {$
+        mc[:lhs_codes].each do |r, ec|
+          stream << %$
+            if(#{solver_code.mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
+              #{@matrix_code.merge}(&#{matrix}, row, column, #{ec.instance});
+            }
+          $
         end
-        stream << (m ? nil : 'continue;') << '}'
+        stream << "continue;" unless m
+        stream << "}"
       end
-      abs = @system_code.complex? ? 'cabs' : 'fabs'
-      result = @system_code.result
+      stream << "}"
+      stream << %${
+        FILE* file = fopen("#{matrix}.txt", "wt");
+        #{@matrix_code.dumpStats}(&#{matrix}, file);
+        fclose(file);
+      }$ if $debug
+      stream << '}'
+      abs = sc.complex? ? 'cabs' : 'abs'
       stream << %$
-          }
-          #{@matrix.linearize}(&#{matrix}, &#{array});
-          return FINITA_OK;
-        }
-        #{result} #{value}(size_t index) {
-          return #{@entry.evaluate}(#{@array.get}(&#{array}, index));
-        }
-        size_t #{size}(void) {
-          return #{@array.size}(&#{array});
-        }
-        #{@coord.type} #{coord}(size_t index) {
-          return #{@array.get}(&#{array}, index)->coord;
+        #{sc.cresult} #{evaluate}(#{NodeCode.type} row, #{NodeCode.type} column) {
+          return #{@function_list_code.summate}(#{@matrix_code.get}(&#{matrix}, #{NodeCoordCode.new}(row, column)), row.x, row.y, row.z);
         }
       $
     end
     def write_initializer(stream)
-      stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+      stream << %$#{setup}();$
     end
   end # Code
 end # LHS
 
 
-end
+end # Finita

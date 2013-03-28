@@ -1,115 +1,220 @@
-require 'finita/common'
-require 'finita/system'
-require 'finita/evaluator'
-require 'finita/mapper'
-require 'finita/environment'
-
-
-require 'finita/jacobian'
-require 'finita/residual'
-require 'finita/lhs'
-require 'finita/rhs'
-
+require "finita/common"
+require "finita/system"
+require "finita/evaluator"
+require "finita/mapper"
+require "finita/environment"
+require "finita/jacobian"
+require "finita/residual"
+require "finita/lhs"
+require "finita/rhs"
 
 
 module Finita
 
 
 class Solver
-  include EnvironmentHandler
-  attr_reader :mapper, :environment
+  attr_reader :mapper
+  attr_reader :environment
   def initialize(mapper, environment)
-    @mapper = mapper
-    @environment = environment
+    @mapper = check_type(mapper, Mapper)
+    @environment = check_type(environment, Environment)
   end
-  def process!(problem, system)
-    setup_env(environment)
-    mapper.process!(problem, system, self)
+  attr_reader :system
+  def process!(system)
+    @system = check_type(system, System)
+    @mapper = mapper.process!(self)
     self
   end
-  def code(problem_code, system_code)
-    self.class::Code.new(self, problem_code, system_code)
+  def code(system_code)
+    self.class::Code.new(self, system_code)
   end
-  class Code < DataStruct::Code
-    def entities; super + [@node, @environment_code] end
-    def initialize(solver, problem_code, system_code)
-      @solver = solver
-      @node = NodeCode
-      @coord = NodeCoordCode
-      @problem_code = problem_code
-      @system_code = system_code
-      @mapper_code = solver.mapper.code(@problem_code, @system_code)
-      @environment_code = solver.environment.code(problem_code)
-      @system_code.initializers << self
-      super("#{@system_code.type}Solver")
+  class Code < DataStructBuilder::Code
+    def initialize(solver, system_code)
+      @solver = check_type(solver, Solver)
+      @system_code = check_type(system_code, System::Code)
+      super("#{system_code.type}Solver")
+      @mapper_code = check_type(@solver.mapper.code(self), Mapper::Code)
     end
-    def hash
-      @solver.hash
+    def entities
+      super + [mapper_code]
     end
-    def eql?(other)
-      equal?(other) || self.class == other.class && @solver == other.instance_variable_get(:@solver)
-    end
+    attr_reader :system_code
+    attr_reader :mapper_code
     def write_intf(stream)
-      stream << %$int #{@system_code.solve}(void);$
+      stream << %$void #{system_code.solve}(void);$
     end
   end # Code
 end # Solver
 
 
 class Solver::Matrix < Solver
-  attr_reader :jacobian
-  def residual
-    @residual.nil? ? @residual = Residual.new : @residual
-  end
-  def lhs
-    @lhs.nil? ? @lhs = LHS.new : @lhs
-  end
-  def lhs=(lhs)
-    @lhs = lhs
-  end
-  def rhs
-    @rhs.nil? ? @rhs = RHS.new : @rhs
-  end
-  def rhs=(rhs)
-    @rhs = rhs
-  end
-  def nonlinear!
-    @force_nonlinear = true
-  end
-  def initialize(mapper, environment, jacobian, &block)
+  def initialize(mapper, environment, jacobian, rtol = 1e-9)
     super(mapper, environment)
-    @jacobian = jacobian
-    block.call(self) if block_given?
+    @jacobian = check_type(jacobian, Jacobian)
+    @residual = Residual.new
+    @lhs = LHS.new
+    @rhs = RHS.new
+    @rtol = rtol
   end
-  def linear?
-    @linear && !@force_nonlinear
-  end
-  def process!(problem, system)
+  attr_reader :rtol
+  def process!(system)
     super
-    @linear = system.linear?
+    @unknowns = system.unknowns.to_a
     if linear?
-      lhs.process!(problem, system)
-      rhs.process!(problem, system)
+      @mappings = system.equations.collect do |e|
+        ls = {}
+        rs = {}
+        e.decomposition(system.unknowns).each do |r, x|
+          ls[r] = Evaluator.new(x, system.result) unless r.nil?
+          rs[r] = Evaluator.new(-x*r, system.result) unless r.nil? || r.xyz?
+          rs[r] = Evaluator.new(x, system.result) if r.nil?
+        end
+        {:lhs=>ls, :rhs=>rs, :domain=>e.domain, :unknown=>e.unknown, :merge=>e.merge?}
+      end
+      @lhs = lhs.process!(self)
+      @rhs = rhs.process!(self)
     else
-      jacobian.process!(problem, system)
-      residual.process!(problem, system)
+      @mappings = system.equations.collect do |e|
+        js = {}
+        ev = Evaluator.new(e.equation, system.result)
+        ObjectCollector.new(Ref).apply!(e.equation).each do |ref|
+          raise "expected reference to the Field instance (was the equation discretized?)" unless ref.arg.is_a?(Field)
+          js[ref] = ev if system.unknowns.include?(ref.arg)
+        end
+        {:jacobian=>js, :residual=>ev, :domain=>e.domain, :unknown=>e.unknown, :merge=>e.merge?}
+      end
+      @jacobian = jacobian.process!(self)
+      @residual = residual.process!(self)
     end
     self
   end
+  def linear?
+    system.linear?
+  end
+  attr_reader :unknowns
+  attr_reader :mappings
+  attr_reader :jacobian
+  attr_reader :residual
+  attr_reader :lhs
+  attr_reader :rhs
   class Code < Solver::Code
-    def entities; super + [@matrix_code, @vector_code] end
+    def entities
+      super + [SparsityPatternCode, @node_set_code, jacobian_code, residual_code, lhs_code, rhs_code].compact + all_dependent_codes
+    end
     def initialize(*args)
       super
+      pc = system_code.problem_code
+      uns = @solver.mapper.unknowns
+      @node_set_code = NodeSetCode if $debug
+      @unknown_codes = @solver.unknowns.collect {|u| check_type(u.code(pc), Field::Code)}
+      @evaluator_codes = []
+      @domain_codes = []
       if @solver.linear?
-        @matrix_code = @solver.lhs.code(@problem_code, @system_code, @mapper_code)
-        @vector_code = @solver.rhs.code(@problem_code, @system_code, @mapper_code)
+        @mapping_codes = @solver.mappings.collect do |m|
+          lcs = {}
+          rcs = {}
+          m[:lhs].each do |r, e|
+            k = [r.xindex, r.yindex, r.zindex].collect {|index| index.to_s}.unshift(uns.index(r.arg))
+            ec = check_type(e.code(pc), Evaluator::Code)
+            @evaluator_codes << ec
+            lcs[k] = ec
+          end
+          m[:rhs].each do |r, e|
+            k = r.nil? ? nil : [r.xindex, r.yindex, r.zindex].collect {|index| index.to_s}.unshift(uns.index(r.arg))
+            ec = check_type(e.code(pc), Evaluator::Code)
+            @evaluator_codes << ec
+            rcs[k] = ec
+          end
+          dc = m[:domain].code(pc) # TODO check type
+          @domain_codes << dc
+          {:lhs_codes=>lcs, :rhs_codes=>rcs, :domain_code=>dc, :unknown_index=>uns.index(m[:unknown]), :merge=>m[:merge]}
+        end
+        @lhs_code = @solver.lhs.code(self)
+        @rhs_code = @solver.rhs.code(self)
       else
-        @matrix_code = @solver.jacobian.code(@problem_code, @system_code, @mapper_code)
-        @vector_code = @solver.residual.code(@problem_code, @system_code, @mapper_code)
+        @mapping_codes = @solver.mappings.collect do |m|
+          jcs = {}
+          m[:jacobian].each do |r, e|
+            k = [r.xindex, r.yindex, r.zindex].collect {|index| index.to_s}.unshift(uns.index(r.arg))
+            ec = check_type(e.code(pc), Evaluator::Code)
+            @evaluator_codes << ec
+            jcs[k] = ec
+          end
+          dc = m[:domain].code(pc)
+          @domain_codes << dc
+          rc = m[:residual].code(pc)
+          @evaluator_codes << rc
+          {:jacobian_codes=>jcs, :residual_code=>rc, :domain_code=>dc, :unknown_index=>uns.index(m[:unknown]), :merge=>m[:merge]}
+        end
+        @jacobian_code = @solver.jacobian.code(self)
+        @residual_code = @solver.residual.code(self)
       end
+      @all_dependent_codes = @unknown_codes + @evaluator_codes + @domain_codes
     end
-    def write_initializer(stream)
-      stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+    attr_reader :jacobian_code, :residual_code, :lhs_code, :rhs_code
+    attr_reader :mapping_codes
+    attr_reader :all_dependent_codes
+    def write_defs(stream)
+      super
+      stream << %$static #{SparsityPatternCode.type} #{sparsity};$
+      stream << %$void #{setup}(void){$
+      write_setup_body(stream)
+      stream << %${
+        FILE* f = fopen("#{sparsity}.txt", "wt");
+        #{SparsityPatternCode.dumpStats}(&#{sparsity}, f);
+        fclose(f);
+      }$ if $debug
+      stream << "}"
+    end
+    def sv_put_stmt(v)
+      %$#{@node_set_code.put}(&nodes, #{v});$ if $debug
+    end
+    def write_setup_body(stream)
+      stream << %$#{@node_set_code.type} nodes; #{@node_set_code.ctor}(&nodes);$ if $debug
+      stream << %${
+        int x, y, z;
+        size_t index, first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}(), size = last - first + 1;
+        #{SparsityPatternCode.ctor}(&#{sparsity});
+        for(index = first; index <= last; ++index) {
+          #{NodeCode.type} column, row = #{mapper_code.node}(index);
+          #{sv_put_stmt("row")}
+          x = row.x; y = row.y; z = row.z;
+      $
+      if @solver.linear?
+        mapping_codes.each do |mc|
+          stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, x, y, z)) {$
+          mc[:lhs_codes].each do |r, e|
+            stream << %$
+              if(#{mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
+                #{sv_put_stmt("column")}
+                #{SparsityPatternCode.put}(&#{sparsity}, #{NodeCoordCode.new}(row, column));
+              }
+            $
+          end
+          stream << "continue;" unless m
+          stream << "}"
+        end
+      else
+        mapping_codes.each do |mc|
+          stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, x, y, z)) {$
+          mc[:jacobian_codes].each do |r, e|
+            stream << %$
+              if(#{mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
+                #{sv_put_stmt("column")}
+                #{SparsityPatternCode.put}(&#{sparsity}, #{NodeCoordCode.new}(row, column));
+              }
+            $
+          end
+          stream << "continue;" unless m
+          stream << "}"
+        end
+      end
+      stream << "}}"
+      stream << %${
+        FILE* file = fopen("#{nodes}.txt", "wt");
+        #{@node_set_code.dumpStats}(&nodes, file);
+        fclose(file);
+      }$ if $debug
     end
   end # Code
 end # Matrix
@@ -118,6 +223,5 @@ end # Matrix
 end # Finita
 
 
-require 'finita/solver/explicit'
-require 'finita/solver/petsc'
-require 'finita/solver/mumps'
+require "finita/solver/explicit"
+require "finita/solver/mumps"

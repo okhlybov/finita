@@ -2,69 +2,86 @@ module Finita
 
 
 class Solver::Explicit < Solver
-  attr_reader :evaluators
-  def process!(problem, system)
+  def initialize(*args)
     super
-    @evaluators = system.equations.collect {|e| [Finita::Evaluator.new(e.assignment, system.type), e.unknown, e.domain]}
+  end
+  def process!(*args)
+    super
+    @unknowns = system.unknowns.to_a
+    @mappings = system.equations.collect do |e|
+      [Evaluator.new(e.assignment, system.result), e.domain, e.unknown]
+    end
     self
   end
+  attr_reader :mappings
+  attr_reader :unknowns
   class Code < Solver::Code
-    def entities; super + [@entry, @array, @mapper_code] + Finita.shallow_flatten(evaluator_codes) end
+    def entities
+      super + [@array_code, @function_code, @function_list_code] + @evaluator_codes + @unknown_codes + @domain_codes
+    end
     def initialize(*args)
       super
-      @entry = VectorEntryCode[@system_code.system_type]
-      @array = VectorArrayCode[@system_code.system_type]
-    end
-    def evaluator_codes
-      @solver.evaluators.collect {|e| e.collect {|o| o.code(@problem_code)}}
+      pc = system_code.problem_code
+      system_code.initializer_codes << self
+      @array_code = FunctionArrayCode[system_code.result]
+      @function_code = FunctionCode[system_code.result]
+      @function_list_code = FunctionListCode[system_code.result]
+      @unknown_codes = @solver.unknowns.collect {|u| check_type(u.code(pc), Field::Code)}
+      @evaluator_codes = []
+      @domain_codes = []
+      @mapping_codes = @solver.mappings.collect do |m|
+        ec = check_type(m[0].code(pc), Evaluator::Code)
+        dc = m[1].code(pc)
+        @evaluator_codes << ec
+        @domain_codes << dc
+        [ec, dc, @solver.unknowns.index(m[2])]
+      end
     end
     def write_intf(stream)
       super
-      stream << %$int #{setup}(void);$
+      stream << %$void #{setup}(void);$
     end
     def write_defs(stream)
+      super
       stream << %$
-        static #{@array.type} #{evaluators};
-        int #{setup}(void) {
-          int index, size = #{@mapper_code.size}(), first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
-          #{@array.ctor}(&#{evaluators}, size);
+        static #{@array_code.type} #{evaluators};
+        void #{setup}(void) {
+          size_t index, first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}(), size = last - first + 1;
+          #{@array_code.ctor}(&#{evaluators}, size);
           for(index = first; index <= last; ++index) {
-            #{@node.type} node = #{@mapper_code.getNode}(index);
+            #{NodeCode.type} node = #{mapper_code.node}(index);
       $
-      evaluator_codes.each do |evaluator, field, domain|
-        merge_stmt = evaluator.merge? ? nil : 'continue;' # TODO FIXME FIXME FIXME
+      @mapping_codes.each do |mc|
+        ec, dc, f = mc
         stream << %$
-          if(node.field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, node.x, node.y, node.z)) {
-            #{@entry.type}* entry = #{@array.get}(&#{evaluators}, index);
-            if(!entry) {
-              entry = #{@entry.new}(node);
-              #{@array.set}(&#{evaluators}, index, entry);
-            }
-            #{@entry.merge}(entry, #{evaluator.instance});
-            #{merge_stmt}
+          if(node.field == #{f} && #{dc.within}(&#{dc.instance}, node.x, node.y, node.z)) {
+            #{@array_code.merge}(&#{evaluators}, index - first, #{ec.instance});
+            continue;
           }
         $
       end
-      stream << %$}return FINITA_OK;}
-        int #{@system_code.solve}(void) {
-          int index, first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
-      $
-      stream << 'FINITA_HEAD {' unless solver.mpi?
-      stream << '#pragma omp parallel for private(index,node) kind(dynamic)' if solver.omp?
+      stream << %$}}$
       stream << %$
-        for(index = first; index <= last; ++index) {
-          #{@node.type} node = #{@mapper_code.getNode}(index);
-          #{@mapper_code.setValue}(index, #{@entry.evaluate}(#{@array.get}(&#{evaluators}, index)));
+        void #{system_code.solve}(void) {
+          size_t index, first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}();
+          for(index = first; index <= last; ++index) {
+            #{@function_list_code.it} it;
+            #{system_code.cresult} value = 0;
+            #{NodeCode.type} node = #{mapper_code.node}(index);
+            #{@function_list_code.itCtor}(&it, #{@array_code.get}(&#{evaluators}, index - first));
+            while(#{@function_list_code.itHasNext}(&it)) {
+              value += #{@function_list_code.itNext}(&it)(node.x, node.y, node.z);
+            }
+            #{mapper_code.indexSet}(index, value);
+          }
+          #{mapper_code.sync}();
         }
-        #{@mapper_code.synchronize}();
       $
-      stream << '}' unless solver.mpi?
-      stream << %$return FINITA_OK;}$
     end
     def write_initializer(stream)
-      stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+      stream << %$#{setup}();$
     end
-  end
+  end # Code
 end # Explicit
 
 

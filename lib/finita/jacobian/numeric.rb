@@ -2,83 +2,70 @@ module Finita
 
 
 class Jacobian::Numeric < Jacobian
-  attr_reader :evaluators, :relative_tolerance
-  def initialize(rtol)
-    @relative_tolerance = rtol
+  def initialize(rtol = 1e-9)
+    @rtol = rtol
   end
-  def process!(problem, system)
-    super
-    @evaluators = system.equations.collect {|e| [Evaluator.new(e.equation, system.type), e.unknown, e.domain, e.merge?]}
-  end
+  attr_reader :rtol
   class Code < Jacobian::Code
-    def entities; super + [@matrix, @array] + Finita.shallow_flatten(evaluator_codes) end
+    def entities
+      super + [@matrix_code, @function_code, @function_list_code]
+    end
     def initialize(*args)
       super
-      @coord = NodeCoordCode
-      @matrix = MatrixCode[@system_code.system_type]
-      @array = MatrixArrayCode[@system_code.system_type]
-      @entry = MatrixEntryCode[@system_code.system_type]
-    end
-    def evaluator_codes
-      @jacobian.evaluators.collect {|e| e[0..-2].collect {|o| o.code(@problem_code)}}
-    end
-    def write_intf(stream)
-      super
-      stream << %$int #{setup}(void);$
+      sc = solver_code.system_code
+      sc.initializer_codes << self
+      @matrix_code = SparseMatrixCode[sc.result]
+      @function_code = FunctionCode[sc.result]
+      @function_list_code = FunctionListCode[sc.result]
+      @mapping_codes = solver_code.mapping_codes
     end
     def write_defs(stream)
-      # TODO proper estimation of bucket size
+      super
+      mc = solver_code.mapper_code
+      sc = solver_code.system_code
       stream << %$
-        static #{@matrix.type} #{matrix};
-        static #{@array.type} #{array};
-        int #{setup}(void) {
-          int index, size = #{@mapper_code.size}(), first = #{@mapper_code.firstIndex}(), last = #{@mapper_code.lastIndex}();
-          #{@matrix.ctor}(&#{matrix}, pow(last-first+1, 1.1));
+        static #{@matrix_code.type} #{evaluators};
+        void #{setup}(void) {
+          int x, y, z;
+          size_t index, first = #{mc.firstIndex}(), last = #{mc.lastIndex}();
+          #{@matrix_code.ctor}(&#{evaluators});
           for(index = first; index <= last; ++index) {
-            #{@node.type} row = #{@mapper_code.getNode}(index);
-            int field = row.field, x = row.x, y = row.y, z = row.z;
+            #{NodeCode.type} column, row = #{mc.node}(index);
+            x = row.x; y = row.y; z = row.z;
       $
-      evaluator_codes.each do |evaluator, field, domain, merge|
-        stream << %$
-          if(field == #{@mapper_code.fields.index(field)} && #{domain.within}(&#{domain.instance}, x, y, z)) {
-        $
-        refs = ObjectCollector.new(Ref).apply!(evaluator.expression)
-        refs.keep_if {|r| @system_code.unknowns.include?(r.arg)}.each do |r|
-          f = r.arg.code(@problem_code)
-          stream << %$#{@matrix.merge}(&#{matrix}, row, #{@node.new}(#{@mapper_code.fields.index(f)}, #{r.xindex}, #{r.yindex}, #{r.zindex}), #{evaluator.instance});$
+      @mapping_codes.each do |mc|
+        stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, row.x, row.y, row.z)) {$
+        mc[:jacobian_codes].each do |r, ec|
+          stream << %$
+            if(#{solver_code.mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
+              #{@matrix_code.merge}(&#{evaluators}, row, column, #{ec.instance});
+            }
+          $
         end
-        stream << (merge ? nil : 'continue;') << '}'
+        stream << "continue;" unless m
+        stream << "}"
       end
-      abs = @system_code.complex? ? 'cabs' : 'fabs'
-      rt = @jacobian.relative_tolerance
-      result = @system_code.result
+      stream << "}}"
+      cresult = sc.cresult
+      rt = @jacobian.rtol
+      abs = CAbs[sc.result]
       stream << %$
-          }
-          #{@matrix.linearize}(&#{matrix}, &#{array});
-          return FINITA_OK;
-        }
-        #{result} #{value}(size_t index) {
-          #{@entry.type}* entry = #{@array.get}(&#{array}, index);
-          #{@node.type} column = entry->coord.column;
-          #{result} result = 0, original = #{@mapper_code.nodeGet}(column);
-          #{result} delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
-          #{@mapper_code.nodeSet}(column, original + delta);
-          result += #{@entry.evaluate}(entry);
-          #{@mapper_code.nodeSet}(column, original - delta);
-          result -= #{@entry.evaluate}(entry);
-          #{@mapper_code.nodeSet}(column, original);
+        #{cresult} #{evaluate}(#{NodeCode.type} row, #{NodeCode.type} column) {
+          #{@function_list_code.type}* fps;
+          #{cresult} result = 0, original = #{mc.nodeGet}(column);
+          #{cresult} delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
+          fps = #{@matrix_code.get}(&#{evaluators}, #{NodeCoordCode.new}(row, column));
+          #{mc.nodeSet}(column, original + delta);
+          result += #{@function_list_code.summate}(fps, row.x, row.y, row.z);
+          #{mc.nodeSet}(column, original - delta);
+          result -= #{@function_list_code.summate}(fps, row.x, row.y, row.z);
+          #{mc.nodeSet}(column, original);
           return result/(2*delta);
-        }
-        size_t #{size}(void) {
-          return #{@array.size}(&#{array});
-        }
-        #{@coord.type} #{coord}(size_t index) {
-          return #{@array.get}(&#{array}, index)->coord;
         }
       $
     end
     def write_initializer(stream)
-      stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+      stream << %$#{setup}();$
     end
   end # Code
 end # Numeric

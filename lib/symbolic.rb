@@ -787,30 +787,30 @@ class Emitter
   def emit!(obj) obj.apply(self); to_s end
   def numeric(obj) @out << obj.to_s end
   def symbol(obj) @out << obj.to_s end
-  def plus(obj) op('+', obj) end
-  def minus(obj) op('-', obj) end
-  def add(obj) comm_op('+', obj) end
-  def subtract(obj) ncomm_op('-', obj) end
-  def multiply(obj) comm_op('*', obj) end
-  def divide(obj) ncomm_op('/', obj) end
-  def power(obj) ncomm_op('**', obj) end
-  def exp(obj) unary_func('exp', obj) end
-  def log(obj) unary_func('log', obj) end
+  def plus(obj) op("+", obj) end
+  def minus(obj) op("-", obj) end
+  def add(obj) comm_op("+", obj) end
+  def subtract(obj) ncomm_op("-", obj) end
+  def multiply(obj) comm_op("*", obj) end
+  def divide(obj) ncomm_op("/", obj) end
+  def power(obj) ncomm_op("**", obj) end
+  def exp(obj) unary_func("exp", obj) end
+  def log(obj) unary_func("log", obj) end
   private
   def prec(obj) obj.apply(@pc) end
   def unary_func(op, obj)
-    @out << op << '('
+    @out << op << "("
     obj.arg.apply(self)
-    @out << ')'
+    @out << ")"
   end
   def op(op, obj)
     if prec(obj) >= prec(obj.arg)
       @out << op
       obj.arg.apply(self)
     else
-      @out << op << '('
+      @out << op << "("
       obj.arg.apply(self)
-      @out << ')'
+      @out << ")"
     end
   end
   def comm_op(op, obj)
@@ -833,18 +833,18 @@ class Emitter
     if op_prec <= prec(arg)
       arg.apply(self)
     else
-      @out << '('
+      @out << "("
       arg.apply(self)
-      @out << ')'
+      @out << ")"
     end
   end
   def ncomm_arg(op_prec, arg)
     if op_prec < prec(arg)
       arg.apply(self)
     else
-      @out << '('
+      @out << "("
       arg.apply(self)
-      @out << ')'
+      @out << ")"
     end
   end
 end # Emitter
@@ -852,33 +852,32 @@ end # Emitter
 
 #
 class RubyEmitter < Emitter
-  def symbol(obj) @out << ':' << obj.to_s end
+  def symbol(obj) @out << ":" << obj.to_s end
   def numeric(obj)
     if obj.is_a?(Complex)
-      @out << 'Complex(' << obj.real.to_s << ',' << obj.imag.to_s << ')'
+      @out << "Complex(" << obj.real.to_s << "," << obj.imag.to_s << ")"
     elsif obj.is_a?(Rational)
-      @out << 'Rational(' << obj.numerator.to_s << ',' << obj.denominator.to_s << ')'
+      @out << "Rational(" << obj.numerator.to_s << "," << obj.denominator.to_s << ")"
     else
       @out << obj.to_s
     end
   end
-  def exp(obj) unary_func('Math.exp', obj) end
-  def log(obj) unary_func('Math.log', obj) end
+  def exp(obj) unary_func("Math.exp", obj) end
+  def log(obj) unary_func("Math.log", obj) end
   def power(obj)
     power_op(obj, *obj.args)
   end
   private
   def power_op(obj, *ops)
     if ops.size > 1
-      @out << '('
+      @out << "("
       power_op(obj, *ops[0..-2])
-      @out << ')'
-      @out << '**'
+      @out << ")**"
     end
     braces = prec(obj) > prec(ops.last) && ops.size > 1
-    @out << '(' if braces
+    @out << "(" if braces
     ops.last.apply(self)
-    @out << ')' if braces
+    @out << ")" if braces
   end
 end # RubyEmitter
 
@@ -888,8 +887,8 @@ class CEmitter < Emitter
   def numeric(obj)
     if obj.is_a?(Complex)
       @out << obj.real.to_s
-      @out << '+' if obj.imag >= 0
-      @out << obj.imag.to_s << '*_Complex_I'
+      @out << "+" if obj.imag >= 0
+      @out << obj.imag.to_s << "*_Complex_I"
     elsif obj.is_a?(Rational)
       f = obj.to_f
       i = obj.to_i
@@ -898,19 +897,19 @@ class CEmitter < Emitter
       @out << obj.to_s
     end
   end
-  def exp(obj) unary_func('exp', obj) end
-  def log(obj) unary_func('log', obj) end
+  def exp(obj) unary_func("exp", obj) end
+  def log(obj) unary_func("log", obj) end
   def power(obj)
     power_op(obj, *obj.args)
   end
   private
   def power_op(obj, *ops)
     if ops.size > 1
-      @out << 'pow('
+      @out << "pow("
       power_op(obj, *ops[0..-2])
-      @out << ','
+      @out << ","
       ops.last.apply(self)
-      @out << ')'
+      @out << ")"
     else
       ops.last.apply(self)
     end

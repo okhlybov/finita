@@ -1,7 +1,7 @@
-require 'symbolic'
-require 'finita/common'
-require 'finita/symbolic'
-require 'finita/domain'
+require "symbolic"
+require "finita/common"
+require "finita/symbolic"
+require "finita/domain"
 
 
 module Finita
@@ -52,7 +52,7 @@ end # Decomposition
 class Binding
   attr_reader :expression, :unknown, :domain
   def initialize(expression, unknown, domain, merge)
-    raise 'invalid field value' unless unknown.is_a?(Field)
+    raise "invalid field value" unless unknown.is_a?(Field)
     @expression = Symbolic.coerce(expression)
     @unknown = unknown
     @domain = domain
@@ -62,7 +62,9 @@ class Binding
   def type
     TypeInferer.new.apply!(unknown)
   end
-  def merge?; @merge end
+  def merge?
+    @merge
+  end
   # def equation()
   # def assignment()
   def decomposition(unknowns)
@@ -71,29 +73,27 @@ class Binding
   def process!
     @expression = Finita.simplify(Ref::Merger.new.apply!(expression))
   end
-  def code(problem_code, system_code)
-    Code.new(self, problem_code, system_code)
+  def code(problem_code)
+    Code.new(self, problem_code)
   end
-  class Code < DataStruct::Code
+  class Code < DataStructBuilder::Code
     def entities; super + [unknown_code, domain_code] end
-    def initialize(binding, problem_code, system_code)
-      @binding = binding
-      @problem_code = problem_code
-      @system_code = system_code
-      super("#{@system_code.type}Binding")
+    def initialize(binding, problem_code)
+      @binding = check_type(binding, Binding)
+      @problem_code = check_type(problem_code, Problem::Code)
+      super("#{problem_code.type}Binding")
+      @unknown_code = @binding.unknown.code(problem_code)
+      @domain_code = @binding.domain.code(problem_code)
     end
+    attr_reader :problem_code
     def hash
       @binding.hash # TODO
     end
     def eql?(other)
       equal?(other) || self.class == other.class && @binding == other.instance_variable_get(:@binding)
     end
-    def unknown_code
-      @binding.unknown.code(@problem_code)
-    end
-    def domain_code
-      @binding.domain.code(@problem_code)
-    end
+    attr_reader :unknown_code
+    attr_reader :domain_code
   end
 end # Binding
 
@@ -102,7 +102,7 @@ end # Binding
 class Assignment < Binding
   def initialize(hash, domain)
     # hash := {expression => unknown}
-    raise 'expected {expression=>unknown} value' unless hash.is_a?(Hash) && hash.size == 1
+    raise "expected {expression=>unknown} value" unless hash.is_a?(Hash) && hash.size == 1
     expression = hash.keys[0]
     unknown = hash[expression]
     super(expression, unknown, domain, false)
@@ -125,7 +125,7 @@ class Equation < Binding
     expression
   end
   def assignment
-    raise # TODO
+    raise "conversion equation --> assignment is not yet implemented"
   end
 end # Equation
 

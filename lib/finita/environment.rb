@@ -1,19 +1,9 @@
-require 'singleton'
-require 'data_struct'
-require 'finita/problem'
+require "autoc"
+require "singleton"
+require "finita/problem"
 
 
 module Finita
-
-
-module EnvironmentHandler
-  def setup_env(env)
-    @environment_tag = env.class::Tag
-  end
-  def seq?; @environment_tag == Environment::Sequential::Tag end
-  def mpi?; @environment_tag == Environment::MPI::Tag end
-  def omp?; @environment_tag == Environment::OpenMP::Tag end
-end
 
 
 class Environment
@@ -35,24 +25,20 @@ class Environment::MPI < Environment
   Tag = :mpi
   def code(problem_code)
     problem_code.defines << :FINITA_MPI
-    problem_code.initializers << Code.instance
-    problem_code.finalizers << Code.instance
+    problem_code.initializer_codes << Code.instance
+    problem_code.finalizer_codes << Code.instance
     Code.instance
   end
-  class Code < DataStruct::Code
+  class Code < DataStructBuilder::Code
     include Singleton
     def initialize
-      super('FinitaMPI')
+      super("FinitaMPI")
     end
     def write_intf(stream)
-      stream << %$
-        extern int FinitaProcessCount, FinitaProcessIndex;
-      $
+      stream << %$extern int FinitaProcessCount, FinitaProcessIndex;$
     end
     def write_defs(stream)
-      stream << %$
-        int FinitaProcessCount, FinitaProcessIndex;
-      $
+      stream << %$int FinitaProcessCount, FinitaProcessIndex;$
     end
     def write_initializer(stream)
       stream << %${

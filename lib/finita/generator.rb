@@ -1,12 +1,11 @@
-require 'code_builder'
-require 'data_struct'
+require "autoc"
 
 
-class DataStruct::Code
+class DataStructBuilder::Code
   def setup_overrides
-    @overrides = {:malloc=>'FINITA_MALLOC', :calloc=>'FINITA_CALLOC', :free=>'FINITA_FREE', :assert=>'FINITA_ASSERT', :abort=>'FINITA_ABORT', :inline=>'FINITA_INLINE'}
+    @overrides = {:malloc=>"FINITA_MALLOC", :calloc=>"FINITA_CALLOC", :free=>"FINITA_FREE", :assert=>"FINITA_ASSERT", :abort=>"FINITA_ABORT", :inline=>"FINITA_INLINE"}
   end
-end # DataStruct::Code
+end # DataStructBuilder::Code
 
 
 module Finita::Generator
@@ -150,7 +149,7 @@ class Source < CodeBuilder::Source
     @file_name = "#{@module.file_prefix}.auto#{index}.c"
   end
   def new_stream
-    File.new(file_name, 'wt')
+    File.new(file_name, "wt")
   end
   def write(stream)
     stream << %$
@@ -181,7 +180,6 @@ class Header < CodeBuilder::Header
     stream << %$
       #endif
     $
-    stream << "\n"
   end
 end # Header
 

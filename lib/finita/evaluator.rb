@@ -1,37 +1,37 @@
-require 'data_struct'
-require 'finita/common'
+require "autoc"
+require "finita/common"
 
 
 module Finita
 
 
 class Evaluator
-  attr_reader :expression, :type
-  def initialize(expression, type)
+  attr_reader :expression, :result
+  def initialize(expression, result)
     # TODO merge attribute is not needed
     @expression = expression
-    @type = type
+    @result = result
   end
   def integer?
-    type == Integer
+    result == Integer
   end
   def float?
-    type == Float
+    result == Float
   end
   def complex?
-    type == Complex
+    result == Complex
   end
   def hash
-    expression.hash ^ type.hash # TODO
+    expression.hash ^ result.hash # TODO
   end
   def ==(other)
-    equal?(other) || self.class == other.class && expression == other.expression && type == other.type
+    equal?(other) || self.class == other.class && expression == other.expression && result == other.result
   end
   alias :eql? :==
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < DataStruct::Code
+  class Code < DataStructBuilder::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -49,9 +49,9 @@ class Evaluator
       @evaluator = evaluator
       @problem_code = problem_code
       @instance = "#{@problem_code.type}#{@@count += 1}"
-      @c_type = CType[evaluator.type]
+      @cresult = CType[evaluator.result]
       @problem_code.defines << :FINITA_COMPLEX if evaluator.complex?
-      super('FinitaEvaluator')
+      super("FinitaEvaluator")
     end
     def hash
       @evaluator.hash # TODO
@@ -63,12 +63,12 @@ class Evaluator
       @evaluator.expression
     end
     def write_intf(stream)
-      stream << %$#{@c_type} #{instance}(int, int, int);$
+      stream << %$#{@cresult} #{instance}(int, int, int);$
     end
     def write_defs(stream)
       stream << %$
         FINITA_ARGSUSED
-        #{@c_type} #{instance}(int x, int y, int z) {
+        #{@cresult} #{instance}(int x, int y, int z) {
           return #{CEmitter.new.emit!(@evaluator.expression)};
         }
       $
@@ -82,10 +82,20 @@ def self.numeric_instances_hash(&block)
 end
 
 
-NumericArrayCode = numeric_instances_hash {|type| Class.new(DataStruct::Array).new("Finita#{type}Array", CType[type])}
+NumericArrayCode = numeric_instances_hash {|type| Class.new(DataStructBuilder::Vector).new("Finita#{type}Array", {:type=>CType[type]})}
 
 
-NodeCode = Class.new(DataStruct::Code) do
+NodeCode = Class.new(DataStructBuilder::Code) do
+  def initialize(*args)
+    super
+    @self_hash = {:type=>type, :hash=>hasher, :equal=>comparator}
+  end
+  def [](symbol)
+    @self_hash[symbol]
+  end
+  def include?(symbol)
+    @self_hash.include?(symbol)
+  end
   def write_intf(stream)
     stream << %$
       typedef struct {
@@ -113,26 +123,36 @@ NodeCode = Class.new(DataStruct::Code) do
       }
     $
   end
-end.new('FinitaNode') # NodeCode
+end.new("FinitaNode") # NodeCode
 
 
-NodeArrayCode = Class.new(DataStruct::Array) do
+NodeArrayCode = Class.new(DataStructBuilder::Vector) do
   def entities; super << NodeCode end
-end.new('FinitaNodeArray', NodeCode.type) # NodeArrayCode
+end.new("FinitaNodeArray", NodeCode) # NodeArrayCode
 
 
-NodeSetCode = Class.new(DataStruct::Set) do
+NodeSetCode = Class.new(DataStructBuilder::HashSet) do
   def entities; super << NodeCode end
-end.new('FinitaNodeSet', NodeCode.type, NodeCode.hasher, NodeCode.comparator) # NodeSetCode
+end.new("FinitaNodeSet", NodeCode) # NodeSetCode
 
 
-NodeIndexMapCode = Class.new(DataStruct::Map) do
+NodeIndexMapCode = Class.new(DataStructBuilder::HashMap) do
   def entities; super << NodeCode end
-end.new('FinitaNodeIndexMap', NodeCode.type, 'size_t', NodeCode.hasher, NodeCode.comparator) # NodeIndexMapCode
+end.new("FinitaNodeIndexMap", NodeCode, {:type=>'size_t'}) # NodeIndexMapCode
 
 
-NodeCoordCode = Class.new(DataStruct::Code) do
+NodeCoordCode = Class.new(DataStructBuilder::Code) do
   def entities; super << NodeCode end
+  def initialize(*args)
+    super
+    @self_hash = {:type=>type, :hash=>hasher, :equal=>comparator}
+  end
+  def [](symbol)
+    @self_hash[symbol]
+  end
+  def include?(symbol)
+    @self_hash.include?(symbol)
+  end
   def write_intf(stream)
     stream << %$
       typedef struct {
@@ -143,7 +163,7 @@ NodeCoordCode = Class.new(DataStruct::Code) do
         #{type} result;
         result.row = row;
         result.column = column;
-        result.hash = FinitaHashMix(#{NodeCode.hasher}(row) ^ #{NodeCode.hasher}(column));
+        result.hash = #{NodeCode.hasher}(row) ^ (#{NodeCode.hasher}(column) << 1);
         return result;
       }
       #{inline} size_t #{hasher}(#{type} node) {
@@ -154,306 +174,167 @@ NodeCoordCode = Class.new(DataStruct::Code) do
       }
     $
   end
-end.new('FinitaNodeCoord') # NodeCoordCode
+end.new("FinitaNodeCoord") # NodeCoordCode
 
 
-FunctionListCode = Class.new(DataStruct::List) do
-  def write_intf(stream)
-    stream << %$
-      typedef void (*#{elementType})(void);
-      #{inline} int #{comparator}(#{elementType} lt, #{elementType} rt) {
-        return lt == rt;
-      }
-    $
-    super
+SparsityPatternCode = Class.new(DataStructBuilder::HashSet) do |type|
+  def entities
+    super + [NodeCoordCode]
   end
-end.new('FinitaFunctionList', 'FinitaFunctionPtr', 'FinitaFunctionComparator') # FuncListCode
+  def initialize(type)
+    super(type, NodeCoordCode)
+  end
+end.new("FinitaSparsityPattern")
 
 
-FunctionPtrCode = numeric_instances_hash do |type|
+FunctionCode = numeric_instances_hash do |type|
   Class.new(CodeBuilder::Code) do
     attr_reader :type
     def initialize(type)
-      @type = "Finita#{type}FunctionPtr"
-      @c_type = CType[type]
+      @type = "Finita#{type}Function"
+      @ctype = CType[type]
+      @self_hash = {:type=>self.type}
+    end
+    def [](symbol)
+      @self_hash[symbol]
+    end
+    def include?(symbol)
+      @self_hash.include?(symbol)
     end
     def write_intf(stream)
-      stream << %$typedef #{@c_type} (*#{@type})(int,int,int);$
+      stream << %$typedef #{@ctype} (*#{@type})(int,int,int);$
     end
   end.new(type)
-end # FunctionPtrCode
+end # FunctionCode
 
 
-MatrixEntryCode = numeric_instances_hash do |type|
-  Class.new(DataStruct::Structure) do
-    attr_reader :returnType
-    def entities; super + [@fp, @node, @key, @list] end
-    def initialize(type, element_type, return_type)
-      super(type, element_type.type)
-      @fp = element_type
-      @node = NodeCode
-      @key = NodeCoordCode
-      @list = FunctionListCode
-      @returnType = return_type
-    end
-    def write_intf(stream)
-      stream << %$
-        typedef struct #{type} #{type};
-        struct #{type} {
-          #{@key.type} coord;
-          #{@list.type} list;
-        };
-        #{type}* #{new}(#{@node.type}, #{@node.type});
-        void #{ctor}(#{type}*, #{@node.type}, #{@node.type});
-        void #{merge}(#{type}*, #{elementType});
-        #{returnType} #{evaluate}(#{type}*);
-        #{inline} #{@node.type} #{row}(#{type}* self) {
-          #{assert}(self);
-          return self->coord.row;
-        }
-        #{inline} #{@node.type} #{column}(#{type}* self) {
-          #{assert}(self);
-          return self->coord.column;
-        }
-        #{inline} size_t #{hasher}(#{type}* self) {
-          #{assert}(self);
-          return #{@key.hasher}(self->coord);
-        }
-        #{inline} int #{comparator}(#{type}* lt, #{type}* rt) {
-          #{assert}(lt);
-          #{assert}(rt);
-          return #{@key.comparator}(lt->coord, rt->coord);
-        }
-      $
-    end
-    def write_defs(stream)
-      stream << %$
-        void #{ctor}(#{type}* self, #{@node.type} row, #{@node.type} column) {
-          self->coord = #{@key.new}(row, column);
-          #{@list.ctor}(&self->list);
-        }
-        #{type}* #{new}(#{@node.type} row, #{@node.type} column) {
-          #{type}* result = (#{type}*) #{malloc}(sizeof(#{type})); #{assert}(result);
-          #{ctor}(result, row, column);
-          return result;
-        }
-        void #{merge}(#{type}* self, #{elementType} fp) {
-          #{@list.append}(&self->list, (#{@list.elementType})fp);
-        }
-        #{returnType} #{evaluate}(#{type}* self) {
-          #{@list.it} it;
-          #{returnType} result = 0;
-          int x = self->coord.column.x, y = self->coord.column.y, z = self->coord.column.z;
-          #{@list.itCtor}(&it, &self->list);
-          while(#{@list.itHasNext}(&it)) result += ((#{elementType})#{@list.itNext}(&it))(x, y, z);
-          return result;
-        }
-      $
-    end
-  end.new("Finita#{type}MatrixEntry", FunctionPtrCode[type], CType[type])
-end # MatrixEntryCode
-
-
-VectorEntryCode = numeric_instances_hash do |type|
-  Class.new(DataStruct::Structure) do
-    attr_reader :returnType
-    def entities; super + [@fp, @node, @list] end
-    def initialize(type, element_type, return_type)
-      super(type, element_type.type)
-      @fp = element_type
-      @node = NodeCode
-      @list = FunctionListCode
-      @returnType = return_type
-    end
-    def write_intf(stream)
-      stream << %$
-        typedef struct #{type} #{type};
-        struct #{type} {
-          #{@node.type} node;
-          #{@list.type} list;
-        };
-        #{type}* #{new}(#{@node.type});
-        void #{ctor}(#{type}*, #{@node.type});
-        void #{merge}(#{type}*, #{elementType});
-        #{returnType} #{evaluate}(#{type}*);
-        #{inline} #{@node.type} #{node}(#{type}* self) {
-          #{assert}(self);
-          return self->node;
-        }
-        #{inline} size_t #{hasher}(#{type}* self) {
-          return #{@node.hasher}(self->node);
-        }
-        #{inline} int #{comparator}(#{type}* lt, #{type}* rt) {
-          return #{@node.comparator}(lt->node, rt->node);
-        }
-      $
-    end
-    def write_defs(stream)
-      stream << %$
-        void #{ctor}(#{type}* self, #{@node.type} node) {
-          self->node = node;
-          #{@list.ctor}(&self->list);
-        }
-        #{type}* #{new}(#{@node.type} node) {
-          #{type}* result = (#{type}*) #{malloc}(sizeof(#{type})); #{assert}(result);
-          #{ctor}(result, node);
-          return result;
-        }
-        void #{merge}(#{type}* self, #{elementType} fp) {
-          #{@list.append}(&self->list, (#{@list.elementType})fp);
-        }
-        #{returnType} #{evaluate}(#{type}* self) {
-          #{@list.it} it;
-          #{returnType} result = 0;
-          int x = self->node.x, y = self->node.y, z = self->node.z;
-          #{@list.itCtor}(&it, &self->list);
-          while(#{@list.itHasNext}(&it)) result += ((#{elementType})#{@list.itNext}(&it))(x, y, z);
-          return result;
-        }
-      $
-    end
-  end.new("Finita#{type}VectorEntry", FunctionPtrCode[type], CType[type])
-end # VectorEntryCode
-
-
-MatrixArrayCode = numeric_instances_hash do |type|
-  Class.new(DataStruct::Array) do
-    attr_reader :returnType
-    def entities; super + [@element] end
-    def initialize(type, element, return_type)
-      super(type, "#{element.type}*")
-      @element = element
-      @returnType = return_type
-    end
-  end.new("Finita#{type}MatrixArray", MatrixEntryCode[type], CType[type])
-end # MatrixArrayCode
-
-
-VectorArrayCode = numeric_instances_hash do |type|
-  Class.new(DataStruct::Array) do
-    attr_reader :returnType
-    def entities; super + [@element] end
-    def initialize(type, element, return_type)
-      super(type, "#{element.type}*")
-      @element = element
-      @returnType = return_type
-    end
-  end.new("Finita#{type}VectorArray", VectorEntryCode[type], CType[type])
-end # VectorArrayCode
-
-
-MatrixCode = numeric_instances_hash do |type|
-  Class.new(DataStruct::Set) do
-    attr_reader :returnType
-    def entities; super + [@node, @element, @array] end
-    def initialize(type, numeric_type)
-      @node = NodeCode
-      @element = MatrixEntryCode[numeric_type]
-      @array = MatrixArrayCode[numeric_type]
-      @returnType = CType[numeric_type]
-      super(type, "#{@element.type}*", @element.hasher, @element.comparator)
+FunctionListCode = numeric_instances_hash do |type|
+  Class.new(DataStructBuilder::List) do
+    def entities; super + [@function_code] end
+    def initialize(type)
+      @ctype = CType[type]
+      @function_code = FunctionCode[type]
+      super("Finita#{type}FunctionList", @function_code)
     end
     def write_intf(stream)
       super
-      stream << %$
-        void #{merge}(#{type}*, #{@node.type}, #{@node.type}, #{@element.elementType});
-        #{returnType} #{evaluate}(#{type}*, #{@node.type}, #{@node.type});
-        void #{linearize}(#{type}*, #{@array.type}*);
-      $
+      stream << %$#{@ctype} #{summate}(#{type}*, int, int, int);$
     end
     def write_defs(stream)
       super
-      # In the code below it is assumed that element constructor does not allocate memory
-      # otherwise memory leak will occur since no destructor is ever called
       stream << %$
-        void #{merge}(#{type}* self, #{@node.type} row, #{@node.type} column, #{@element.elementType} fp) {
-          #{@element.type} element, *element_ptr;
-          #{assert}(self);
-          #{@element.ctor}(&element, row, column);
-          if(#{contains}(self, &element)) {
-            element_ptr = #{get}(self, &element);
-          } else {
-            #{put}(self, element_ptr = #{@element.new}(row, column));
-          }
-          #{@element.merge}(element_ptr, fp);
-        }
-        #{returnType} #{evaluate}(#{type}* self, #{@node.type} row, #{@node.type} column) {
-          #{@element.type} element;
-          #{assert}(self);
-          #{@element.ctor}(&element, row, column);
-          #{assert}(#{contains}(self, &element));
-          return #{@element.evaluate}(#{get}(self, &element));
-        }
-        void #{linearize}(#{type}* self, #{@array.type}* array) {
+        #{@ctype} #{summate}(#{type}* self, int x, int y, int z) {
+          #{@ctype} result = 0;
           #{it} it;
-          size_t index = 0;
-          #{@array.ctor}(array, #{size}(self));
+          #{assert}(self);
           #{itCtor}(&it, self);
           while(#{itHasNext}(&it)) {
-           #{@array.set}(array, index++, #{itNext}(&it));
+            result += #{itNext}(&it)(x, y, z);
           }
+          return result;
         }
       $
     end
-  end.new("Finita#{type}Matrix", type)
-end # MatrixCode
+  end.new(type)
+end # FunctionListCode
 
 
-VectorCode = numeric_instances_hash do |type|
-  Class.new(DataStruct::Set) do
-    attr_reader :returnType
-    def entities; super + [@node, @element, @array] end
-    def initialize(type, numeric_type)
-      @node = NodeCode
-      @element = VectorEntryCode[numeric_type]
-      @array = VectorArrayCode[numeric_type]
-      @returnType = CType[numeric_type]
-      super(type, "#{@element.type}*", @element.hasher, @element.comparator)
+FunctionArrayCode = numeric_instances_hash do |type|
+  Class.new(DataStructBuilder::Vector) do
+    def entities; super + [NodeCode, @function_code, @function_list_code] end
+    def initialize(type)
+      @ctype = CType[type]
+      @function_code = FunctionCode[type]
+      @function_list_code = FunctionListCode[type]
+      super("Finita#{type}FunctionArray", @function_list_code)
     end
     def write_intf(stream)
       super
-      stream << %$
-        void #{merge}(#{type}*, #{@node.type}, #{@element.elementType});
-        #{returnType} #{evaluate}(#{type}*, #{@node.type});
-        void #{linearize}(#{type}*, #{@array.type}*);
-      $
+      stream << %$void #{merge}(#{type}*, size_t, #{@function_code.type});$
     end
     def write_defs(stream)
       super
-      # In the code below it is assumed that element constructor does not allocate memory
-      # otherwise memory leak will occur since no destructor is called
       stream << %$
-        void #{merge}(#{type}* self, #{@node.type} node, #{@element.elementType} fp) {
-          #{@element.type} element, *element_ptr;
+        void #{merge}(#{type}* self, size_t index, #{@function_code.type} fp) {
           #{assert}(self);
-          #{@element.ctor}(&element, node);
-          if(#{contains}(self, &element)) {
-            element_ptr = #{get}(self, &element);
-          } else {
-            #{put}(self, element_ptr = #{@element.new}(node));
-          }
-          #{@element.merge}(element_ptr, fp);
-        }
-        #{returnType} #{evaluate}(#{type}* self, #{@node.type} node) {
-          #{@element.type} element;
-          #{assert}(self);
-          #{@element.ctor}(&element, node);
-          #{assert}(#{contains}(self, &element));
-          return #{@element.evaluate}(#{get}(self, &element));
-        }
-        void #{linearize}(#{type}* self, #{@array.type}* array) {
-          #{it} it;
-          size_t index = 0;
-          #{@array.ctor}(array, #{size}(self));
-          #{itCtor}(&it, self);
-          while(#{itHasNext}(&it)) {
-           #{@array.set}(array, index++, #{itNext}(&it));
-          }
+          #{assert}(fp);
+          #{@function_list_code.add}(#{get}(self, index), fp);
         }
       $
     end
-  end.new("Finita#{type}Vector", type)
-end # VectorCode
+  end.new(type)
+end # FunctionArrayCode
+
+
+SparseMatrixCode = numeric_instances_hash do |type|
+  Class.new(DataStructBuilder::HashMap) do
+    def entities; super + [NodeCoordCode, @function_code, @function_list_code] end
+    def initialize(type)
+      @type = type
+      @ctype = CType[type]
+      @function_code = FunctionCode[type]
+      @function_list_code = FunctionListCode[type]
+      super("Finita#{type}SparseMatrix", NodeCoordCode, @function_list_code)
+    end
+    def write_intf(stream)
+      super
+      stream << %$void #{merge}(#{type}*, #{NodeCode.type}, #{NodeCode.type}, #{@function_code.type});$
+    end
+    def write_defs(stream)
+      super
+      stream << %$
+        void #{merge}(#{type}* self, #{NodeCode.type} row, #{NodeCode.type} column, #{@function_code.type} fp) {
+          #{@function_list_code.type}* list;
+          #{NodeCoordCode.type} node = #{NodeCoordCode.new}(row, column);
+          #{assert}(self);
+          #{assert}(fp);
+          if(#{containsKey}(self, node)) {
+            list = #{get}(self, node);
+          } else {
+            list = #{@function_list_code.new}();
+            #{put}(self, node, list);
+          }
+          #{@function_list_code.add}(list, fp);
+        }
+      $
+    end
+  end.new(type)
+end # SparseMatrixCode
+
+
+SparseVectorCode = numeric_instances_hash do |type|
+  Class.new(DataStructBuilder::HashMap) do
+    def entities; super + [NodeCode, @function_code, @function_list_code] end
+    def initialize(type)
+      @type = type
+      @ctype = CType[type]
+      @function_code = FunctionCode[type]
+      @function_list_code = FunctionListCode[type]
+      super("Finita#{type}SparseVector", NodeCode, @function_list_code)
+    end
+    def write_intf(stream)
+      super
+      stream << %$void #{merge}(#{type}*, #{NodeCode.type}, #{@function_code.type});$
+    end
+    def write_defs(stream)
+      super
+      stream << %$
+      void #{merge}(#{type}* self, #{NodeCode.type} node, #{@function_code.type} fp) {
+        #{@function_list_code.type}* list;
+        #{assert}(self);
+        #{assert}(fp);
+        if(#{containsKey}(self, node)) {
+          list = #{get}(self, node);
+        } else {
+          list = #{@function_list_code.new}();
+          #{put}(self, node, list);
+        }
+        #{@function_list_code.add}(list, fp);
+      }
+    $
+    end
+  end.new(type)
+end # SparseVectorCode
 
 
 end # Finita
