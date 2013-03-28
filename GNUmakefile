@@ -6,8 +6,8 @@ sources = problem.c problem.auto1.c
 
 packages = MUMPS_DSO
 
-CPPFLAGS = -g -ansi -pedantic -std=c99 #-Wall
-LDFLAGS = -g
+CPPFLAGS = -g -ansi -pedantic -std=c99 -pg #-O3 -DNDEBUG
+LDFLAGS = -g -pg
 
 ### End custom definitions
 
@@ -38,6 +38,9 @@ LDLIBS := $(ldlibs) $(LDLIBS)
 PROG := $(program)$(PROGEXT)
 
 all : $(PROG)
+
+run : $(PROG)
+	$(PROG)
 
 $(PROG) : $(OBJS)
 	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@

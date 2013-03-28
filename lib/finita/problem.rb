@@ -1,8 +1,8 @@
-require 'set'
-require 'data_struct'
-require 'finita/symbolic'
-require 'finita/system'
-require 'finita/generator'
+require "set"
+require "autoc"
+require "finita/symbolic"
+require "finita/system"
+require "finita/generator"
 
 
 module Finita
@@ -12,11 +12,11 @@ class Problem
   @@current = nil
   @@problems = []
   def self.current
-    raise 'problem context is not set' if @@current.nil?
+    raise "problem context is not set" if @@current.nil?
     @@current
   end
   def self.current=(problem)
-    raise 'nested problem contexts are not allowed' if @@current.nil? == problem.nil?
+    raise "nested problem contexts are not allowed" if @@current.nil? == problem.nil?
     @@current = problem
   end
   def self.problems
@@ -41,26 +41,29 @@ class Problem
     instances << entity
   end
   def process!
-    @systems = systems.collect {|s| s.process!}
+    @systems = systems.collect {|s| s.process!(self)}
     new_module(code).generate!
     self
   end
   def code
     Code.new(self)
   end
-  class Code < DataStruct::Code
-    attr_reader :name, :initializers, :finalizers, :defines
-    def entities; super + [Finita::Generator::PrologueCode.new(defines)] + @codes.values + (@problem.systems + @problem.instances.to_a).collect {|s| s.code(self)} + (initializers | finalizers).to_a end
+  class Code < DataStructBuilder::Code
     def initialize(problem)
       @problem = problem
-      @initializers = Set.new
-      @finalizers = Set.new
+      @initializer_codes = Set.new
+      @finalizer_codes = Set.new
       @defines = Set.new
       @symbols = {}
       @codes = {}
-      @name = problem.name
       super(problem.name)
+      @system_codes = @problem.systems.collect {|s| s.code(self)}
+      @instance_codes = @problem.instances.collect {|i| i.code(self)}
     end
+    attr_reader :defines
+    attr_reader :initializer_codes
+    attr_reader :finalizer_codes
+    def entities; super + [Finita::Generator::PrologueCode.new(defines)] + @codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a end
     def hash
       @problem.hash # TODO
     end
@@ -81,8 +84,8 @@ class Problem
     end
     def write_intf(stream)
       stream << %$
-        int #{setup}(int, char**);
-        int #{cleanup}(void);
+        void #{setup}(int, char**);
+        void #{cleanup}(void);
       $
     end
     def write_defs(stream)
@@ -96,20 +99,20 @@ class Problem
       $
       stream << %$
         FINITA_ARGSUSED
-        int #{setup}(int argc, char** argv) {int result = FINITA_OK;
+        void #{setup}(int argc, char** argv) {
       $
-      CodeBuilder.priority_sort(initializers, false).each do |e|
+      CodeBuilder.priority_sort(initializer_codes, false).each do |e|
         e.write_initializer(stream)
       end
-      stream << 'return result;}'
-      stream << %$int #{cleanup}(void) {int result = FINITA_OK;$
-      CodeBuilder.priority_sort(finalizers, true).each do |e|
+      stream << "}"
+      stream << %$void #{cleanup}(void) {$
+      CodeBuilder.priority_sort(finalizer_codes, true).each do |e|
         e.write_finalizer(stream)
       end
-      stream << 'return result;}'
+      stream << "}"
     end
   end # Code
-  protected
+  private
   def new_module(root_code)
     Generator::Module.new(name) << root_code
   end

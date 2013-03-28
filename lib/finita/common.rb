@@ -1,4 +1,4 @@
-require 'symbolic'
+require "symbolic"
 
 
 module Finita
@@ -14,7 +14,7 @@ def self.simplify(obj)
 end
 
 
-def self.shallow_flatten(ary)
+def shallow_flatten(ary)
   # a helper function to circumvent Array#flatten unwanted internal call to Object#to_ary; mimics Array#flatten(1)
   result = []
   ary.each do |o|
@@ -28,17 +28,33 @@ def self.shallow_flatten(ary)
 end
 
 
+def check_type(obj, cls)
+  if obj.is_a?(cls)
+    obj
+  else
+    raise "expected an instance of class #{cls}"
+  end
+end
+
+
 CType = {
-  Integer => 'int',
-  Float => 'double',
-  Complex => '_Complex double'
+  Integer => "int",
+  Float => "double",
+  Complex => "_Complex double"
 }
 
 
 MPIType = {
-  Integer => 'MPI_INT',
-  Float => 'MPI_DOUBLE'
+  Integer => "MPI_INT",
+  Float => "MPI_DOUBLE"
   # no MPI type corrsponding to C complex therefore is has to be constructed manually from a pair of floats
+}
+
+
+CAbs = {
+    Integer => "abs",
+    Float => "fabs",
+    Complex => "cabs"
 }
 
 

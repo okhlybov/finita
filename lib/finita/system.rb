@@ -1,8 +1,8 @@
-require 'data_struct'
-require 'finita/problem'
-require 'finita/equation'
-require 'finita/solver'
-require 'finita/discretizer'
+require "autoc"
+require "finita/problem"
+require "finita/equation"
+require "finita/solver"
+require "finita/discretizer"
 
 
 module Finita
@@ -11,15 +11,13 @@ module Finita
 class System
   @@current = nil
   def self.current
-    raise 'system context is not set' if @@current.nil?
+    raise "system context is not set" if @@current.nil?
     @@current
   end
   def self.current=(system)
-    raise 'nested system contexts are not allowed' if @@current.nil? == system.nil?
+    raise "nested system contexts are not allowed" if @@current.nil? == system.nil?
     @@current = system
   end
-  attr_reader :name, :equations
-  attr_accessor :solver, :discretizer
   def initialize(name, &block)
     @name = name.to_s # TODO validate
     @equations = []
@@ -34,17 +32,30 @@ class System
       end
     end
   end
-  def type
+  attr_reader :name
+  attr_reader :equations
+  def solver=(solver)
+    @solver = check_type(solver, Solver)
+  end
+  def solver
+    if @solver.nil?
+      raise "system-wise solver is not specified"
+    else
+      @solver
+    end
+  end
+  def discretizer=(discretizer)
+    @discretizer = check_type(discretizer, Discretizer)
+  end
+  def discretizer
+    if @discretizer.nil?
+      raise "system-wise discretizer is not specified"
+    else
+      @discretizer
+    end
+  end
+  def result
     Numeric.promoted_type(*equations.collect {|s| s.type})
-  end
-  def integer?
-    type == Integer
-  end
-  def float?
-    type == Float
-  end
-  def complex?
-    type == Complex
   end
   def unknowns
     Set.new(equations.collect {|e| e.unknown})
@@ -52,7 +63,9 @@ class System
   def linear?
     @linear
   end
-  def process!
+  attr_reader :problem
+  def process!(problem)
+    @problem = check_type(problem, Problem)
     uns = unknowns
     @equations = discretizer.process!(equations)
     @linear = true
@@ -62,74 +75,67 @@ class System
         break
       end
     end
-    @solver = solver.process!(@problem, self)
+    @solver = solver.process!(self)
     self
   end
   def code(problem_code)
     self.class::Code.new(self, problem_code)
   end
-  class Code < DataStruct::Code
-    attr_reader :unknowns, :initializers, :finalizers, :result
-    def entities; super + [SparseMatrix.new('SM', Float).code(@problem_code, self), solver_code] + equation_codes + (initializers | finalizers).to_a end
+  class Code < DataStructBuilder::Code
     def initialize(system, problem_code)
-      @system = system
-      @problem_code = problem_code
-      @initializers = Set.new
-      @finalizers = Set.new
-      @result = CType[system.type]
-      @problem_code.initializers << self
-      @problem_code.finalizers << self
-      @problem_code.defines << :FINITA_COMPLEX if complex?
-      @unknowns = @system.unknowns # FIXME shouldnt be exposed
-      super(@problem_code.type + system.name)
+      @system = check_type(system, System)
+      @problem_code = check_type(problem_code, Problem::Code)
+      @initializer_codes = Set.new
+      @finalizer_codes = Set.new
+      super("#{problem_code.type}#{@system.name}")
+      @solver_code = check_type(@system.solver.code(self), Solver::Code)
+      @equation_codes = @system.equations.collect {|e| check_type(e.code(problem_code), Binding::Code)}
+      problem_code.initializer_codes << self
+      problem_code.finalizer_codes << self
     end
-    def hash
-      @system.hash # TODO
+    def entities
+      super + [solver_code] + equation_codes + (initializer_codes | finalizer_codes).to_a
     end
-    def eql?(other)
-      equal?(other) || self.class == other.class && @system == other.instance_variable_get(:@system)
+    attr_reader :initializer_codes
+    attr_reader :finalizer_codes
+    attr_reader :problem_code
+    attr_reader :solver_code
+    attr_reader :equation_codes
+    def linear?
+      @system.linear?
     end
-    def system_type # TODO rename
-      @system.type
+    def result
+      @system.result
+    end
+    def cresult
+      CType[result]
     end
     def integer?
-      @system.integer?
+      result == Integer
     end
     def float?
-      @system.float?
+      result == Float
     end
     def complex?
-      @system.complex?
-    end
-    def solver_code
-      @system.solver.code(@problem_code, self)
-    end
-    def equation_codes
-      @system.equations.collect {|e| e.code(@problem_code, self)}
-    end
-    def write_intf(stream)
-      stream << %$
-        int #{setup}(void);
-        int #{cleanup}(void);
-      $
-    end
-    def write_defs(stream)
-      stream << %$int #{setup}(void) {int result = FINITA_OK;$
-      CodeBuilder.priority_sort(initializers, false).each do |e|
-        e.write_initializer(stream)
-      end
-      stream << 'return result;}'
-      stream << %$int #{cleanup}(void) {int result = FINITA_OK;$
-      CodeBuilder.priority_sort(finalizers, true).each do |e|
-        e.write_finalizer(stream)
-      end
-      stream << 'return result;}'
+      result == Complex
     end
     def write_initializer(stream)
-      stream << %$result = #{setup}(); #{assert}(result == FINITA_OK);$
+      stream << %$#{setup}();$
     end
     def write_finalizer(stream)
-      stream << %$result = #{cleanup}(); #{assert}(result == FINITA_OK);$
+      stream << %$#{cleanup}();$
+    end
+    def write_defs(stream)
+      stream << %$void #{setup}(void) {$
+      CodeBuilder.priority_sort(initializer_codes, false).each do |e|
+        e.write_initializer(stream)
+      end
+      stream << '}'
+      stream << %$void #{cleanup}(void) {$
+      CodeBuilder.priority_sort(finalizer_codes, true).each do |e|
+        e.write_finalizer(stream)
+      end
+      stream << '}'
     end
   end # Code
 end # System

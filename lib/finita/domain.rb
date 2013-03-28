@@ -1,8 +1,8 @@
-require 'set'
-require 'symbolic'
-require 'data_struct'
-require 'finita/symbolic'
-require 'finita/generator'
+require "set"
+require "autoc"
+require "symbolic"
+require "finita/symbolic"
+require "finita/generator"
 
 
 module Finita::Domain
@@ -12,7 +12,7 @@ end # Finita::Domain
 module Finita::Domain::Cubic
 
 
-StaticCode = Class.new(DataStruct::Code) do
+StaticCode = Class.new(DataStructBuilder::Code) do
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -88,7 +88,7 @@ StaticCode = Class.new(DataStruct::Code) do
       }
     $
   end
-end.new('FinitaCubicArea') # StaticCode
+end.new("FinitaCubicArea") # StaticCode
 
 
 class Area
@@ -117,7 +117,7 @@ class Area
       obj.is_a?(Array) ? [Finita.simplify(obj.first), Finita.simplify(obj.last)] : [Finita.simplify(0), Finita.simplify(obj-1)]
     end
   end
-  class Code < DataStruct::Code
+  class Code < DataStructBuilder::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -136,7 +136,7 @@ class Area
       @instance = "#{StaticCode.type}#{@@count += 1}"
       @problem_code = problem_code
       super(StaticCode.type)
-      problem_code.initializers << self
+      problem_code.initializer_codes << self
     end
     def hash
       @area.hash
@@ -146,19 +146,19 @@ class Area
     end
     def write_intf(stream)
       stream << %$
-      extern #{type} #{instance};
-    $
+        extern #{type} #{instance};
+      $
     end
     def write_defs(stream)
       stream << %$
-      #{type} #{instance};
-    $
+        #{type} #{instance};
+      $
     end
     def write_initializer(stream)
-      args = (@area.xrange + @area.yrange + @area.zrange).collect {|e| CEmitter.new.emit!(e)}.join(',')
+      args = (@area.xrange + @area.yrange + @area.zrange).collect {|e| CEmitter.new.emit!(e)}.join(",")
       stream << %$
-      #{ctor}(&#{instance}, #{args});
-    $
+        #{ctor}(&#{instance}, #{args});
+      $
     end
   end # Code
 end # Area

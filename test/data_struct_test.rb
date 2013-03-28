@@ -29,10 +29,10 @@ end
 
 m = M.new
 
-m << DataStruct::Array.new("DoubleArray", "double")
-m << DataStruct::List.new("IntSlist", "int", "IntComparator")
-m << DataStruct::Set.new("IntHset", "int", "IntHasher", "IntComparator")
-m << DataStruct::Set.new("StrHset", "char*", "PcharHasher", "PcharComparator")
-m << DataStruct::Map.new("StrIntHmap", "char*", "int", "PcharHasher", "PcharComparator")
+m << DataStructBuilder::Array.new("DoubleArray", "double")
+m << DataStructBuilder::List.new("IntSlist", "int", "IntComparator")
+m << DataStructBuilder::Set.new("IntHset", "int", "IntHasher", "IntComparator")
+m << DataStructBuilder::Set.new("StrHset", "char*", "PcharHasher", "PcharComparator")
+m << DataStructBuilder::Map.new("StrIntHmap", "char*", "int", "PcharHasher", "PcharComparator")
 
 m.generate!

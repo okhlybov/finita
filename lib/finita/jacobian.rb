@@ -1,26 +1,29 @@
-require 'data_struct'
-require 'finita/evaluator'
+require "autoc"
+require "finita/evaluator"
 
 
 module Finita
 
 
 class Jacobian
-  def process!(problem, system) end
-  def code(problem_code, system_code, mapper_code)
-    self.class::Code.new(self, problem_code, system_code, mapper_code)
+  def process!(solver)
+    @solver = check_type(solver, Solver::Matrix)
+    self
   end
-  class Code < DataStruct::Code
-    def entities; super + [@mapper_code] end
-    def initialize(jacobian, problem_code, system_code, mapper_code)
-      @jacobian = jacobian
-      @node = NodeCode
-      @problem_code = problem_code
-      @system_code = system_code
-      @mapper_code = mapper_code
-      @system_code.initializers << self
-      super("#{@system_code.type}Jacobian")
+  attr_reader :solver
+  def code(solver_code)
+    self.class::Code.new(self, solver_code)
+  end
+  class Code < DataStructBuilder::Code
+    def initialize(jacobian, solver_code)
+      @jacobian = check_type(jacobian, Jacobian)
+      @solver_code = check_type(solver_code, Solver::Matrix::Code)
+      super("#{solver_code.system_code.type}Jacobian")
     end
+    def entities
+      super + [NodeCode] + solver_code.all_dependent_codes
+    end
+    attr_reader :solver_code
     def hash
       @jacobian.hash # TODO
     end
@@ -28,11 +31,7 @@ class Jacobian
       equal?(other) || self.class == other.class && @jacobian == other.instance_variable_get(:@jacobian)
     end
     def write_intf(stream)
-      stream << %$
-        size_t #{size}(void);
-        #{@coord.type} #{coord}(size_t);
-        #{@system_code.result} #{value}(size_t);
-      $
+      stream << %$#{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type}, #{NodeCode.type});$
     end
   end # Code
 end # Jacobian
@@ -41,4 +40,4 @@ end # Jacobian
 end # Finita
 
 
-require 'finita/jacobian/numeric'
+require "finita/jacobian/numeric"
