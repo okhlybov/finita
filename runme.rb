@@ -14,10 +14,12 @@ def laplace(f)
 end
 
 
-Problem.new(:Problem) do |p|
+Problem.new(:Problem) do
   System.new(:System) do |s|
     s.discretizer = Discretizer::Trivial.new
-    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new) do |s|
+      s.nonlinear!
+    end
     Equation.new(laplace(F) - G, F, B)
   end
 end
