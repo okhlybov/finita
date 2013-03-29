@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 		for(y = 0; y < N; ++y)
 		{
 			F(x,y,0) = 0;
-			G(x,y,0) = 1e-5;
+			G(x,y,0) = 1e-4;
 		}
 	}
 	for(x = 0; x < N; ++x) F(x,0,0) = 1;

@@ -15,9 +15,12 @@ module Finita
 class Solver
   attr_reader :mapper
   attr_reader :environment
-  def initialize(mapper, environment)
+  def initialize(mapper, environment, &block)
     @mapper = check_type(mapper, Mapper)
     @environment = check_type(environment, Environment)
+    if block_given?
+      block.call(self)
+    end
   end
   attr_reader :system
   def process!(system)
@@ -66,7 +69,7 @@ class Solver::Matrix < Solver
         rs = {}
         e.decomposition(system.unknowns).each do |r, x|
           ls[r] = Evaluator.new(x, system.result) unless r.nil?
-          rs[r] = Evaluator.new(-x*r, system.result) unless r.nil? || r.xyz?
+          rs[r] = Evaluator.new(x*r, system.result) unless r.nil? || r.xyz?
           rs[r] = Evaluator.new(x, system.result) if r.nil?
         end
         {:lhs=>ls, :rhs=>rs, :domain=>e.domain, :unknown=>e.unknown, :merge=>e.merge?}
@@ -88,8 +91,11 @@ class Solver::Matrix < Solver
     end
     self
   end
+  def nonlinear!
+    @force_nonlinear = true
+  end
   def linear?
-    system.linear?
+    !@force_nonlinear && system.linear?
   end
   attr_reader :unknowns
   attr_reader :mappings
@@ -180,34 +186,19 @@ class Solver::Matrix < Solver
           #{sv_put_stmt("row")}
           x = row.x; y = row.y; z = row.z;
       $
-      if @solver.linear?
-        mapping_codes.each do |mc|
-          stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, x, y, z)) {$
-          mc[:lhs_codes].each do |r, e|
-            stream << %$
-              if(#{mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
-                #{sv_put_stmt("column")}
-                #{SparsityPatternCode.put}(&#{sparsity}, #{NodeCoordCode.new}(row, column));
-              }
-            $
-          end
-          stream << "continue;" unless m
-          stream << "}"
+      matrix_codes = @solver.linear? ? :lhs_codes : :jacobian_codes
+      mapping_codes.each do |mc|
+        stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, x, y, z)) {$
+        mc[matrix_codes].each do |r, e|
+          stream << %$
+            if(#{mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
+              #{sv_put_stmt("column")}
+              #{SparsityPatternCode.put}(&#{sparsity}, #{NodeCoordCode.new}(row, column));
+            }
+          $
         end
-      else
-        mapping_codes.each do |mc|
-          stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, x, y, z)) {$
-          mc[:jacobian_codes].each do |r, e|
-            stream << %$
-              if(#{mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
-                #{sv_put_stmt("column")}
-                #{SparsityPatternCode.put}(&#{sparsity}, #{NodeCoordCode.new}(row, column));
-              }
-            $
-          end
-          stream << "continue;" unless m
-          stream << "}"
-        end
+        stream << "continue;" unless m
+        stream << "}"
       end
       stream << "}}"
       stream << %${

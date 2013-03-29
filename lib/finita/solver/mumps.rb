@@ -72,7 +72,7 @@ class Solver::MUMPS < Solver::Matrix
               #{ctx}.a_loc[index] = #{lhs_code.evaluate}(row, column);
             }
             for(index = 0; index < #{ctx}.n; ++index) {
-              #{ctx}.rhs[index] = #{rhs_code.evaluate}(#{mapper_code.node}(index));
+              #{ctx}.rhs[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
             }
             #{invoke}(5);
             for(index = 0; index < #{ctx}.n; ++index) {
