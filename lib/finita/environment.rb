@@ -17,6 +17,9 @@ class Environment::Sequential < Environment
   end
   class Code < CodeBuilder::Code
     include Singleton
+    def seq?; true end
+    def mpi?; false end
+    def omp?; false end
   end
 end # Sequential
 
@@ -31,6 +34,9 @@ class Environment::MPI < Environment
   end
   class Code < DataStructBuilder::Code
     include Singleton
+    def seq?; false end
+    def mpi?; true end
+    def omp?; false end
     def initialize
       super("FinitaMPI")
     end
@@ -72,6 +78,9 @@ class Environment::OpenMP < Environment
   end
   class Code < CodeBuilder::Code
     include Singleton
+    def seq?; false end
+    def mpi?; false end
+    def omp?; true end
   end
 end # OpenMP
 

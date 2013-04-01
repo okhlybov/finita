@@ -10,6 +10,10 @@ class Solver::MUMPS < Solver::Matrix
       @mumps = @@mumps[system_code.result]
       @mumps_c = "#{@mumps}_c".to_sym
       @MUMPS = @mumps.to_s.upcase.to_sym
+      @numeric_array_code = NumericArrayCode[system_code.result] if mpi?
+    end
+    def entities
+      super + [@numeric_array_code].compact
     end
     def write_setup_body(stream)
       super
@@ -32,7 +36,9 @@ class Solver::MUMPS < Solver::Matrix
         #{ctx}.irn_loc = (int*) #{malloc}(#{ctx}.nz_loc*sizeof(int)); #{assert}(#{ctx}.irn_loc);
         #{ctx}.jcn_loc = (int*) #{malloc}(#{ctx}.nz_loc*sizeof(int)); #{assert}(#{ctx}.jcn_loc);
         #{ctx}.a_loc = (#{system_code.cresult}*) #{calloc}(#{ctx}.nz_loc, sizeof(#{system_code.cresult})); #{assert}(#{ctx}.a_loc);
-        #{ctx}.rhs = (#{system_code.cresult}*) #{calloc}(#{ctx}.n, sizeof(#{system_code.cresult})); #{assert}(#{ctx}.rhs);
+        FINITA_HEAD {
+          #{ctx}.rhs = (#{system_code.cresult}*) #{calloc}(#{ctx}.n, sizeof(#{system_code.cresult})); #{assert}(#{ctx}.rhs);
+        }
         #{ctx}.nrhs = 1;
         #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
         while(#{SparsityPatternCode.itHasNext}(&it)) {
@@ -42,9 +48,12 @@ class Solver::MUMPS < Solver::Matrix
           ++index;
         }
         #{invoke}(1);
-      }$
+      $
+      stream << %$#{@numeric_array_code.ctor}(&#{array}, #{ctx}.n);$ if mpi?
+      stream << "}"
     end
     def write_defs(stream)
+      stream << %$static #{@numeric_array_code.type} #{array};$ if mpi?
       stream << %$
         #include <#{@mumps_c}.h>
         #define ICNTL(x) icntl[(x)-1]
@@ -71,15 +80,44 @@ class Solver::MUMPS < Solver::Matrix
               #{NodeCode.type} row = #{mapper_code.node}(#{ctx}.irn_loc[index] - 1), column = #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1);
               #{ctx}.a_loc[index] = #{lhs_code.evaluate}(row, column);
             }
-            for(index = 0; index < #{ctx}.n; ++index) {
+        $
+        if mpi?
+          stream << %${
+            size_t first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}();
+            for(index = first; index <= last; ++index) {
+              #{@numeric_array_code.set}(&#{array}, index, -#{rhs_code.evaluate}(#{mapper_code.node}(index)));
+            }
+            #{mapper_code.gatherArray}(&#{array});
+            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
+              #{ctx}.rhs[index] = #{@numeric_array_code.get}(&#{array}, index);
+            }
+          $
+        else
+          stream << %$
+            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{ctx}.rhs[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
             }
-            #{invoke}(5);
+          $
+        end
+        stream << %$#{invoke}(5);$
+        if mpi?
+          stream << %$
+            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
+              #{@numeric_array_code.set}(&#{array}, index, #{ctx}.rhs[index]);
+            }
+            #{mapper_code.scatterArray}(&#{array});
             for(index = 0; index < #{ctx}.n; ++index) {
+              #{mapper_code.indexSet}(index, #{@numeric_array_code.get}(&#{array}, index));
+            }
+          }$
+        else
+          stream << %$
+            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{mapper_code.indexSet}(index, #{ctx}.rhs[index]);
             }
-          }
-        $
+          $
+        end
+        stream << "}"
       else
         stream << %$
           void #{system_code.solve}(void) {
@@ -91,23 +129,18 @@ class Solver::MUMPS < Solver::Matrix
               for(index = 0; index < #{ctx}.nz_loc; ++index) {
                 #{NodeCode.type} row = #{mapper_code.node}(#{ctx}.irn_loc[index] - 1), column = #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1);
                 #{ctx}.a_loc[index] = #{jacobian_code.evaluate}(row, column);
-                //printf("a_loc[%d] = %e\\n", index, #{ctx}.a_loc[index]);
               }
               for(index = 0; index < #{ctx}.n; ++index) {
                 #{ctx}.rhs[index] = -#{residual_code.evaluate}(#{mapper_code.node}(index));
-                //printf("rhs[%d] = %e\\n", index, #{ctx}.rhs[index]);
               }
               #{invoke}(5);
               for(index = 0; index < #{ctx}.n; ++index) {
                 #{system_code.cresult} value = #{mapper_code.indexGet}(index);
-                //printf("value[%d] = %e\\n", index, value);
                 base += #{abs}(value);
-                //printf("delta[%d] = %e\\n", index, #{ctx}.rhs[index]);
                 delta += #{abs}(#{ctx}.rhs[index]);
                 #{mapper_code.indexSet}(index, value + #{ctx}.rhs[index]);
               }
               norm = first || base == 0 ? 1 : delta/base;
-              //printf("norm = %e, delta=%e, base=%e\\n", norm, delta, base);
               first = 0;
             } while(norm > #{@solver.rtol});
           }
