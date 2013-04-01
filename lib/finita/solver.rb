@@ -36,13 +36,17 @@ class Solver
       @solver = check_type(solver, Solver)
       @system_code = check_type(system_code, System::Code)
       super("#{system_code.type}Solver")
+      @environment_code = @solver.environment.code(system_code.problem_code) # TODO type check
       @mapper_code = check_type(@solver.mapper.code(self), Mapper::Code)
     end
     def entities
-      super + [mapper_code]
+      super + [mapper_code, @environment_code]
     end
     attr_reader :system_code
     attr_reader :mapper_code
+    def seq?; @environment_code.seq? end
+    def mpi?; @environment_code.mpi? end
+    def omp?; @environment_code.omp? end
     def write_intf(stream)
       stream << %$void #{system_code.solve}(void);$
     end

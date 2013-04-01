@@ -25,28 +25,7 @@ class Mapper::Naive < Mapper
     def write_defs(stream)
       super
       stream << %$
-        static #{NodeArrayCode.type} #{nodes};
-        static #{NodeIndexMapCode.type} #{indices};
-        void #{sync}(void) {}
-        size_t #{firstIndex}(void) {
-          return 0;
-        }
-        size_t #{lastIndex}(void) {
-          return #{size}()-1;
-        }
-        size_t #{size}(void) {
-          return #{NodeArrayCode.size}(&#{nodes});
-        }
-        int #{hasNode}(#{NodeCode.type} node) {
-          return #{NodeIndexMapCode.containsKey}(&#{indices}, node);
-        }
-        #{NodeCode.type} #{node}(size_t index) {
-          return #{NodeArrayCode.get}(&#{nodes}, index);
-        }
-        size_t #{index}(#{NodeCode.type} node) {
-          return #{NodeIndexMapCode.get}(&#{indices}, node);
-        }
-        void #{setup}(void) {size_t index = 0; #{NodeIndexMapCode.ctor}(&#{indices});
+        void #{setup}(void) {size_t index = 0; #{NodeIndexMapCode.ctor}(&#{indices}); FINITA_HEAD {
       $
       @mapping_codes.each do |mc|
         dc, f = mc
@@ -68,6 +47,24 @@ class Mapper::Naive < Mapper
           #{NodeArrayCode.set}(&#{nodes}, entry.value, entry.key);
         }
       }}$
+      stream << %$#{bcastOrdering}();$ if solver_code.mpi?
+      stream << %${
+        int base_index, process;
+        int size = #{NodeArrayCode.size}(&#{nodes});
+        #{counts} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{counts});
+        #{offsets} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{offsets});
+        for(base_index = process = index = 0; index < size; ++index) {
+          if(process < FinitaProcessCount*index/size) {
+            #{offsets}[process] = base_index;
+            #{counts}[process] = index - base_index;
+            base_index = index;
+            ++process;
+          }
+          #{offsets}[process] = base_index;
+          #{counts}[process] = index - base_index + 1;
+        }
+      }$ if solver_code.mpi?
+      stream << "}"
     end
   end # Code
 end # Naive
