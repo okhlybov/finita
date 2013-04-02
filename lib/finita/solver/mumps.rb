@@ -19,6 +19,7 @@ class Solver::MUMPS < Solver::Matrix
       super
       stream << %${
         size_t index = 0;
+        FINITA_ENTER;
         #{SparsityPatternCode.it} it;
         #{ctx}.par = 1; /* computing host */
         #{ctx}.sym = 0; /* unsymmetric matrix mode */
@@ -50,7 +51,7 @@ class Solver::MUMPS < Solver::Matrix
         #{invoke}(1);
       $
       stream << %$#{@numeric_array_code.ctor}(&#{array}, #{ctx}.n);$ if mpi?
-      stream << "}"
+      stream << "FINITA_LEAVE;}"
     end
     def write_defs(stream)
       stream << %$static #{@numeric_array_code.type} #{array};$ if mpi?
@@ -61,6 +62,7 @@ class Solver::MUMPS < Solver::Matrix
         #define INFOG(x) infog[(x)-1]
         static #{@MUMPS}_STRUC_C #{ctx};
         static void #{invoke}(int job) {
+          FINITA_ENTER;
           #{ctx}.job = job;
           #{@mumps_c}(&#{ctx});
           FINITA_HEAD if(#{ctx}.INFOG(1) < 0) {
@@ -68,6 +70,7 @@ class Solver::MUMPS < Solver::Matrix
             snprintf(msg, 1024, "MUMPS returned error code %d", #{ctx}.INFOG(1)); /* FIXME snprintf */
             FINITA_FAILURE(msg);
           }
+          FINITA_LEAVE;
         }
       $
       super
@@ -76,6 +79,7 @@ class Solver::MUMPS < Solver::Matrix
         stream << %$
           void #{system_code.solve}(void) {
             size_t index;
+            FINITA_ENTER;
             for(index = 0; index < #{ctx}.nz_loc; ++index) {
               #{NodeCode.type} row = #{mapper_code.node}(#{ctx}.irn_loc[index] - 1), column = #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1);
               #{ctx}.a_loc[index] = #{lhs_code.evaluate}(row, column);
@@ -117,13 +121,14 @@ class Solver::MUMPS < Solver::Matrix
             }
           $
         end
-        stream << "}"
+        stream << "FINITA_LEAVE;}"
       else
         stream << %$
           void #{system_code.solve}(void) {
             #{system_code.cresult} norm;
             size_t index;
             int first = 1;
+            FINITA_ENTER;
             do {
               #{system_code.cresult} base = 0, delta = 0;
               for(index = 0; index < #{ctx}.nz_loc; ++index) {
@@ -143,6 +148,7 @@ class Solver::MUMPS < Solver::Matrix
               norm = first || base == 0 ? 1 : delta/base;
               first = 0;
             } while(norm > #{@solver.rtol});
+            FINITA_LEAVE;
           }
         $
       end

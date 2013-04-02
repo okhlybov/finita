@@ -49,7 +49,10 @@ class RHS
         static #{@vector_code.type} #{vector};
         void #{setup}(void) {
           int x, y, z;
-          size_t index, first = #{mc.firstIndex}(), last = #{mc.lastIndex}();
+          size_t index, first, last;
+          FINITA_ENTER;
+          first = #{mc.firstIndex}();
+          last = #{mc.lastIndex}();
           #{@vector_code.ctor}(&#{vector});
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} row = #{mc.node}(index);
@@ -68,10 +71,13 @@ class RHS
         stream << "continue;" unless m
         stream << "}"
       end
-      stream << "}}"
+      stream << "}FINITA_LEAVE;}"
       stream << %$
         #{sc.cresult} #{evaluate}(#{NodeCode.type} row) {
-          return #{@function_list_code.summate}(#{@vector_code.get}(&#{vector}, row), row.x, row.y, row.z);
+          #{sc.cresult} result;
+          FINITA_ENTER;
+          result = #{@function_list_code.summate}(#{@vector_code.get}(&#{vector}, row), row.x, row.y, row.z);
+          FINITA_RETURN(result);
         }
       $
     end

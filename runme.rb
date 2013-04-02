@@ -1,7 +1,7 @@
 #$debug = true
 
 
-d3 = true
+d3 = false
 
 
 N = Variable.new(:N, Integer)

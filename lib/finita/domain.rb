@@ -29,8 +29,11 @@ StaticCode = Class.new(DataStructBuilder::Code) do
       int #{within}(#{type}*, int, int, int);
       size_t #{size}(#{type}*);
       FINITA_INLINE size_t #{index}(#{type}* self, int x, int y, int z) {
+        size_t index;
+        FINITA_ENTER;
         #{assert}(#{within}(self, x, y, z));
-        return (x-self->x1) + (self->y2-self->y1+1)*((y-self->y1) + (z-self->z1)*(self->x2-self->x1+1));
+        index = (x-self->x1) + (self->y2-self->y1+1)*((y-self->y1) + (z-self->z1)*(self->x2-self->x1+1));
+        FINITA_RETURN(index);
       }
       void #{itCtor}(#{it}*, #{type}*);
       int #{itHasNext}(#{it}*);
@@ -41,6 +44,7 @@ StaticCode = Class.new(DataStructBuilder::Code) do
     stream << %$
       void #{ctor}(#{type}* self, int x1, int x2, int y1, int y2, int z1, int z2) {
         int i, x, y, z;
+        FINITA_ENTER;
         #{assert}(self);
         #{assert}(x1 <= x2);
         #{assert}(y1 <= y2);
@@ -61,10 +65,14 @@ StaticCode = Class.new(DataStructBuilder::Code) do
           #{node} node; node.x = x; node.y = y; node.z = z;
           self->nodes[i++] = node;
         }
+        FINITA_LEAVE;
       }
       int #{within}(#{type}* self, int x, int y, int z) {
+        int within;
+        FINITA_ENTER;
         #{assert}(self);
-        return (self->x1 <= x && x <= self->x2) && (self->y1 <= y && y <= self->y2) && (self->z1 <= z && z <= self->z2);
+        within = (self->x1 <= x && x <= self->x2) && (self->y1 <= y && y <= self->y2) && (self->z1 <= z && z <= self->z2);
+        FINITA_RETURN(within);
       }
       size_t #{size}(#{type}* self) {
         #{assert}(self);
@@ -75,10 +83,12 @@ StaticCode = Class.new(DataStructBuilder::Code) do
         size_t index;
       };
       void #{itCtor}(#{it}* self, #{type}* area) {
+        FINITA_ENTER;
         #{assert}(self);
         #{assert}(area);
         self->area = area;
         self->index = 0;
+        FINITA_LEAVE;
       }
       int #{itHasNext}(#{it}* self) {
         return self->index < #{size}(self->area);

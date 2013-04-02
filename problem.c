@@ -4,7 +4,7 @@
 #include "problem.auto.h"
 
 
-#define D3
+//#define D3
 
 
 #ifdef D3
@@ -34,7 +34,7 @@
 int main(int argc, char** argv)
 {
     clock_t c;
-	N = 71;
+	N = 51;
 	ProblemSetup(argc, argv);
 {
 	int x, y;

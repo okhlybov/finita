@@ -49,21 +49,25 @@ class Environment::MPI < Environment
     def write_initializer(stream)
       stream << %${
         int ierr, flag;
+        FINITA_ENTER;
         ierr =  MPI_Initialized(&flag); #{assert}(ierr == MPI_SUCCESS);
         if(!flag) {
           ierr = MPI_Init(&argc, &argv); #{assert}(ierr == MPI_SUCCESS);
         }
         ierr = MPI_Comm_size(MPI_COMM_WORLD, &FinitaProcessCount); #{assert}(ierr == MPI_SUCCESS);
         ierr = MPI_Comm_rank(MPI_COMM_WORLD, &FinitaProcessIndex); #{assert}(ierr == MPI_SUCCESS);
+        FINITA_LEAVE;
       }$
     end
     def write_finalizer(stream)
       stream << %${
         int ierr, flag;
+        FINITA_ENTER;
         ierr =  MPI_Finalized(&flag); #{assert}(ierr == MPI_SUCCESS);
         if(!flag) {
           ierr = MPI_Finalize(); #{assert}(ierr == MPI_SUCCESS);
         }
+        FINITA_LEAVE;
       }$
     end
   end

@@ -48,7 +48,10 @@ class LHS
         static #{@matrix_code.type} #{matrix};
         void #{setup}(void) {
           int x, y, z;
-          size_t index, first = #{mc.firstIndex}(), last = #{mc.lastIndex}();
+          size_t index, first, last;
+          FINITA_ENTER;
+          first = #{mc.firstIndex}();
+          last = #{mc.lastIndex}();
           #{@matrix_code.ctor}(&#{matrix});
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} column, row = #{mc.node}(index);
@@ -72,11 +75,14 @@ class LHS
         #{@matrix_code.dumpStats}(&#{matrix}, file);
         fclose(file);
       }$ if $debug
-      stream << '}'
+      stream << "FINITA_LEAVE;}"
       abs = sc.complex? ? 'cabs' : 'abs'
       stream << %$
         #{sc.cresult} #{evaluate}(#{NodeCode.type} row, #{NodeCode.type} column) {
-          return #{@function_list_code.summate}(#{@matrix_code.get}(&#{matrix}, #{NodeCoordCode.new}(row, column)), row.x, row.y, row.z);
+          #{sc.cresult} value;
+          FINITA_ENTER;
+          value = #{@function_list_code.summate}(#{@matrix_code.get}(&#{matrix}, #{NodeCoordCode.new}(row, column)), row.x, row.y, row.z);
+          FINITA_RETURN(value);
         }
       $
     end

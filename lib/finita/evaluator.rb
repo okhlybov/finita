@@ -69,7 +69,10 @@ class Evaluator
       stream << %$
         FINITA_ARGSUSED
         #{@cresult} #{instance}(int x, int y, int z) {
-          return #{CEmitter.new.emit!(@evaluator.expression)};
+          #{@cresult} value;
+          FINITA_ENTER;
+          value = #{CEmitter.new.emit!(@evaluator.expression)};
+          FINITA_RETURN(value);
         }
       $
     end
@@ -105,6 +108,7 @@ NodeCode = Class.new(DataStructBuilder::Code) do
       #define SIGN2LSB(x) ((abs(x) << 1) | (x < 0))
       #{inline} #{type} #{new}(int field, int x, int y, int z) {
         #{type} result;
+        FINITA_ENTER;
         #{assert}(field >= 0);
         result.field = field;
         result.x = x;
@@ -112,7 +116,7 @@ NodeCode = Class.new(DataStructBuilder::Code) do
         result.z = z;
         /* abs(x|y|z) < 2^9 is implied; extra bit is reserved for the sign */
         result.hash = FinitaHashMix(((SIGN2LSB(x) & 0x3FF) | ((SIGN2LSB(y) & 0x3FF) << 10) | ((SIGN2LSB(z) & 0x3FF) << 20)) ^ (field << 30));
-        return result;
+        FINITA_RETURN(result);
       }
       #undef SIGN2LSB
       #{inline} size_t #{hasher}(#{type} node) {
@@ -225,13 +229,14 @@ FunctionListCode = numeric_instances_hash do |type|
       stream << %$
         #{@ctype} #{summate}(#{type}* self, int x, int y, int z) {
           #{@ctype} result = 0;
+          FINITA_ENTER;
           #{it} it;
           #{assert}(self);
           #{itCtor}(&it, self);
           while(#{itHasNext}(&it)) {
             result += #{itNext}(&it)(x, y, z);
           }
-          return result;
+          FINITA_RETURN(result);
         }
       $
     end
@@ -256,9 +261,11 @@ FunctionArrayCode = numeric_instances_hash do |type|
       super
       stream << %$
         void #{merge}(#{type}* self, size_t index, #{@function_code.type} fp) {
+          FINITA_ENTER;
           #{assert}(self);
           #{assert}(fp);
           #{@function_list_code.add}(#{get}(self, index), fp);
+          FINITA_LEAVE;
         }
       $
     end
@@ -285,7 +292,9 @@ SparseMatrixCode = numeric_instances_hash do |type|
       stream << %$
         void #{merge}(#{type}* self, #{NodeCode.type} row, #{NodeCode.type} column, #{@function_code.type} fp) {
           #{@function_list_code.type}* list;
-          #{NodeCoordCode.type} node = #{NodeCoordCode.new}(row, column);
+          #{NodeCoordCode.type} node;
+          FINITA_ENTER;
+          node = #{NodeCoordCode.new}(row, column);
           #{assert}(self);
           #{assert}(fp);
           if(#{containsKey}(self, node)) {
@@ -295,6 +304,7 @@ SparseMatrixCode = numeric_instances_hash do |type|
             #{put}(self, node, list);
           }
           #{@function_list_code.add}(list, fp);
+          FINITA_LEAVE;
         }
       $
     end
@@ -321,6 +331,7 @@ SparseVectorCode = numeric_instances_hash do |type|
       stream << %$
       void #{merge}(#{type}* self, #{NodeCode.type} node, #{@function_code.type} fp) {
         #{@function_list_code.type}* list;
+        FINITA_ENTER;
         #{assert}(self);
         #{assert}(fp);
         if(#{containsKey}(self, node)) {
@@ -330,11 +341,46 @@ SparseVectorCode = numeric_instances_hash do |type|
           #{put}(self, node, list);
         }
         #{@function_list_code.add}(list, fp);
+        FINITA_LEAVE;
       }
     $
     end
   end.new(type)
 end # SparseVectorCode
+
+
+CallStackCode = Class.new(DataStructBuilder::List) do
+  def initialize
+    super("FinitaCallStack", {:type=>"FinitaCallStackEntry", :equal=>"FinitaCallStackEntryEqual", :forward=>"
+      #ifndef NDEBUG
+        typedef struct {const char* func; const char* file; int line;} FinitaCallStackEntry;
+      #endif
+    "})
+  end
+  def write_intf(stream)
+    stream << %$
+      #ifndef NDEBUG
+    $
+    super
+    stream << %$
+      #endif
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      #ifndef NDEBUG
+    $
+    stream << %$
+      int FinitaCallStackEntryEqual(FinitaCallStackEntry lt, FinitaCallStackEntry rt) {
+        return 0;
+      }
+    $
+    super
+    stream << %$
+      #endif
+    $
+  end
+end.new
 
 
 end # Finita

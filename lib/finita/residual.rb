@@ -47,7 +47,11 @@ class Residual
       stream << %$
         static #{@array_code.type} #{evaluators};
         void #{setup}(void) {
-          size_t index, first = #{mc.firstIndex}(), last = #{mc.lastIndex}(), size = last - first + 1;
+          size_t index, first, last, size;
+          FINITA_ENTER;
+          first = #{mc.firstIndex}();
+          last = #{mc.lastIndex}();
+          size = last - first + 1;
           #{@array_code.ctor}(&#{evaluators}, size);
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} node = #{mc.node}(index);
@@ -60,10 +64,13 @@ class Residual
         stream << "continue;" unless m
         stream << "}"
       end
-      stream << "}}"
+      stream << "}FINITA_LEAVE;}"
       stream << %$
         #{sc.cresult} #{evaluate}(#{NodeCode.type} row) {
-          return #{@function_list_code.summate}(#{@array_code.get}(&#{evaluators}, #{mc.index}(row) - #{mc.firstIndex}()), row.x, row.y, row.z);
+          #{sc.cresult} value;
+          FINITA_ENTER;
+          value = #{@function_list_code.summate}(#{@array_code.get}(&#{evaluators}, #{mc.index}(row) - #{mc.firstIndex}()), row.x, row.y, row.z);
+          FINITA_RETURN(value);
         }
       $
     end

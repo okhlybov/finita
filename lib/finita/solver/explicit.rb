@@ -46,7 +46,11 @@ class Solver::Explicit < Solver
       stream << %$
         static #{@array_code.type} #{evaluators};
         void #{setup}(void) {
-          size_t index, first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}(), size = last - first + 1;
+          size_t index, first, last, size;
+          FINITA_ENTER;
+          first = #{mapper_code.firstIndex}();
+          last = #{mapper_code.lastIndex}();
+          size = last - first + 1;
           #{@array_code.ctor}(&#{evaluators}, size);
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} node = #{mapper_code.node}(index);
@@ -60,10 +64,13 @@ class Solver::Explicit < Solver
           }
         $
       end
-      stream << %$}}$
+      stream << %$}FINITA_LEAVE;}$
       stream << %$
         void #{system_code.solve}(void) {
-          size_t index, first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}();
+          size_t index, first, last;
+          FINITA_ENTER;
+          first = #{mapper_code.firstIndex}();
+          last = #{mapper_code.lastIndex}();
           for(index = first; index <= last; ++index) {
             #{@function_list_code.it} it;
             #{system_code.cresult} value = 0;
@@ -75,6 +82,7 @@ class Solver::Explicit < Solver
             #{mapper_code.indexSet}(index, value);
           }
           #{mapper_code.sync}();
+          FINITA_LEAVE;
         }
       $
     end
