@@ -98,7 +98,7 @@ class Solver::MUMPS < Solver::Matrix
           $
         else
           stream << %$
-            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
+            for(index = 0; index < #{ctx}.n; ++index) {
               #{ctx}.rhs[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
             }
           $
@@ -116,7 +116,7 @@ class Solver::MUMPS < Solver::Matrix
           }$
         else
           stream << %$
-            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
+            for(index = 0; index < #{ctx}.n; ++index) {
               #{mapper_code.indexSet}(index, #{ctx}.rhs[index]);
             }
           $
@@ -127,7 +127,7 @@ class Solver::MUMPS < Solver::Matrix
           void #{system_code.solve}(void) {
             #{system_code.cresult} norm;
             size_t index;
-            int first = 1;
+            int stop, first = 1;
             FINITA_ENTER;
             do {
               #{system_code.cresult} base = 0, delta = 0;
@@ -135,19 +135,64 @@ class Solver::MUMPS < Solver::Matrix
                 #{NodeCode.type} row = #{mapper_code.node}(#{ctx}.irn_loc[index] - 1), column = #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1);
                 #{ctx}.a_loc[index] = #{jacobian_code.evaluate}(row, column);
               }
-              for(index = 0; index < #{ctx}.n; ++index) {
-                #{ctx}.rhs[index] = -#{residual_code.evaluate}(#{mapper_code.node}(index));
-              }
-              #{invoke}(5);
-              for(index = 0; index < #{ctx}.n; ++index) {
-                #{system_code.cresult} value = #{mapper_code.indexGet}(index);
+        $
+        if mpi?
+          stream << %${
+            int ierr;
+            size_t first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}();
+            for(index = first; index <= last; ++index) {
+              #{@numeric_array_code.set}(&#{array}, index, #{residual_code.evaluate}(#{mapper_code.node}(index)));
+            }
+            #{mapper_code.gatherArray}(&#{array});
+            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
+              #{ctx}.rhs[index] = -#{@numeric_array_code.get}(&#{array}, index);
+            }
+          $
+        else
+          stream << %$
+            for(index = 0; index < #{ctx}.n; ++index) {
+              #{ctx}.rhs[index] = -#{residual_code.evaluate}(#{mapper_code.node}(index));
+            }
+          $
+        end
+        stream << %$#{invoke}(5);$
+        if mpi?
+          stream << %$
+            FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
+              #{@numeric_array_code.set}(&#{array}, index, #{ctx}.rhs[index]);
+            }
+            #{mapper_code.scatterArray}(&#{array});
+            for(index = 0; index < #{ctx}.n; ++index) {
+              #{system_code.cresult} sigma = #{@numeric_array_code.get}(&#{array}, index), value = #{mapper_code.indexGet}(index);
+              FINITA_HEAD {
                 base += #{abs}(value);
-                delta += #{abs}(#{ctx}.rhs[index]);
-                #{mapper_code.indexSet}(index, value + #{ctx}.rhs[index]);
+                delta += #{abs}(sigma);
               }
+              #{mapper_code.indexSet}(index, value + sigma);
+            }
+            FINITA_HEAD {
               norm = first || base == 0 ? 1 : delta/base;
               first = 0;
-            } while(norm > #{@solver.rtol});
+              stop = norm < #{@solver.rtol};
+            }
+            ierr = MPI_Bcast(&stop, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            FINITA_HEAD {printf("norm = %e\\n", norm);fflush(stdout);}
+          }$
+        else
+          stream << %$
+            for(index = 0; index < #{ctx}.n; ++index) {
+              #{system_code.cresult} value = #{mapper_code.indexGet}(index);
+              base += #{abs}(value);
+              delta += #{abs}(#{ctx}.rhs[index]);
+              #{mapper_code.indexSet}(index, value + #{ctx}.rhs[index]);
+            }
+            norm = first || base == 0 ? 1 : delta/base;
+            first = 0;
+            stop = norm < #{@solver.rtol};
+          $
+        end
+        stream << %$
+            } while(!stop);
             FINITA_LEAVE;
           }
         $
