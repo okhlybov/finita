@@ -6,7 +6,7 @@ sources = problem.c problem.auto1.c
 
 packages = MUMPS_DMO
 
-CPPFLAGS = -g -ansi -pedantic -std=c99 -pg -O3 -DNDEBUG
+CPPFLAGS = -g -ansi -pedantic -std=c99 -pg #-O3 -DNDEBUG
 LDFLAGS = -g -pg
 
 ### End custom definitions

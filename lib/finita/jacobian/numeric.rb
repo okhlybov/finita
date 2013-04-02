@@ -27,7 +27,10 @@ class Jacobian::Numeric < Jacobian
         static #{@matrix_code.type} #{evaluators};
         void #{setup}(void) {
           int x, y, z;
-          size_t index, first = #{mc.firstIndex}(), last = #{mc.lastIndex}();
+          size_t index, first, last;
+          FINITA_ENTER;
+          first = #{mc.firstIndex}();
+          last = #{mc.lastIndex}();
           #{@matrix_code.ctor}(&#{evaluators});
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} column, row = #{mc.node}(index);
@@ -45,14 +48,17 @@ class Jacobian::Numeric < Jacobian
         stream << "continue;" unless m
         stream << "}"
       end
-      stream << "}}"
+      stream << "}FINITA_LEAVE;}"
       cresult = sc.cresult
       rt = @jacobian.rtol
       abs = CAbs[sc.result]
       stream << %$
         #{cresult} #{evaluate}(#{NodeCode.type} row, #{NodeCode.type} column) {
           #{@function_list_code.type}* fps;
-          #{cresult} result = 0, original = #{mc.nodeGet}(column);
+          #{cresult} result, original;
+          FINITA_ENTER;
+          result = 0;
+          original = #{mc.nodeGet}(column);
           #{cresult} delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
           fps = #{@matrix_code.get}(&#{evaluators}, #{NodeCoordCode.new}(row, column));
           #{mc.nodeSet}(column, original + delta);
@@ -60,7 +66,8 @@ class Jacobian::Numeric < Jacobian
           #{mc.nodeSet}(column, original - delta);
           result -= #{@function_list_code.summate}(fps, row.x, row.y, row.z);
           #{mc.nodeSet}(column, original);
-          return result/(2*delta);
+          result /= 2*delta;
+          FINITA_RETURN(result);
         }
       $
     end

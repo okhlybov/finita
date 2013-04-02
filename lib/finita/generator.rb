@@ -13,6 +13,9 @@ module Finita::Generator
 
 class PrologueCode < CodeBuilder::Code
   def priority; CodeBuilder::Priority::MAX end
+  def entities
+    super + [CallStackCode]
+  end
   def initialize(defines)
     @defines = defines
   end
@@ -50,6 +53,18 @@ class PrologueCode < CodeBuilder::Code
         #define FINITA_INLINE static
       #endif
 
+      #ifndef NDEBUG
+        #define FINITA_ENTER FinitaEnterFrame(__func__, __FILE__, __LINE__);
+        #define FINITA_LEAVE FinitaLeaveFrame();
+        #define FINITA_RETURN(x) FinitaLeaveFrame(); return x;
+        void FinitaEnterFrame(const char*, const char*, int);
+        void FinitaLeaveFrame(void);
+      #else
+        #define FINITA_ENTER
+        #define FINITA_LEAVE
+        #define FINITA_RETURN(x) return x;
+      #endif
+
       #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
       FINITA_NORETURN(void FinitaFailure(const char*, const char*, int, const char*));
 
@@ -82,12 +97,13 @@ class PrologueCode < CodeBuilder::Code
       #endif
 
       FINITA_INLINE size_t FinitaHashMix(size_t hash) {
+        FINITA_ENTER;
         hash = (hash ^ 61) ^ (hash >> 16);
         hash = hash + (hash << 3);
         hash = hash ^ (hash >> 4);
         hash = hash * 0x27d4eb2d;
         hash = hash ^ (hash >> 15);
-        return hash;
+        FINITA_RETURN(hash);
       }
     $
     # Thomas Wang's mixing algorithm, 32-bit version
@@ -98,11 +114,44 @@ class PrologueCode < CodeBuilder::Code
     stream << %$
       #include <math.h>
       #include <stdio.h>
+      #ifndef NDEBUG
+        /* FIXME : __thread is not portable */
+        #if defined _MSC_VER || __PGI || __DMC__
+          #define FINITA_TLS __declspec(thread)
+        #else
+          #define FINITA_TLS __thread
+        #endif
+        static FINITA_TLS FinitaCallStack stack;
+        static FINITA_TLS int constructed;
+        void FinitaEnterFrame(const char* func, const char* file, int line) {
+          FinitaCallStackEntry entry = {func, file, line};
+          if(!constructed) {
+            FinitaCallStackCtor(&stack);
+            constructed = 1;
+          }
+          FinitaCallStackAdd(&stack, entry);
+        }
+        void FinitaLeaveFrame(void) {
+          FinitaCallStackChop(&stack);
+        }
+      #endif
       void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
         #ifdef FINITA_MPI
           fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
         #else
           fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
+        #endif
+        #ifndef NDEBUG
+          {
+            FinitaCallStackIt it;
+            FinitaCallStackItCtor(&it, &stack);
+            fprintf(stderr, "--- call stack begin ---\\n");
+            while(FinitaCallStackItHasNext(&it)) {
+              FinitaCallStackEntry entry = FinitaCallStackItNext(&it);
+              fprintf(stderr, "%s (%s:%d)\\n", entry.func, entry.file, entry.line);
+            }
+            fprintf(stderr, "--- call stack end ---\\n");
+          }
         #endif
         FinitaAbort(EXIT_FAILURE);
       }
@@ -112,15 +161,15 @@ class PrologueCode < CodeBuilder::Code
       #else
         #define FINITA_SNPRINTF snprintf
       #endif
-      void FinitaAssert(const char* func, const char* file, int line, const char* test) {
-        char msg[1024];
-        #if defined __DMC__
-          sprintf(msg, "assertion %s failed", test);
-        #else
-          FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
-        #endif
-        FinitaFailure(func, file, line, msg);
-      }
+        void FinitaAssert(const char* func, const char* file, int line, const char* test) {
+          char msg[1024];
+          #if defined __DMC__
+            sprintf(msg, "assertion %s failed", test);
+          #else
+            FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
+          #endif
+          FinitaFailure(func, file, line, msg);
+        }
       #endif
     $
   end

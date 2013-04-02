@@ -167,14 +167,14 @@ class Solver::Matrix < Solver
     def write_defs(stream)
       super
       stream << %$static #{SparsityPatternCode.type} #{sparsity};$
-      stream << %$void #{setup}(void){$
+      stream << %$void #{setup}(void){FINITA_ENTER;$
       write_setup_body(stream)
       stream << %${
         FILE* f = fopen("#{sparsity}.txt", "wt");
         #{SparsityPatternCode.dumpStats}(&#{sparsity}, f);
         fclose(f);
       }$ if $debug
-      stream << "}"
+      stream << "FINITA_LEAVE;}"
     end
     def sv_put_stmt(v)
       %$#{@node_set_code.put}(&nodes, #{v});$ if $debug
@@ -183,7 +183,11 @@ class Solver::Matrix < Solver
       stream << %$#{@node_set_code.type} nodes; #{@node_set_code.ctor}(&nodes);$ if $debug
       stream << %${
         int x, y, z;
-        size_t index, first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}(), size = last - first + 1;
+        size_t index, first, last, size;
+        FINITA_ENTER;
+        first = #{mapper_code.firstIndex}();
+        last = #{mapper_code.lastIndex}();
+        size = last - first + 1;
         #{SparsityPatternCode.ctor}(&#{sparsity});
         for(index = first; index <= last; ++index) {
           #{NodeCode.type} column, row = #{mapper_code.node}(index);
@@ -204,12 +208,12 @@ class Solver::Matrix < Solver
         stream << "continue;" unless m
         stream << "}"
       end
-      stream << "}}"
-      stream << %${
+      stream << "}FINITA_LEAVE;}"
+      stream << %${FINITA_ENTER;
         FILE* file = fopen("#{nodes}.txt", "wt");
         #{@node_set_code.dumpStats}(&nodes, file);
         fclose(file);
-      }$ if $debug
+      FINITA_LEAVE;}$ if $debug
     end
   end # Code
 end # Matrix
