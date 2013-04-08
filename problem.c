@@ -57,7 +57,9 @@ int main(int argc, char** argv)
         //PRINT_FIELD(stdout, F);
         //printf("G:\n");
         //PRINT_FIELD(stdout, G);
-        FILE* f = fopen("F.dat", "wt");
+        char tmp[128];
+        sprintf(tmp, "F.dat", FinitaProcessIndex);
+        FILE* f = fopen(tmp, "wt");
         PRINT_FIELD(f, F);
         fclose(f);
 	}

@@ -175,6 +175,9 @@ class Solver::Matrix < Solver
         fclose(f);
       }$ if $debug
       stream << "FINITA_LEAVE;}"
+      stream << %$void #{cleanup}(void) {FINITA_ENTER;$
+      write_cleanup_body(stream)
+      stream << %$FINITA_LEAVE;}$
     end
     def sv_put_stmt(v)
       %$#{@node_set_code.put}(&nodes, #{v});$ if $debug
@@ -215,6 +218,7 @@ class Solver::Matrix < Solver
         fclose(file);
       FINITA_LEAVE;}$ if $debug
     end
+    def write_clenup_body(stream); end
   end # Code
 end # Matrix
 

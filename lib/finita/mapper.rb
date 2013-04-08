@@ -44,7 +44,7 @@ class Mapper
         size_t #{size}(void);
         size_t #{firstIndex}(void);
         size_t #{lastIndex}(void);
-        void #{synchronize}(void);
+        void #{synchronizeUnknowns}(void);
       $
     end
     def write_defs(stream)
@@ -94,7 +94,7 @@ class Mapper
         stream << %$
           static int* #{counts};
           static int* #{offsets};
-          static void #{bcastOrdering}(void) {
+          static void #{broadcastOrdering}(void) {
             int size;
             int ierr, index, position;
             int packed_entry_size, packed_buffer_size;
@@ -136,7 +136,7 @@ class Mapper
         ctype = CType[sc.result]
         mpi_ctype = MPIType[sc.result]
         stream << %$
-          void #{synchronize}(void) {
+          void #{synchronizeUnknowns}(void) {
             int ierr, index, count, process;
             #{ctype} *input, *real;
             #{ctype} *imaginary;
@@ -267,6 +267,7 @@ class Mapper
           #{free}(real);
           #{free}(input);
         }$
+
         stream << %$
           void #{scatterArray}(#{@numeric_array_code.type}* array) {
             int ierr, count, index, process;
@@ -310,6 +311,45 @@ class Mapper
           #{free}(real);
           #{free}(output);
         }$
+
+        stream << %$
+          void #{broadcastArray}(#{@numeric_array_code.type}* array) {
+            int ierr, count, index, process;
+            #{ctype} *real, *imaginary;
+            size_t size = #{NodeArrayCode.size}(&#{nodes});
+            real = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(real);
+        $
+        if sc.complex?
+          stream << %$
+            imaginary = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(imaginary);
+            FINITA_HEAD for(index = 0; index < size; ++index) {
+              real[index] = creal(#{@numeric_array_code.get}(array, index));
+            }
+            ierr = MPI_Bcast(real, size, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            FINITA_HEAD for(index = 0; index < size; ++index) {
+              imaginary[index] = cimag(#{@numeric_array_code.get}(array, index));
+            }
+            ierr = MPI_Bcast(imaginary, size, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            FINITA_NHEAD for(index = 0; index < size; ++index) {
+              #{@numeric_array_code.set}(array, index, real[index] + _Complex_I*imaginary[index]);
+            }
+            #{free}(imaginary);
+          $
+        else
+          stream << %$
+            FINITA_HEAD for(index = 0; index < size; ++index) {
+              real[index] = #{@numeric_array_code.get}(array, index);
+            }
+            ierr = MPI_Bcast(real, size, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+            FINITA_NHEAD for(index = 0; index < size; ++index) {
+              #{@numeric_array_code.set}(array, index, real[index]);
+            }
+          $
+        end
+        stream << %$
+          #{free}(real);
+        }$
+
         stream << %$
           size_t #{firstIndex}(void) {
             return #{offsets}[FinitaProcessIndex];

@@ -7,6 +7,7 @@ class Solver::MUMPS < Solver::Matrix
     def initialize(*args)
       super
       system_code.initializer_codes << self
+      system_code.finalizer_codes << self
       @mumps = @@mumps[system_code.result]
       @mumps_c = "#{@mumps}_c".to_sym
       @MUMPS = @mumps.to_s.upcase.to_sym
@@ -25,10 +26,13 @@ class Solver::MUMPS < Solver::Matrix
         #{ctx}.sym = 0; /* unsymmetric matrix mode */
         #{ctx}.comm_fortran = -987654; /* MPI_COMM_WORLD */
         #{invoke}(-1);
-        #{ctx}.ICNTL(3) = -1; /* disable debugging output */
+        #ifdef NDEBUG
+          #{ctx}.ICNTL(3) = -1; /* disable debugging output */
+        #else
+          #{ctx}.ICNTL(4) = 0; /* terse debugging output */
+        #endif
         #{ctx}.ICNTL(5) = 0; /* assembled matrix format */
         #{ctx}.ICNTL(6) = 1; /* permutation that does not require the values of the matrix to be specified */
-        /*#{ctx}.ICNTL(7) = 1;*/ /* AMD ordering */
         #{ctx}.ICNTL(18) = 3; /* distributed matrix format */
         #{ctx}.ICNTL(20) = 0; /* centralized vector format */
         #{ctx}.ICNTL(21) = 0; /* centralized solution format */
@@ -52,6 +56,17 @@ class Solver::MUMPS < Solver::Matrix
       $
       stream << %$#{@numeric_array_code.ctor}(&#{array}, #{ctx}.n);$ if mpi?
       stream << "FINITA_LEAVE;}"
+    end
+    def write_cleanup_body(stream)
+      super
+      stream << %$
+        #{free}(#{ctx}.irn_loc);
+        #{free}(#{ctx}.jcn_loc);
+        FINITA_HEAD {
+          #{free}(#{ctx}.rhs);
+        }
+        #{invoke}(-2);
+      $
     end
     def write_defs(stream)
       stream << %$static #{@numeric_array_code.type} #{array};$ if mpi?
@@ -109,7 +124,7 @@ class Solver::MUMPS < Solver::Matrix
             FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, #{ctx}.rhs[index]);
             }
-            #{mapper_code.scatterArray}(&#{array});
+            #{mapper_code.broadcastArray}(&#{array});
             for(index = 0; index < #{ctx}.n; ++index) {
               #{mapper_code.indexSet}(index, #{@numeric_array_code.get}(&#{array}, index));
             }
@@ -126,7 +141,7 @@ class Solver::MUMPS < Solver::Matrix
         stream << %$
           void #{system_code.solve}(void) {
             #{system_code.cresult} norm;
-            size_t index;
+            size_t index, step = 0;
             int stop, first = 1;
             FINITA_ENTER;
             do {
@@ -161,7 +176,7 @@ class Solver::MUMPS < Solver::Matrix
             FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, #{ctx}.rhs[index]);
             }
-            #{mapper_code.scatterArray}(&#{array});
+            #{mapper_code.broadcastArray}(&#{array});
             for(index = 0; index < #{ctx}.n; ++index) {
               #{system_code.cresult} sigma = #{@numeric_array_code.get}(&#{array}, index), value = #{mapper_code.indexGet}(index);
               FINITA_HEAD {
@@ -173,10 +188,9 @@ class Solver::MUMPS < Solver::Matrix
             FINITA_HEAD {
               norm = first || base == 0 ? 1 : delta/base;
               first = 0;
-              stop = norm < #{@solver.rtol};
+              stop = norm < #{@solver.rtol}; /* FIXME : wont work for complex numbers */
             }
             ierr = MPI_Bcast(&stop, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_HEAD {printf("norm = %e\\n", norm);fflush(stdout);}
           }$
         else
           stream << %$
@@ -192,7 +206,7 @@ class Solver::MUMPS < Solver::Matrix
           $
         end
         stream << %$
-            } while(!stop);
+            ++step;} while(!stop);
             FINITA_LEAVE;
           }
         $
@@ -205,6 +219,9 @@ class Solver::MUMPS < Solver::Matrix
     end
     def write_initializer(stream)
       stream << %$#{setup}();$
+    end
+    def write_finalizer(stream)
+      stream << %$#{cleanup}();$
     end
   end # Code
 end # MUMPS
