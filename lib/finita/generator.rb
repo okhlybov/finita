@@ -22,6 +22,7 @@ class PrologueCode < CodeBuilder::Code
   def write_intf(stream)
     @defines.each {|s| stream << "#define #{s}\n"}
     stream << %$
+      #include <stdio.h>
       #include <stdlib.h>
       #include <malloc.h>
 

@@ -85,7 +85,37 @@ def self.numeric_instances_hash(&block)
 end
 
 
-NumericArrayCode = numeric_instances_hash {|type| Class.new(DataStructBuilder::Vector).new("Finita#{type}Array", {:type=>CType[type]})}
+NumericArrayCode = numeric_instances_hash do |type|
+  Class.new(DataStructBuilder::Vector) do
+    @@fprintf_stmt = {
+      Integer => %$fprintf(file, "%d\\t%d\\n", index, value)$,
+      Float => %$fprintf(file, "%d\\t%e\\n", index, value)$,
+      Complex => %$fprintf(file, "%d\\t%e+i(%e)\\n", index, creal(value), cimag(value))$
+    }
+    def initialize(type)
+      super("Finita#{type}Array", {:type=>CType[type]})
+      @result = type
+    end
+    def write_intf(stream)
+      super
+      stream << %$void #{dump}(#{type}*, FILE*);$
+    end
+    def write_defs(stream)
+      super
+      stream << %$
+        void #{dump}(#{type}* self, FILE* file) {
+          size_t index;
+          #{assert}(self);
+          #{assert}(file);
+          for(index = 0; index < #{size}(self); ++index) {
+            #{CType[@result]} value = #{get}(self, index);
+            #{@@fprintf_stmt[@result]};
+          }
+        }
+      $
+    end
+  end.new(type)
+end
 
 
 NodeCode = Class.new(DataStructBuilder::Code) do

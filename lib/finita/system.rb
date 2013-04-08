@@ -126,16 +126,16 @@ class System
       stream << %$#{cleanup}();$
     end
     def write_defs(stream)
-      stream << %$void #{setup}(void) {$
+      stream << %$void #{setup}(void) {FINITA_ENTER;$
       CodeBuilder.priority_sort(initializer_codes, false).each do |e|
         e.write_initializer(stream)
       end
-      stream << '}'
-      stream << %$void #{cleanup}(void) {$
+      stream << "FINITA_LEAVE;}"
+      stream << %$void #{cleanup}(void) {FINITA_ENTER;$
       CodeBuilder.priority_sort(finalizer_codes, true).each do |e|
         e.write_finalizer(stream)
       end
-      stream << '}'
+      stream << "FINITA_LEAVE;}"
     end
   end # Code
 end # System

@@ -37,7 +37,7 @@ Problem.new(:Problem) do
     env = Environment::MPI.new
     #env = Environment::Sequential.new
     s.solver = Solver::MUMPS.new(Mapper::Naive.new, env, Jacobian::Numeric.new) do |s|
-      s.nonlinear!
+      #s.nonlinear!
     end
     Equation.new(laplace(F) - G, F, B)
   end

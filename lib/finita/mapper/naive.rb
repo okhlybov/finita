@@ -47,7 +47,7 @@ class Mapper::Naive < Mapper
           #{NodeArrayCode.set}(&#{nodes}, entry.value, entry.key);
         }
       }}$
-      stream << %$#{bcastOrdering}();$ if solver_code.mpi?
+      stream << %$#{broadcastOrdering}();$ if solver_code.mpi?
       stream << %${
         int base_index, process;
         int size = #{NodeArrayCode.size}(&#{nodes});
