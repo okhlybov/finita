@@ -102,11 +102,11 @@ class Solver::MUMPS < Solver::Matrix
         $
         if mpi?
           stream << %${
-            size_t first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}();
+            size_t first = #{decomposer_code.firstIndex}(), last = #{decomposer_code.lastIndex}();
             for(index = first; index <= last; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, -#{rhs_code.evaluate}(#{mapper_code.node}(index)));
             }
-            #{mapper_code.gatherArray}(&#{array});
+            #{decomposer_code.gatherArray}(&#{array});
             FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{ctx}.rhs[index] = #{@numeric_array_code.get}(&#{array}, index);
             }
@@ -124,7 +124,7 @@ class Solver::MUMPS < Solver::Matrix
             FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, #{ctx}.rhs[index]);
             }
-            #{mapper_code.broadcastArray}(&#{array});
+            #{decomposer_code.broadcastArray}(&#{array});
             for(index = 0; index < #{ctx}.n; ++index) {
               #{mapper_code.indexSet}(index, #{@numeric_array_code.get}(&#{array}, index));
             }
@@ -154,11 +154,11 @@ class Solver::MUMPS < Solver::Matrix
         if mpi?
           stream << %${
             int ierr;
-            size_t first = #{mapper_code.firstIndex}(), last = #{mapper_code.lastIndex}();
+            size_t first = #{decomposer_code.firstIndex}(), last = #{decomposer_code.lastIndex}();
             for(index = first; index <= last; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, #{residual_code.evaluate}(#{mapper_code.node}(index)));
             }
-            #{mapper_code.gatherArray}(&#{array});
+            #{decomposer_code.gatherArray}(&#{array});
             FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{ctx}.rhs[index] = -#{@numeric_array_code.get}(&#{array}, index);
             }
@@ -176,7 +176,7 @@ class Solver::MUMPS < Solver::Matrix
             FINITA_HEAD for(index = 0; index < #{ctx}.n; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, #{ctx}.rhs[index]);
             }
-            #{mapper_code.broadcastArray}(&#{array});
+            #{decomposer_code.broadcastArray}(&#{array});
             for(index = 0; index < #{ctx}.n; ++index) {
               #{system_code.cresult} sigma = #{@numeric_array_code.get}(&#{array}, index), value = #{mapper_code.indexGet}(index);
               FINITA_HEAD {

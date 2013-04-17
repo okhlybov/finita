@@ -26,7 +26,7 @@ class LHS
       sc.initializer_codes << self
     end
     def entities
-      super + [NodeCode, @matrix_code, @function_list_code] + solver_code.all_dependent_codes
+      super + [NodeCode, @matrix_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes
     end
     attr_reader :solver_code
     def hash
@@ -43,6 +43,7 @@ class LHS
     end
     def write_defs(stream)
       mc = solver_code.mapper_code
+      dc = solver_code.decomposer_code
       sc = solver_code.system_code
       stream << %$
         static #{@matrix_code.type} #{matrix};
@@ -50,8 +51,8 @@ class LHS
           int x, y, z;
           size_t index, first, last;
           FINITA_ENTER;
-          first = #{mc.firstIndex}();
-          last = #{mc.lastIndex}();
+          first = #{dc.firstIndex}();
+          last = #{dc.lastIndex}();
           #{@matrix_code.ctor}(&#{matrix});
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} column, row = #{mc.node}(index);

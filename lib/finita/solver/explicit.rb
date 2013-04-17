@@ -48,9 +48,9 @@ class Solver::Explicit < Solver
         void #{setup}(void) {
           size_t index, first, last, size;
           FINITA_ENTER;
-          first = #{mapper_code.firstIndex}();
-          last = #{mapper_code.lastIndex}();
-          size = last - first + 1;
+          first = #{decomposer_code.firstIndex}();
+          last = #{decomposer_code.lastIndex}();
+          size = #{decomposer_code.indexCount}();
           #{@array_code.ctor}(&#{evaluators}, size);
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} node = #{mapper_code.node}(index);
@@ -69,8 +69,8 @@ class Solver::Explicit < Solver
         void #{system_code.solve}(void) {
           size_t index, first, last;
           FINITA_ENTER;
-          first = #{mapper_code.firstIndex}();
-          last = #{mapper_code.lastIndex}();
+          first = #{decomposer_code.firstIndex}();
+          last = #{decomposer_code.lastIndex}();
           for(index = first; index <= last; ++index) {
             #{@function_list_code.it} it;
             #{system_code.cresult} value = 0;

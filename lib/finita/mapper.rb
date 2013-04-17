@@ -34,6 +34,7 @@ class Mapper
     def write_intf(stream)
       sc = solver_code.system_code
       stream << %$
+        size_t #{size}(void);
         #{NodeCode.type} #{node}(size_t);
         int #{hasNode}(#{NodeCode.type});
         size_t #{index}(#{NodeCode.type});
@@ -41,10 +42,6 @@ class Mapper
         #{sc.cresult} #{indexGet}(size_t);
         void #{nodeSet}(#{NodeCode.type}, #{sc.cresult});
         #{sc.cresult} #{nodeGet}(#{NodeCode.type});
-        size_t #{size}(void);
-        size_t #{firstIndex}(void);
-        size_t #{lastIndex}(void);
-        void #{synchronizeUnknowns}(void);
       $
     end
     def write_defs(stream)
@@ -89,11 +86,12 @@ class Mapper
         size_t #{index}(#{NodeCode.type} node) {
           return #{NodeIndexMapCode.get}(&#{indices}, node);
         }
+        size_t #{size}(void) {
+          return #{NodeArrayCode.size}(&#{nodes});
+        }
       $
       if solver_code.mpi?
         stream << %$
-          static int* #{counts};
-          static int* #{offsets};
           static void #{broadcastOrdering}(void) {
             int size;
             int ierr, index, position;
@@ -131,250 +129,6 @@ class Mapper
             #{free}(packed_buffer);
         }$
       end
-      if solver_code.mpi?
-        sc = solver_code.system_code
-        ctype = CType[sc.result]
-        mpi_ctype = MPIType[sc.result]
-        stream << %$
-          void #{synchronizeUnknowns}(void) {
-            int ierr, index, count, process;
-            #{ctype} *input, *real;
-            #{ctype} *imaginary;
-            input = (#{ctype}*)#{malloc}(#{counts}[FinitaProcessIndex]*sizeof(#{ctype})); #{assert}(input);
-            real = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(real);
-        $
-        if sc.complex?
-          stream << %$
-            imaginary = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(imaginary);
-            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = creal(#{indexGet}(index));
-            }
-            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, real, #{counts}, #{offsets}, #{mpi_ctype}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = cimag(#{indexGet}(index));
-            }
-            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, imaginary, #{counts}, #{offsets}, #{mpi_ctype}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            for(process = 0; process < FinitaProcessCount; ++process) {
-              if(process != FinitaProcessIndex) {
-                for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                  #{indexSet}(index, real[index] + _Complex_I*imaginary[index]);
-                }
-              }
-            }
-            #{free}(imaginary);
-          $
-        else
-          stream << %$
-            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = #{indexGet}(index);
-            }
-            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, real, #{counts}, #{offsets}, #{mpi_ctype}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            for(process = 0; process < FinitaProcessCount; ++process) {
-              if(process != FinitaProcessIndex) {
-                for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                  #{indexSet}(index, real[index]);
-                }
-              }
-            }
-          $
-        end
-        stream << "}"
-        stream << %$
-          void #{synchronizeArray}(#{@numeric_array_code.type}* array) {
-            int ierr, index, count, process;
-            #{ctype} *input, *real, *imaginary;
-            input = (#{ctype}*)#{malloc}(#{counts}[FinitaProcessIndex]*sizeof(#{ctype})); #{assert}(input);
-            real = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(real);
-        $
-        if sc.complex?
-          stream << %$
-            imaginary = (#{ctype}*)#{malloc}(#{NodeCodeArray.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(imaginary);
-            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = creal(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, real, #{counts}, #{offsets}, #{mpi_ctype}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = cimag(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, imaginary, #{counts}, #{offsets}, #{mpi_ctype}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            for(process = 0; process < FinitaProcessCount; ++process) {
-              if(process != FinitaProcessIndex) {
-                for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                  #{@numeric_array_code.set}(array, index, real[index] + _Complex_I*imaginary[index]);
-                }
-              }
-            }
-            #{free}(imaginary);
-          $
-        else
-          stream << %$
-            for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = #{@numeric_array_code.get}(array, index);
-            }
-            ierr = MPI_Allgatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, real, #{counts}, #{offsets}, #{mpi_ctype}, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            for(process = 0; process < FinitaProcessCount; ++process) {
-              if(process != FinitaProcessIndex) {
-                for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                  #{@numeric_array_code.set}(array, index, real[index]);
-                }
-              }
-            }
-          $
-        end
-        stream << %$
-          #{free}(real);
-          #{free}(input);
-        }$
-        stream << %$
-          void #{gatherArray}(#{@numeric_array_code.type}* array) {
-            int ierr, index, count, process;
-            #{ctype} *input, *real, *imaginary;
-            input = (#{ctype}*)#{malloc}(#{counts}[FinitaProcessIndex]*sizeof(#{ctype})); #{assert}(input);
-            real = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(real);
-        $
-        if sc.complex?
-          stream << %$
-            imaginary = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(imaginary);
-            FINITA_NHEAD for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = creal(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Gatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, real, #{counts}, #{offsets}, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_NHEAD for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = cimag(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Gatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, imaginary, #{counts}, #{offsets}, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_HEAD for(process = 1; process < FinitaProcessCount; ++process) {
-              for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                #{@numeric_array_code.set}(array, index, real[index] + _Complex_I*imaginary[index]);
-              }
-            }
-            #{free}(imaginary);
-          $
-        else
-          stream << %$
-            FINITA_NHEAD for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              input[count] = #{@numeric_array_code.get}(array, index);
-            }
-            ierr = MPI_Gatherv(input, #{counts}[FinitaProcessIndex], #{mpi_ctype}, real, #{counts}, #{offsets}, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_HEAD for(process = 1; process < FinitaProcessCount; ++process) {
-              for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                #{@numeric_array_code.set}(array, index, real[index]);
-              }
-            }
-          $
-        end
-        stream << %$
-          #{free}(real);
-          #{free}(input);
-        }$
-
-        stream << %$
-          void #{scatterArray}(#{@numeric_array_code.type}* array) {
-            int ierr, count, index, process;
-            #{ctype} *output, *real, *imaginary;
-            size_t size = #{size}();
-            output = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(output);
-            real = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(real);
-        $
-        if sc.complex?
-          stream << %$
-            imaginary = (#{ctype}*)#{malloc}(#{NodeArrayCode.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(imaginary);
-            FINITA_HEAD for(index = 0; index < size; ++index) {
-              output[index] = creal(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Scatterv(output, #{counts}, #{offsets}, #{mpi_ctype}, real, #{counts}[FinitaProcessIndex], #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_HEAD for(count = 0, index = #{offsets}[FinitaProcessIndex]; count < #{counts}[FinitaProcessIndex]; ++count, ++index) {
-              output[index] = cimag(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Scatterv(output, #{counts}, #{offsets}, #{mpi_ctype}, imaginary, #{counts}[FinitaProcessIndex], #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_NHEAD for(process = 1; process < FinitaProcessCount; ++process) {
-              for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                #{@numeric_array_code.set}(array, index, real[index] + _Complex_I*imaginary[index]);
-              }
-            }
-            #{free}(imaginary);
-          $
-        else
-          stream << %$
-            FINITA_HEAD for(index = 0; index < size; ++index) {
-              output[index] = #{@numeric_array_code.get}(array, index);
-            }
-            ierr = MPI_Scatterv(output, #{counts}, #{offsets}, #{mpi_ctype}, real, #{counts}[FinitaProcessIndex], #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_NHEAD for(process = 1; process < FinitaProcessCount; ++process) {
-              for(count = 0, index = #{offsets}[process]; count < #{counts}[process]; ++count, ++index) {
-                #{@numeric_array_code.set}(array, index, real[index]);
-              }
-            }
-          $
-        end
-        stream << %$
-          #{free}(real);
-          #{free}(output);
-        }$
-
-        stream << %$
-          void #{broadcastArray}(#{@numeric_array_code.type}* array) {
-            int ierr, count, index, process;
-            #{ctype} *real, *imaginary;
-            size_t size = #{NodeArrayCode.size}(&#{nodes});
-            real = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(real);
-        $
-        if sc.complex?
-          stream << %$
-            imaginary = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(imaginary);
-            FINITA_HEAD for(index = 0; index < size; ++index) {
-              real[index] = creal(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Bcast(real, size, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_HEAD for(index = 0; index < size; ++index) {
-              imaginary[index] = cimag(#{@numeric_array_code.get}(array, index));
-            }
-            ierr = MPI_Bcast(imaginary, size, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_NHEAD for(index = 0; index < size; ++index) {
-              #{@numeric_array_code.set}(array, index, real[index] + _Complex_I*imaginary[index]);
-            }
-            #{free}(imaginary);
-          $
-        else
-          stream << %$
-            FINITA_HEAD for(index = 0; index < size; ++index) {
-              real[index] = #{@numeric_array_code.get}(array, index);
-            }
-            ierr = MPI_Bcast(real, size, #{mpi_ctype}, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-            FINITA_NHEAD for(index = 0; index < size; ++index) {
-              #{@numeric_array_code.set}(array, index, real[index]);
-            }
-          $
-        end
-        stream << %$
-          #{free}(real);
-        }$
-
-        stream << %$
-          size_t #{firstIndex}(void) {
-            return #{offsets}[FinitaProcessIndex];
-          }
-          size_t #{lastIndex}(void) {
-            return #{offsets}[FinitaProcessIndex] + #{counts}[FinitaProcessIndex] - 1;
-          }
-          size_t #{size}(void) {
-            return #{NodeArrayCode.size}(&#{nodes});
-          }
-        $
-      else
-        stream << %$
-          void #{synchronize}(void) {}
-          size_t #{firstIndex}(void) {
-            return 0;
-          }
-          size_t #{lastIndex}(void) {
-            return #{size}()-1;
-          }
-          size_t #{size}(void) {
-            return #{NodeArrayCode.size}(&#{nodes});
-          }
-        $
-      end
     end
     def write_initializer(stream)
       stream << %$#{setup}();$
@@ -383,7 +137,57 @@ class Mapper
 end # Mapper
 
 
+class Mapper::Naive < Mapper
+  class Code < Mapper::Code
+    def initialize(mapper, solver_code)
+      super
+      solver_code.system_code.initializer_codes << self
+      pc = solver_code.system_code.problem_code
+      @unknown_codes = @mapper.unknowns.collect {|u| check_type(u.code(pc), Field::Code)}
+      @domain_codes = []
+      @mapping_codes = @mapper.mappings.collect do |m|
+        dc = m.first.code(pc)
+        @domain_codes << dc
+        [dc, @mapper.unknowns.index(m.last)]
+      end
+    end
+    def entities
+      super + [NodeArrayCode, NodeIndexMapCode] + @domain_codes
+    end
+    def write_intf(stream)
+      super
+      stream << %$void #{setup}(void);$
+    end
+    def write_defs(stream)
+      super
+      stream << %$
+        void #{setup}(void) {size_t index = 0; #{NodeIndexMapCode.ctor}(&#{indices}); FINITA_HEAD {
+      $
+      @mapping_codes.each do |mc|
+        dc, f = mc
+        stream << %${
+          #{dc.it} it;
+          #{dc.itCtor}(&it, &#{dc.instance});
+          while(#{dc.itHasNext}(&it)) {
+            #{dc.node} coord = #{dc.itNext}(&it);
+            if(#{NodeIndexMapCode.put}(&#{indices}, #{NodeCode.new}(#{f}, coord.x, coord.y, coord.z), index)) ++index;
+          }
+        }$
+      end
+      stream << %${
+        #{NodeIndexMapCode.it} it;
+        #{NodeArrayCode.ctor}(&#{nodes}, #{NodeIndexMapCode.size}(&#{indices}));
+        #{NodeIndexMapCode.itCtor}(&it, &#{indices});
+        while(#{NodeIndexMapCode.itHasNext}(&it)) {
+          #{NodeIndexMapCode.entry} entry = #{NodeIndexMapCode.itNext}(&it);
+          #{NodeArrayCode.set}(&#{nodes}, entry.value, entry.key);
+        }
+      }}$
+      stream << %$#{broadcastOrdering}();$ if solver_code.mpi?
+      stream << "}"
+    end
+  end # Code
+end # Naive
+
+
 end # Finita
-
-
-require "finita/mapper/naive"
