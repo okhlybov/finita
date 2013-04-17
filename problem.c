@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 	for(y = 0; y < N; ++y)
 		{
 			F(x,y,0) = 0;
-			G(x,y,0) = 1e-4;
+			G(x,y,0) = 5e-4;
 		}
 #ifdef D3
 	for(x = 0; x < N; ++x) for(y = 0; y < N; ++y) F(x,y,0) = 1;
@@ -58,7 +58,11 @@ int main(int argc, char** argv)
         //printf("G:\n");
         //PRINT_FIELD(stdout, G);
         char tmp[128];
-        sprintf(tmp, "F.dat", FinitaProcessIndex);
+        #ifdef FINITA_MPI
+            sprintf(tmp, "F%d.dat", FinitaProcessIndex);
+        #else
+            sprintf(tmp, "F.dat");
+        #endif
         FILE* f = fopen(tmp, "wt");
         PRINT_FIELD(f, F);
         fclose(f);

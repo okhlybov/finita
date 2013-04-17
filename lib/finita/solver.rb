@@ -2,6 +2,7 @@ require "finita/common"
 require "finita/system"
 require "finita/evaluator"
 require "finita/mapper"
+require "finita/decomposer"
 require "finita/environment"
 require "finita/jacobian"
 require "finita/residual"
@@ -14,9 +15,11 @@ module Finita
 
 class Solver
   attr_reader :mapper
+  attr_reader :decomposer
   attr_reader :environment
-  def initialize(mapper, environment, &block)
+  def initialize(mapper, decomposer, environment, &block)
     @mapper = check_type(mapper, Mapper)
+    @decomposer = check_type(decomposer, Decomposer)
     @environment = check_type(environment, Environment)
     if block_given?
       block.call(self)
@@ -26,6 +29,7 @@ class Solver
   def process!(system)
     @system = check_type(system, System)
     @mapper = mapper.process!(self)
+    @decomposer = decomposer.process!(self)
     self
   end
   def code(system_code)
@@ -38,12 +42,14 @@ class Solver
       super("#{system_code.type}Solver")
       @environment_code = @solver.environment.code(system_code.problem_code) # TODO type check
       @mapper_code = check_type(@solver.mapper.code(self), Mapper::Code)
+      @decomposer_code = check_type(@solver.decomposer.code(self), Decomposer::Code)
     end
     def entities
-      super + [mapper_code, @environment_code]
+      super + [mapper_code, decomposer_code, @environment_code]
     end
     attr_reader :system_code
     attr_reader :mapper_code
+    attr_reader :decomposer_code
     def seq?; @environment_code.seq? end
     def mpi?; @environment_code.mpi? end
     def omp?; @environment_code.omp? end
@@ -55,8 +61,8 @@ end # Solver
 
 
 class Solver::Matrix < Solver
-  def initialize(mapper, environment, jacobian, rtol = 1e-9)
-    super(mapper, environment)
+  def initialize(mapper, decomposer, environment, jacobian, rtol = 1e-9)
+    super(mapper, decomposer, environment)
     @jacobian = check_type(jacobian, Jacobian)
     @residual = Residual.new
     @lhs = LHS.new
@@ -188,9 +194,9 @@ class Solver::Matrix < Solver
         int x, y, z;
         size_t index, first, last, size;
         FINITA_ENTER;
-        first = #{mapper_code.firstIndex}();
-        last = #{mapper_code.lastIndex}();
-        size = last - first + 1;
+        first = #{decomposer_code.firstIndex}();
+        last = #{decomposer_code.lastIndex}();
+        size = #{decomposer_code.indexCount}();
         #{SparsityPatternCode.ctor}(&#{sparsity});
         for(index = first; index <= last; ++index) {
           #{NodeCode.type} column, row = #{mapper_code.node}(index);

@@ -28,7 +28,7 @@ class Residual
       @mapping_codes = solver_code.mapping_codes
     end
     def entities
-      super + [NodeCode, @array_code, @function_code, @function_list_code] + solver_code.all_dependent_codes
+      super + [NodeCode, @array_code, @function_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes
     end
     attr_reader :solver_code
     def hash
@@ -43,15 +43,16 @@ class Residual
     def write_defs(stream)
       super
       mc = solver_code.mapper_code
+      dc = solver_code.decomposer_code
       sc = solver_code.system_code
       stream << %$
         static #{@array_code.type} #{evaluators};
         void #{setup}(void) {
           size_t index, first, last, size;
           FINITA_ENTER;
-          first = #{mc.firstIndex}();
-          last = #{mc.lastIndex}();
-          size = last - first + 1;
+          first = #{dc.firstIndex}();
+          last = #{dc.lastIndex}();
+          size = #{dc.indexCount}();
           #{@array_code.ctor}(&#{evaluators}, size);
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} node = #{mc.node}(index);
@@ -69,7 +70,7 @@ class Residual
         #{sc.cresult} #{evaluate}(#{NodeCode.type} row) {
           #{sc.cresult} value;
           FINITA_ENTER;
-          value = #{@function_list_code.summate}(#{@array_code.get}(&#{evaluators}, #{mc.index}(row) - #{mc.firstIndex}()), row.x, row.y, row.z);
+          value = #{@function_list_code.summate}(#{@array_code.get}(&#{evaluators}, #{mc.index}(row) - #{dc.firstIndex}()), row.x, row.y, row.z);
           FINITA_RETURN(value);
         }
       $

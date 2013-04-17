@@ -27,7 +27,7 @@ class RHS
       sc.initializer_codes << self
     end
     def entities
-      super + [NodeCode, @vector_code, @function_list_code] + solver_code.all_dependent_codes
+      super + [NodeCode, @vector_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes
     end
     attr_reader :solver_code
     def hash
@@ -44,6 +44,7 @@ class RHS
     end
     def write_defs(stream)
       mc = solver_code.mapper_code
+      dc = solver_code.decomposer_code
       sc = solver_code.system_code
       stream << %$
         static #{@vector_code.type} #{vector};
@@ -51,8 +52,8 @@ class RHS
           int x, y, z;
           size_t index, first, last;
           FINITA_ENTER;
-          first = #{mc.firstIndex}();
-          last = #{mc.lastIndex}();
+          first = #{dc.firstIndex}();
+          last = #{dc.lastIndex}();
           #{@vector_code.ctor}(&#{vector});
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} row = #{mc.node}(index);
