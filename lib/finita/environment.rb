@@ -7,12 +7,16 @@ module Finita
 
 
 class Environment
+  def seq?; is_a?(Sequential) end
+  def mpi?; is_a?(MPI) end
+  def omp?; is_a?(OpenMP) end
 end # Environment
 
 
 class Environment::Sequential < Environment
   Tag = :seq
   def code(problem_code)
+    problem_code.defines << :FINITA_SEQ
     Code.instance
   end
   class Code < CodeBuilder::Code

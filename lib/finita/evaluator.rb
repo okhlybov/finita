@@ -259,8 +259,8 @@ FunctionListCode = numeric_instances_hash do |type|
       stream << %$
         #{@ctype} #{summate}(#{type}* self, int x, int y, int z) {
           #{@ctype} result = 0;
-          FINITA_ENTER;
           #{it} it;
+          FINITA_ENTER;
           #{assert}(self);
           #{itCtor}(&it, self);
           while(#{itHasNext}(&it)) {
