@@ -4,6 +4,7 @@ module Finita
 class Solver::Explicit < Solver
   def initialize(*args)
     super
+    raise "unsupported environment" unless environment.seq?
   end
   def process!(*args)
     super
@@ -72,16 +73,10 @@ class Solver::Explicit < Solver
           first = #{decomposer_code.firstIndex}();
           last = #{decomposer_code.lastIndex}();
           for(index = first; index <= last; ++index) {
-            #{@function_list_code.it} it;
-            #{system_code.cresult} value = 0;
             #{NodeCode.type} node = #{mapper_code.node}(index);
-            #{@function_list_code.itCtor}(&it, #{@array_code.get}(&#{evaluators}, index - first));
-            while(#{@function_list_code.itHasNext}(&it)) {
-              value += #{@function_list_code.itNext}(&it)(node.x, node.y, node.z);
-            }
-            #{mapper_code.indexSet}(index, value);
+            #{mapper_code.indexSet}(index, #{@function_list_code.summate}(#{@array_code.get}(&#{evaluators}, index - first), node.x, node.y, node.z));
           }
-          #{mapper_code.sync}();
+          #{decomposer_code.synchronizeUnknowns}();
           FINITA_LEAVE;
         }
       $

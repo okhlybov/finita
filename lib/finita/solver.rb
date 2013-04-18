@@ -234,3 +234,4 @@ end # Finita
 
 require "finita/solver/explicit"
 require "finita/solver/mumps"
+require "finita/solver/petsc"

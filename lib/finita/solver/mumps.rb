@@ -2,6 +2,10 @@ module Finita
 
 
 class Solver::MUMPS < Solver::Matrix
+  def initialize(*args)
+    super
+    raise "unsupported environment" unless environment.seq? or environment.mpi?
+  end
   class Code < Solver::Matrix::Code
     @@mumps = {Float=>:dmumps, Complex=>:zmumps}
     def initialize(*args)
@@ -96,8 +100,7 @@ class Solver::MUMPS < Solver::Matrix
             size_t index;
             FINITA_ENTER;
             for(index = 0; index < #{ctx}.nz_loc; ++index) {
-              #{NodeCode.type} row = #{mapper_code.node}(#{ctx}.irn_loc[index] - 1), column = #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1);
-              #{ctx}.a_loc[index] = #{lhs_code.evaluate}(row, column);
+              #{ctx}.a_loc[index] = #{lhs_code.evaluate}(#{mapper_code.node}(#{ctx}.irn_loc[index] - 1), #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1));
             }
         $
         if mpi?
@@ -147,8 +150,7 @@ class Solver::MUMPS < Solver::Matrix
             do {
               #{system_code.cresult} base = 0, delta = 0;
               for(index = 0; index < #{ctx}.nz_loc; ++index) {
-                #{NodeCode.type} row = #{mapper_code.node}(#{ctx}.irn_loc[index] - 1), column = #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1);
-                #{ctx}.a_loc[index] = #{jacobian_code.evaluate}(row, column);
+                #{ctx}.a_loc[index] = #{jacobian_code.evaluate}(#{mapper_code.node}(#{ctx}.irn_loc[index] - 1), #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1));
               }
         $
         if mpi?
