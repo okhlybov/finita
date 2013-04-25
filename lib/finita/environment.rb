@@ -21,6 +21,9 @@ class Environment::Sequential < Environment
   end
   class Code < CodeBuilder::Code
     include Singleton
+    def priority
+      CodeBuilder::Priority::DEFAULT + 1
+    end
     def seq?; true end
     def mpi?; false end
     def omp?; false end
@@ -38,6 +41,9 @@ class Environment::MPI < Environment
   end
   class Code < DataStructBuilder::Code
     include Singleton
+    def priority
+      CodeBuilder::Priority::DEFAULT + 1
+    end
     def seq?; false end
     def mpi?; true end
     def omp?; false end
@@ -86,6 +92,9 @@ class Environment::OpenMP < Environment
   end
   class Code < CodeBuilder::Code
     include Singleton
+    def priority
+      CodeBuilder::Priority::DEFAULT + 1
+    end
     def seq?; false end
     def mpi?; false end
     def omp?; true end
