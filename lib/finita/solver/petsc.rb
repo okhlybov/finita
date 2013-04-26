@@ -90,10 +90,18 @@ class Solver::PETSc < Solver::Matrix
           ierr = KSPSetOperators(#{ksp}, #{matrix}, #{matrix}, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
         $
       else
-        stream << %$static SNES #{snes};$
+        stream << %$
+          static SNES #{snes};
+          static Vec #{functionVector};
+          static PetscErrorCode #{jacobianEvaluator}(SNES, Vec, Mat*, Mat*, MatStructure*, void*);
+          static PetscErrorCode #{residualEvaluator}(SNES, Vec, Vec, void*);
+        $
         solver_setup_stmt = %$
+          ierr = VecDuplicate(#{vector}, &#{functionVector}); CHKERRQ(ierr);
           ierr = SNESCreate(PETSC_COMM_WORLD, &#{snes}); CHKERRQ(ierr);
           ierr = SNESSetFromOptions(#{snes}); CHKERRQ(ierr);
+          ierr = SNESSetJacobian(#{snes}, #{matrix}, #{matrix}, #{jacobianEvaluator}, PETSC_NULL); CHKERRQ(ierr);
+          ierr = SNESSetFunction(#{snes}, #{functionVector}, #{residualEvaluator}, PETSC_NULL); CHKERRQ(ierr);
         $
       end
       stream << %$
@@ -206,10 +214,10 @@ class Solver::PETSc < Solver::Matrix
           PetscErrorCode ierr;
           FINITA_ENTER;
           values = (PetscScalar*)#{malloc}(#{matrixSize}*sizeof(PetscScalar)); #{assert}(values);
-          /*** start a per row matrix fill */
           columns = (PetscInt*)#{malloc}(#{matrixSize}*sizeof(PetscInt)); #{assert}(columns);
           for(index = count = 0, row = #{matrixRC}[index].row; index < #{matrixSize}; ++index) {
             /* assuming RC is in the row-first form */
+            #{assert}(#{matrixRC}[index].row >= row);
             if(#{matrixRC}[index].row > row) {
               ierr = MatSetValues(#{matrix}, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
               row = #{matrixRC}[index].row;
@@ -222,16 +230,13 @@ class Solver::PETSc < Solver::Matrix
           }
           ierr = MatSetValues(#{matrix}, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
           #{free}(columns);
-          /*** end matrix fill */
           ierr = MatAssemblyBegin(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
           ierr = MatAssemblyEnd(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
           #{assert}(#{matrixSize} >= #{vectorSize});
-          /*** start vector fill */
           for(index = 0; index < #{vectorSize}; ++index) {
             values[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(#{vectorIndices}[index]));
           }
           ierr = VecSetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values, INSERT_VALUES); CHKERRQ(ierr);
-          /*** end vector fill */
           ierr = VecAssemblyBegin(#{vector}); CHKERRQ(ierr);
           ierr = VecAssemblyEnd(#{vector}); CHKERRQ(ierr);
           ierr = KSPSolve(#{ksp}, #{vector}, #{vector});
@@ -246,6 +251,115 @@ class Solver::PETSc < Solver::Matrix
       $
     end
     def write_solve_nonlinear(stream)
+      stream << %$
+        static PetscErrorCode #{unknowns2Vector}(Vec x) {
+          PetscErrorCode ierr;
+          PetscScalar* values;
+          PetscInt size;
+          size_t index, first;
+          FINITA_ENTER;
+          first = #{decomposer_code.firstIndex}();
+          ierr = VecGetLocalSize(x, &size); CHKERRQ(ierr);
+          #{assert}(#{decomposer_code.indexCount}() == size);
+          #{assert}(#{decomposer_code.lastIndex}() == first + size - 1);
+          ierr = VecGetArray(x, &values); CHKERRQ(ierr);
+          for(index = 0; index < size; ++index) {
+            values[index] = #{mapper_code.indexGet}(index + first);
+          }
+          ierr = VecRestoreArray(x, &values); CHKERRQ(ierr);
+          FINITA_RETURN(0);
+        }
+        static PetscErrorCode #{vector2Unknowns}(Vec x) {
+          PetscErrorCode ierr;
+          PetscScalar* values;
+          PetscInt size;
+          size_t index, first;
+          FINITA_ENTER;
+          first = #{decomposer_code.firstIndex}();
+          ierr = VecGetLocalSize(x, &size); CHKERRQ(ierr);
+          #{assert}(#{decomposer_code.indexCount}() == size);
+          #{assert}(#{decomposer_code.lastIndex}() == first + size - 1);
+          ierr = VecGetArray(x, &values); CHKERRQ(ierr);
+          for(index = 0; index < size; ++index) {
+            #{mapper_code.indexSet}(index + first, values[index]);
+          }
+          ierr = VecRestoreArray(x, &values); CHKERRQ(ierr);
+          #{decomposer_code.synchronizeUnknowns}();
+          FINITA_RETURN(0);
+        }
+        static PetscErrorCode #{residualEvaluator}(SNES snes, Vec x, Vec f, void* ctx) {
+          PetscErrorCode ierr;
+          size_t index;
+          #ifndef NDEBUG
+            PetscInt xsize;
+          #endif
+          PetscInt fsize;
+          PetscScalar* values;
+          FINITA_ENTER;
+          #ifndef NDEBUG
+            ierr = VecGetSize(x, &xsize); CHKERRQ(ierr);
+          #endif
+          ierr = VecGetSize(f, &fsize); CHKERRQ(ierr);
+          #{assert}(fsize == xsize);
+          #{assert}(fsize == #{vectorSize});
+          ierr = #{vector2Unknowns}(x); CHKERRQ(ierr);
+          values = (PetscScalar*)#{malloc}(#{matrixSize}*sizeof(PetscScalar)); #{assert}(values);
+          for(index = 0; index < fsize; ++index) {
+            values[index] = #{residual_code.evaluate}(#{mapper_code.node}(#{vectorIndices}[index]));
+          }
+          ierr = VecSetValues(f, fsize, #{vectorIndices}, values, INSERT_VALUES); CHKERRQ(ierr);
+          #{free}(values);
+          ierr = VecAssemblyBegin(#{vector}); CHKERRQ(ierr);
+          ierr = VecAssemblyEnd(#{vector}); CHKERRQ(ierr);
+          FINITA_RETURN(0);
+        }
+        static PetscErrorCode #{jacobianEvaluator}(SNES snes, Vec x, Mat* A, Mat* B, MatStructure* flag, void* ctx) {
+          PetscErrorCode ierr;
+          size_t index, count;
+          PetscScalar* values;
+          PetscInt row;
+          PetscInt* columns;
+          FINITA_ENTER;
+          ierr = #{vector2Unknowns}(x); CHKERRQ(ierr);
+          values = (PetscScalar*)#{malloc}(#{matrixSize}*sizeof(PetscScalar)); #{assert}(values);
+          columns = (PetscInt*)#{malloc}(#{matrixSize}*sizeof(PetscInt)); #{assert}(columns);
+          #ifndef NDEBUG
+          {
+            PetscInt first, last;
+            ierr = MatGetOwnershipRange(*A, &first, &last);
+            #{assert}(#{decomposer_code.firstIndex}() == first);
+            #{assert}(#{decomposer_code.lastIndex}() == last - 1);
+          }
+          #endif
+          for(index = count = 0, row = #{matrixRC}[index].row; index < #{matrixSize}; ++index) {
+            /* assuming RC is in the row-first form */
+            #{assert}(#{matrixRC}[index].row >= row);
+            if(#{matrixRC}[index].row > row) {
+              ierr = MatSetValues(#{matrix}, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
+              row = #{matrixRC}[index].row;
+              count = 0;
+            }
+            #{assert}(count < #{matrixSize});
+            values[count] = #{jacobian_code.evaluate}(#{mapper_code.node}(#{matrixRC}[index].row), #{mapper_code.node}(#{matrixRC}[index].column));
+            columns[count] = #{matrixRC}[index].column;
+            ++count;
+          }
+          ierr = MatSetValues(#{matrix}, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
+          ierr = MatAssemblyBegin(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+          ierr = MatAssemblyEnd(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+          #{free}(columns);
+          #{free}(values);
+          FINITA_RETURN(0);
+        }
+        static PetscErrorCode #{invoke}(void) {
+          PetscErrorCode ierr;
+          FINITA_ENTER;
+          ierr = #{unknowns2Vector}(#{vector}); CHKERRQ(ierr);
+          ierr = SNESSolve(#{snes}, PETSC_NULL, #{vector}); CHKERRQ(ierr);
+          ierr = #{vector2Unknowns}(#{vector}); CHKERRQ(ierr);
+          FINITA_RETURN(0);
+        }
+      $
     end
     def write_setup_body(stream)
       super

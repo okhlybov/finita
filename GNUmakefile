@@ -4,7 +4,7 @@ program = problem
 
 sources = problem.c problem.auto1.c
 
-packages = PETSC_DSO
+packages = PETSC_DMG
 
 CPPFLAGS = -g -ansi -pedantic -std=c99 -pg #-O3 -DNDEBUG
 LDFLAGS = -g -pg

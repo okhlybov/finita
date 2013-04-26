@@ -192,11 +192,10 @@ class Solver::Matrix < Solver
       stream << %$#{@node_set_code.type} nodes; #{@node_set_code.ctor}(&nodes);$ if $debug
       stream << %${
         int x, y, z;
-        size_t index, first, last, size;
+        size_t index, first, last;
         FINITA_ENTER;
         first = #{decomposer_code.firstIndex}();
         last = #{decomposer_code.lastIndex}();
-        size = #{decomposer_code.indexCount}();
         #{SparsityPatternCode.ctor}(&#{sparsity});
         for(index = first; index <= last; ++index) {
           #{NodeCode.type} column, row = #{mapper_code.node}(index);

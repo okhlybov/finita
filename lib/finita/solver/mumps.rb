@@ -24,8 +24,8 @@ class Solver::MUMPS < Solver::Matrix
       super
       stream << %${
         size_t index = 0;
-        FINITA_ENTER;
         #{SparsityPatternCode.it} it;
+        FINITA_ENTER;
         #{ctx}.par = 1; /* computing host */
         #{ctx}.sym = 0; /* unsymmetric matrix mode */
         #{ctx}.comm_fortran = -987654; /* MPI_COMM_WORLD */
