@@ -125,7 +125,10 @@ class PrologueCode < CodeBuilder::Code
         static FINITA_TLS FinitaCallStack stack;
         static FINITA_TLS int constructed;
         void FinitaEnterFrame(const char* func, const char* file, int line) {
-          FinitaCallStackEntry entry = {func, file, line};
+          FinitaCallStackEntry entry;
+          entry.func = func;
+          entry.file = file;
+          entry.line = line;
           if(!constructed) {
             FinitaCallStackCtor(&stack);
             constructed = 1;

@@ -4,7 +4,7 @@
 #include "problem.auto.h"
 
 
-//#define D3
+/*#define D3*/
 
 
 #ifdef D3
@@ -34,7 +34,7 @@
 int main(int argc, char** argv)
 {
     clock_t c;
-	N = 11;
+	N = 101;
 	ProblemSetup(argc, argv);
 {
 	int x, y;
@@ -53,17 +53,14 @@ int main(int argc, char** argv)
     ProblemSystemSolve();
     #if 1
     FINITA_HEAD {
-        //printf("F:\n");
-        //PRINT_FIELD(stdout, F);
-        //printf("G:\n");
-        //PRINT_FIELD(stdout, G);
         char tmp[128];
+        FILE* f;
         #ifdef FINITA_MPI
             sprintf(tmp, "F%d.dat", FinitaProcessIndex);
         #else
             sprintf(tmp, "F.dat");
         #endif
-        FILE* f = fopen(tmp, "wt");
+        f = fopen(tmp, "wt");
         PRINT_FIELD(f, F);
         fclose(f);
 	}
