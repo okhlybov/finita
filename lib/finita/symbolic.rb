@@ -625,7 +625,8 @@ class ProductExtractor
     if index.nil?
       @rest = nil
     else
-      args = obj.args.dup; args.slice!(index)
+      args = obj.args.dup
+      args.slice!(index)
       @rest = Multiply.make(*args)
     end
   end
