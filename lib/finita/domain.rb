@@ -6,10 +6,60 @@ require "finita/generator"
 
 
 module Finita::Domain
+
+
+class Range
+  def self.coerce(arg)
+    if arg.nil?
+      Range::Nil
+    elsif arg.is_a?(Range)
+      arg
+    elsif arg.is_a?(Array)
+      Range.new(Symbolic.coerce(arg.first), Symbolic.coerce(arg.last))
+    else
+      Range.new(0, Finita.simplify(Symbolic.coerce(arg)-1))
+    end
+  end
+  attr_reader :first
+  attr_reader :last
+  def before?; @before end
+  def after?; @after end
+  def initialize(first, last, before_first = false, after_last = false)
+    @first = Symbolic.coerce(first)
+    @last = Symbolic.coerce(last)
+    @before = before_first
+    @after = after_last
+  end
+  def nil?
+    equal?(Nil)
+  end
+  def hash
+    first.hash ^ last.hash # TODO
+  end
+  def ==(other)
+    equal?(other) || self.class == other.class && first == other.first && last == other.last && before? == other.before? && after? == other.after?
+  end
+  alias :eql? :==
+  def to_a
+    [first, last]
+  end
+  def to_s
+    (before? ? "(" : "[") << Finita::Emitter.new.emit!(first) << "..." << Finita::Emitter.new.emit!(last) << (after? ? ")" : "]")
+  end
+  def decompose
+    nil? ? [self] : [Range.new(first, first, false, true), Range.new(first+1, last-1, true, true), Range.new(last, last, true, false)]
+  end
+  Nil = Range.new(0,0)
+end # Range
+
+
 end # Finita::Domain
 
 
-module Finita::Domain::Cubic
+module Finita::Domain::Rectangular
+
+
+Range = Finita::Domain::Range
 
 
 StaticCode = Class.new(DataStructBuilder::Code) do
@@ -102,12 +152,16 @@ end.new("FinitaCubicArea") # StaticCode
 
 
 class Area
-  Empty = [0,0]
   attr_reader :xrange, :yrange, :zrange
+  attr_reader :planes
   def initialize(xs = nil, ys = nil, zs = nil)
-    @xrange = Area.coerce(xs)
-    @yrange = Area.coerce(ys)
-    @zrange = Area.coerce(zs)
+    @xrange = Range.coerce(xs)
+    @yrange = Range.coerce(ys)
+    @zrange = Range.coerce(zs)
+    @planes = Set.new
+    @planes << :x unless xrange.nil?
+    @planes << :y unless yrange.nil?
+    @planes << :z unless zrange.nil?
   end
   def hash
     self.class.hash ^ (xrange.hash << 1) ^ (yrange.hash << 2) ^ (zrange.hash << 3) # TODO
@@ -116,17 +170,16 @@ class Area
     equal?(other) || self.class == other.class && xrange == other.xrange && yrange == other.yrange && zrange == other.zrange
   end
   alias :eql? :==
+  def to_s
+    "{" << [xrange, yrange, zrange].collect {|r| r.nil? ? "?" : r.to_s}.join(" ") << "}"
+  end
+  def decompose
+    [self]
+  end
   def code(problem_code)
     Code.new(self, problem_code)
   end
   private
-  def self.coerce(obj)
-    if obj.nil?
-      Empty
-    else
-      obj.is_a?(Array) ? [Finita.simplify(obj.first), Finita.simplify(obj.last)] : [Finita.simplify(0), Finita.simplify(obj-1)]
-    end
-  end
   class Code < DataStructBuilder::Code
     class << self
       alias :__new__ :new
@@ -139,7 +192,7 @@ class Area
     @@codes = {}
     attr_reader :instance
     def entities
-      super + [StaticCode] + Collector.new.apply!(*(@area.xrange + @area.yrange + @area.zrange)).instances.collect {|o| o.code(@problem_code)}
+      super + [StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)}
     end
     def initialize(area, problem_code)
       @area = area
@@ -165,13 +218,28 @@ class Area
       $
     end
     def write_initializer(stream)
-      args = (@area.xrange + @area.yrange + @area.zrange).collect {|e| CEmitter.new.emit!(e)}.join(",")
+      args = (@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a).collect {|e| CEmitter.new.emit!(e)}.join(",")
       stream << %$
         #{ctor}(&#{instance}, #{args});
       $
     end
   end # Code
 end # Area
+
+
+class Domain < Area
+  def decompose
+    set = Set.new
+    xrange.decompose.each do |xr|
+      yrange.decompose.each do |yr|
+        zrange.decompose.each do |zr|
+          set << Area.new(xr, yr, zr)
+        end
+      end
+    end
+    set.to_a
+  end
+end # Domain
 
 
 end # Finita::Domain
