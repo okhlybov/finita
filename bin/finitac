@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-require 'finita'
+require "finita"
 include Symbolic
 include Finita
 eval(IO.read(ARGV[0]), binding, ARGV[0], 1)

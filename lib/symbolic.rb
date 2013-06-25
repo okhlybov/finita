@@ -585,24 +585,17 @@ end
 
 # Visitor class which performs full symbolic differentiation of expression.
 class Differ
-
   attr_reader :diffs, :result
-
   def initialize(diffs = {})
     @diffs = Differ.coerce(diffs)
+    ary = @diffs.flatten
     @zero = @diffs.empty?
-    ary = @diffs.flatten; @unit = (ary.size == 2 && ary.last == 1) # true in case of {???=>1} and false otherwise
+    @unit = ary.size == 2 && ary.last == 1 # true in case of {???=>1} and false otherwise
   end
-
-  def zero?; @zero end
-
-  def unit?; @unit end
-
   def apply!(obj)
     obj.convert.apply(self)
     result
   end
-
   def symbol(obj)
     if zero?
       @result = obj
@@ -612,77 +605,64 @@ class Differ
       diffs_seq(obj)
     end
   end
-
   def numeric(obj)
     @result = zero? ? obj : 0
   end
-
   def add(obj)
     # (a+b)' --> a' + b'
-    @result = Add.make(*obj.args.collect {|arg| apply(arg)}).convert
+    @result = Add.make(*obj.args.collect {|arg| apply!(arg)}).convert
     # no need process the arguments with self.class.run() explicitly
   end
-
   def multiply(obj)
     if zero?
-      @result = Multiply.new(*obj.args.collect {|arg| apply(arg)}).convert
+      @result = Multiply.new(*obj.args.collect {|arg| apply!(arg)}).convert
     elsif unit?
       # (a*b)' --> a'*b + a*b'
       rest = obj.args.dup
       term = rest.shift
       rest_mul = Multiply.make(*rest)
-      lt = apply(term)*self.class.new.apply(rest_mul)
-      rt = self.class.new.apply(term)*(rest.size > 1 ? apply(rest_mul) : apply(rest.first))
+      lt = apply!(term)*self.class.new.apply!(rest_mul)
+      rt = self.class.new.apply!(term)*(rest.size > 1 ? apply!(rest_mul) : apply!(rest.first))
       @result = Add.new(lt, rt).convert
     else
       diffs_seq(obj)
     end
   end
-
   def power(obj)
     if zero?
-      @result = Power.new(*obj.args.collect {|arg| apply(arg)}).convert
+      @result = Power.new(*obj.args.collect {|arg| apply!(arg)}).convert
     elsif unit?
-      raise 'expected Power instance in a canonicalized form' unless obj.args.size == 2
+      raise "expected Power instance in a canonicalized form" unless obj.args.size == 2
       base, power = obj.args
       # (a^b)' --> a^b*(ln(a)*b' + b/a*a')
-      @result = (obj*(apply(power)*Log.new(base) + apply(base)*power/base)).convert
+      @result = (obj*(apply!(power)*Log.new(base) + apply!(base)*power/base)).convert
     else
       diffs_seq(obj)
     end
   end
-
   def exp(obj)
     if zero?
-      @result = Exp.new(apply(obj.arg)).convert
+      @result = Exp.new(apply!(obj.arg)).convert
     elsif unit?
       # exp(a)' --> exp(a)*a'
-      @result = (obj*apply(obj.arg)).convert
+      @result = (obj*apply!(obj.arg)).convert
     else
       diffs_seq(obj)
     end
   end
-
   def log(obj)
     if zero?
-      @result = Log.new(apply(obj.arg)).convert
+      @result = Log.new(apply!(obj.arg)).convert
     elsif unit?
       # ln(a)' --> a'/a
-      @result = (apply(obj.arg)/obj).convert
+      @result = (apply!(obj.arg)/obj).convert
     else
       diffs_seq(obj)
     end
   end
-
-  def apply(obj)
-    obj.apply(self)
-    @result
-  end
-
   def self.coerce(diffs)
     diffs.is_a?(Hash) ? diffs : {diffs=>1} # TODO validity check
   end
-
   def self.diffs_each(diffs, &block)
     diffs.each do |k,v|
       (1..v).each do
@@ -690,29 +670,31 @@ class Differ
       end
     end
   end
-
+  protected
+  def zero?; @zero end
+  def unit?; @unit end
   private
-
-  def diffs_merge_with(diffs)
-    set = self.diffs.dup # self is important!
-    diffs.each do |k,v|
-      set[k] = set.include?(k) ? set[k]+v : v
-    end
-    set
-  end
-
   def diffs_seq(obj)
     @result = obj
     Differ.diffs_each(diffs) do |diff|
-      @result = self.class.new(diff).apply(@result)
+      @result = self.class.new(diff).apply!(@result)
     end
   end
-
 end # Differ
 
 
 #
 class Traverser
+  def plus(obj) traverse_unary(obj) end
+  def minus(obj) traverse_unary(obj) end
+  def exp(obj) traverse_unary(obj) end
+  def log(obj) traverse_unary(obj) end
+  def add(obj) traverse_nary(obj) end
+  def multiply(obj) traverse_nary(obj) end
+  def subtract(obj) traverse_nary(obj) end
+  def divide(obj) traverse_nary(obj) end
+  def power(obj) traverse_nary(obj) end
+  protected
   def traverse_unary(obj)
     obj.arg.apply(self)
   end
@@ -721,34 +703,7 @@ class Traverser
       arg.apply(self)
     end
   end
-protected :traverse_unary, :traverse_nary
-  def plus(obj) traverse_unary(obj) end
-  def minus(obj) traverse_unary(obj) end
-  def exp(obj) traverse_unary(obj) end
-  def log(obj) traverse_unary(obj) end
-  def add(obj) traverse_nary(obj) end
-  def subtract(obj) traverse_nary(obj) end
-  def multiply(obj) traverse_nary(obj) end
-  def divide(obj) traverse_nary(obj) end
-  def power(obj) traverse_nary(obj) end
 end # Traverser
-
-
-#
-class Transformer < Traverser
-  attr_reader :result
-  def traverse_unary(obj)
-    obj.arg.apply(self)
-    @result = obj.new_instance(@result)
-  end
-  def traverse_nary(obj)
-    args = obj.args.collect do |arg|
-      arg.apply(self)
-      @result
-    end
-    @result = obj.new_instance(*args)
-  end
-end # Transformer
 
 
 # Default precedence computer.

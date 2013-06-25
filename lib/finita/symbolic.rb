@@ -1,3 +1,4 @@
+require "set"
 require "symbolic"
 require "finita/common"
 require "finita/domain"
@@ -155,11 +156,7 @@ class Constant < Numeric
       equal?(other) || self.class == other.class && constant == other.constant
     end
     def write_intf(stream)
-      value = if constant.type == Complex
-                "#{constant.value.real}+_Complex_I*(#{constant.value.imaginary})"
-              else
-                constant.value
-              end
+      value = constant.type == Complex ? "#{constant.value.real}+_Complex_I*(#{constant.value.imaginary})" : constant.value
       stream << %$
         #define #{constant.name} #{@problem_code.problem.name}#{constant.name}
         static const #{CType[constant.type]} #{constant.name} = #{value};
@@ -388,6 +385,68 @@ class Index
 end # Index
 
 
+class D < Symbolic::UnaryFunction
+  Diffs = Set.new [:x, :y, :z]
+  attr_reader :diffs
+  def initialize(op, arg)
+    super(op)
+    @diffs = Symbolic::Differ.coerce(arg)
+  end
+  def hash
+    super ^ diffs.hash # TODO
+  end
+  def ==(other)
+    super && diffs == other.diffs
+  end
+  alias :eql? :==
+  def apply(obj)
+    obj.d(self)
+  end
+  def new_instance(arg)
+    self.class.new(arg, diffs)
+  end
+end # D
+
+
+class Differ < Symbolic::Differ
+  def constant(obj)
+    @result = zero? ? obj : 0
+  end
+  def variable(obj)
+    @result = zero? ? obj : 0
+  end
+  def field(obj)
+    @result = zero? ? obj : D.new(obj, diffs)
+  end
+  def ref(obj)
+    @result = Ref.new(apply!(obj.arg), obj.xindex, obj.yindex, obj.zindex)
+  end
+  def d(obj)
+    @result = self.class.new(merge_diffs(obj)).apply!(obj.arg)
+  end
+  protected
+  def merge_diffs(diff_obj)
+    merged_diffs = {}; merged_diffs.default = 0
+    [diffs, diff_obj.diffs].each do |ds|
+      ds.each do |k,v|
+        merged_diffs[k] += v
+      end
+    end
+    merged_diffs
+  end
+  def new_diff(obj)
+    zero? ? obj : D.new(obj, diffs)
+  end
+end # Differ
+
+
+class IncompleteDiffer < Differ
+  def apply!(obj)
+    ObjectCollector.new(D).apply!(obj).empty? ? new_diff(obj) : super
+  end
+end # IncompleteDiffer
+
+
 class Ref < Symbolic::UnaryFunction
   attr_reader :xindex, :yindex, :zindex
   def initialize(op, *args)
@@ -577,6 +636,13 @@ class ObjectCollector < Symbolic::Traverser
     obj.apply(self)
     @objects
   end
+  def numeric(obj) collect_obj(obj) end
+  def constant(obj) collect_obj(obj) end
+  def variable(obj) collect_obj(obj) end
+  def field(obj) collect_obj(obj) end
+  def ref(obj) traverse_unary(obj) end
+  def d(obj) traverse_unary(obj) end
+  protected
   def collect_obj(obj)
     @classes.each do |c|
       if obj.is_a?(c)
@@ -585,14 +651,6 @@ class ObjectCollector < Symbolic::Traverser
       end
     end
   end
-  alias :numeric :collect_obj
-  alias :constant :collect_obj
-  alias :variable :collect_obj
-  alias :field :collect_obj
-  def ref(obj)
-    traverse_unary(obj)
-  end
-  protected
   def traverse_unary(obj)
     collect_obj(obj)
     super
@@ -638,6 +696,7 @@ class PrecedenceComputer < Symbolic::PrecedenceComputer
   def variable(obj) 100 end
   def field(obj) 100 end
   def ref(obj) 100 end
+  def d(obj) 100 end
 end # PrecedenceComputer
 
 
@@ -655,12 +714,17 @@ class Emitter < Symbolic::Emitter
     @out << obj.name
   end
   def ref(obj)
-    embrace_arg = prec(obj.arg) < prec(obj)
-    @out << "(" if embrace_arg
+    embrace = prec(obj.arg) < prec(obj)
+    @out << "(" if embrace
     obj.arg.apply(self)
-    @out << ")" if embrace_arg
-    @out << "("
+    @out << ")" if embrace
+    @out << "["
     @out << [obj.xindex, obj.yindex, obj.zindex].join(",")
+    @out << "]"
+  end
+  def d(obj)
+    @out << "D{" << obj.diffs.collect{|v,d| d == 1 ? v : "#{v}^#{d}"}.join(",") << "}("
+    obj.arg.apply(self)
     @out << ")"
   end
 end # Emitter
@@ -680,10 +744,10 @@ class CEmitter < Symbolic::CEmitter
     @out << obj.name
   end
   def ref(obj)
-    embrace_arg = prec(obj.arg) < prec(obj)
-    @out << "(" if embrace_arg
+    embrace = prec(obj.arg) < prec(obj)
+    @out << "(" if embrace
     obj.arg.apply(self)
-    @out << ")" if embrace_arg
+    @out << ")" if embrace
     @out << "("
     @out << [obj.xindex, obj.yindex, obj.zindex].join(",")
     @out << ")"
