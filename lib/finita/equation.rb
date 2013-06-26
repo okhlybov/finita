@@ -50,82 +50,87 @@ end # Decomposition
 
 
 class Binding
+  class Algebraic < Binding
+    def type
+      TypeInferer.new.apply!(unknown)
+    end
+    def decomposition(unknowns)
+      Decomposition.new(equation, unknowns) # TODO cache the result
+    end
+    # def equation()
+    # def assignment()
+    def code(problem_code)
+      Code.new(self, problem_code)
+    end
+    class Code < DataStructBuilder::Code
+      def entities; super + [unknown_code, domain_code] end
+      def initialize(binding, problem_code)
+        @binding = check_type(binding, Binding)
+        @problem_code = check_type(problem_code, Problem::Code)
+        super("#{problem_code.type}Binding")
+        @unknown_code = @binding.unknown.code(problem_code)
+        @domain_code = @binding.domain.code(problem_code)
+      end
+      attr_reader :problem_code
+      def hash
+        @binding.hash # TODO
+      end
+      def eql?(other)
+        equal?(other) || self.class == other.class && @binding == other.instance_variable_get(:@binding)
+      end
+      attr_reader :unknown_code
+      attr_reader :domain_code
+    end
+  end # Algebraic
   attr_reader :expression, :unknown, :domain
+  def merge?; @merge end
   def initialize(expression, unknown, domain, merge)
-    raise "invalid field value" unless unknown.is_a?(Field)
+    raise "unknown must be a Field instance" unless unknown.is_a?(Field)
     @expression = Symbolic.coerce(expression)
     @unknown = unknown
-    @domain = domain
+    @domain = domain # TODO type check
     @merge = merge
-    System.current.equations << self
   end
-  def type
-    TypeInferer.new.apply!(unknown)
-  end
-  def merge?
-    @merge
-  end
-  # def equation()
-  # def assignment()
-  def decomposition(unknowns)
-    Decomposition.new(equation, unknowns) # TODO cache the result
-  end
-  def process!
-    @expression = Finita.simplify(Ref::Merger.new.apply!(expression))
-  end
-  def code(problem_code)
-    Code.new(self, problem_code)
-  end
-  class Code < DataStructBuilder::Code
-    def entities; super + [unknown_code, domain_code] end
-    def initialize(binding, problem_code)
-      @binding = check_type(binding, Binding)
-      @problem_code = check_type(problem_code, Problem::Code)
-      super("#{problem_code.type}Binding")
-      @unknown_code = @binding.unknown.code(problem_code)
-      @domain_code = @binding.domain.code(problem_code)
-    end
-    attr_reader :problem_code
-    def hash
-      @binding.hash # TODO
-    end
-    def eql?(other)
-      equal?(other) || self.class == other.class && @binding == other.instance_variable_get(:@binding)
-    end
-    attr_reader :unknown_code
-    attr_reader :domain_code
+  def new_algebraic(expression, domain)
+    self.class::Algebraic.new(expression, unknown, domain, merge?)
   end
 end # Binding
 
 
 # Equation of form expression=field, where expression might be a function of unknown
 class Assignment < Binding
+  class Algebraic < Binding::Algebraic
+    def assignment
+      expression
+    end
+    def equation
+      expression - Ref.new(unknown)
+    end
+  end # Algebraic
   def initialize(hash, domain)
+    System.current.equations << self
     # hash := {expression => unknown}
     raise "expected {expression=>unknown} value" unless hash.is_a?(Hash) && hash.size == 1
     expression = hash.keys[0]
     unknown = hash[expression]
     super(expression, unknown, domain, false)
   end
-  def assignment
-    expression
-  end
-  def equation
-    expression - Ref.new(unknown)
-  end
 end # Assignment
 
 
 # Equation of form expression=0 with expression being a function of unknown
 class Equation < Binding
+  class Algebraic < Binding::Algebraic
+    def assignment
+      raise "conversion equation --> assignment is not yet implemented"
+    end
+    def equation
+      expression
+    end
+  end # Algebraic
   def initialize(lhs, unknown, domain, merge = false)
+    System.current.equations << self
     super
-  end
-  def equation
-    expression
-  end
-  def assignment
-    raise "conversion equation --> assignment is not yet implemented"
   end
 end # Equation
 

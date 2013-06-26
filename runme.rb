@@ -30,11 +30,16 @@ else
 end
 
 
+def laplace(f)
+  D.new(D.new(f,:x),:x) + D.new(D.new(f,:y),:y) + D.new(D.new(f,:z),:z)
+end
+
+
 Problem.new(:Problem) do
   System.new(:System) do |s|
-    s.discretizer = Discretizer::Trivial.new
+    s.discretizer = Discretizer::FiniteDifference.new
     env = Environment::MPI.new
-    #env = Environment::Sequential.new
+    env = Environment::Sequential.new
     s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, env, Jacobian::Numeric.new) do |s|
       s.nonlinear!
     end
