@@ -3,7 +3,7 @@ require "autoc"
 
 class DataStructBuilder::Code
   def setup_overrides
-    @overrides = {:malloc=>"FINITA_MALLOC", :calloc=>"FINITA_CALLOC", :free=>"FINITA_FREE", :assert=>"FINITA_ASSERT", :abort=>"FINITA_ABORT", :inline=>"FINITA_INLINE"}
+    @overrides = {:malloc=>"FINITA_MALLOC", :calloc=>"FINITA_CALLOC", :free=>"FINITA_FREE", :assert=>"FINITA_ASSERT", :abort=>"FINITA_ABORT", :inline=>"FINITA_INLINE", :public=>"extern"}
   end
 end # DataStructBuilder::Code
 

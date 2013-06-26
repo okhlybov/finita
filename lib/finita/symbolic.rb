@@ -86,8 +86,11 @@ class Collector < Symbolic::Traverser
   end
   def ref(obj)
     @refs << obj
-    obj.arg.apply(self)
-    [obj.xindex.index, obj.yindex.index, obj.zindex.index].each {|e| e.apply(self)}
+    apply!(obj.arg)
+    [obj.xindex.index, obj.yindex.index, obj.zindex.index].each {|e| apply!(e)}
+  end
+  def d(obj)
+    apply!(obj.arg)
   end
   def numeric(obj) end
   def symbol(obj) end

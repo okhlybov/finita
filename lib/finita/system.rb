@@ -45,7 +45,7 @@ class System
     end
   end
   def discretizer=(discretizer)
-    @discretizer = check_type(discretizer, Discretizer)
+    @discretizer = discretizer # check_type(discretizer, Discretizer)
   end
   def discretizer
     if @discretizer.nil?
@@ -66,11 +66,10 @@ class System
   attr_reader :problem
   def process!(problem)
     @problem = check_type(problem, Problem)
-    uns = unknowns
     @equations = discretizer.process!(equations)
     @linear = true
     equations.each do |e|
-      unless e.decomposition(uns).linear?
+      unless e.decomposition(unknowns).linear?
         @linear = false
         break
       end
@@ -89,7 +88,7 @@ class System
       @finalizer_codes = Set.new
       super("#{problem_code.type}#{@system.name}")
       @solver_code = check_type(@system.solver.code(self), Solver::Code)
-      @equation_codes = @system.equations.collect {|e| check_type(e.code(problem_code), Binding::Code)}
+      @equation_codes = @system.equations.collect {|e| check_type(e.code(problem_code), Binding::Algebraic::Code)}
       problem_code.initializer_codes << self
       problem_code.finalizer_codes << self
     end
