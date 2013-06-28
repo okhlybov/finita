@@ -8,30 +8,35 @@ require "finita/generator"
 module Finita::Domain
 
 
+end # Finita::Domain
+
+
+module Finita::Domain::Rectangular
+
+
 class Range
-  def self.coerce(arg)
-    if arg.nil?
+  def self.coerce(obj, open = false)
+    if obj.nil?
       Range::Nil
-    elsif arg.is_a?(Range)
-      arg
-    elsif arg.is_a?(Array)
-      Range.new(Symbolic.coerce(arg.first), Symbolic.coerce(arg.last))
+    elsif obj.is_a?(Range)
+      obj
+    elsif obj.is_a?(Array)
+      Range.new(obj.first, obj.last, open, open)
     else
-      Range.new(0, Finita.simplify(Symbolic.coerce(arg)-1))
+      Range.new(0, Symbolic.coerce(obj)-1, open, open)
     end
   end
   attr_reader :first
   attr_reader :last
+  def nil?; equal?(Nil) end
   def before?; @before end
   def after?; @after end
+  def open?; before? && after? end
   def initialize(first, last, before_first = false, after_last = false)
-    @first = Symbolic.coerce(first)
-    @last = Symbolic.coerce(last)
+    @first = Finita.simplify(Symbolic.coerce(first))
+    @last = Finita.simplify(Symbolic.coerce(last))
     @before = before_first
     @after = after_last
-  end
-  def nil?
-    equal?(Nil)
   end
   def hash
     first.hash ^ last.hash # TODO
@@ -53,15 +58,6 @@ class Range
 end # Range
 
 
-end # Finita::Domain
-
-
-module Finita::Domain::Rectangular
-
-
-Range = Finita::Domain::Range
-
-
 StaticCode = Class.new(DataStructBuilder::Code) do
   def write_intf(stream)
     stream << %$
@@ -78,7 +74,7 @@ StaticCode = Class.new(DataStructBuilder::Code) do
       void #{ctor}(#{type}*, int, int, int, int, int, int);
       int #{within}(#{type}*, int, int, int);
       size_t #{size}(#{type}*);
-      FINITA_INLINE size_t #{index}(#{type}* self, int x, int y, int z) {
+      #{inline} size_t #{index}(#{type}* self, int x, int y, int z) {
         size_t index;
         FINITA_ENTER;
         #{assert}(#{within}(self, x, y, z));
@@ -155,9 +151,9 @@ class Area
   attr_reader :xrange, :yrange, :zrange
   attr_reader :planes
   def initialize(xs = nil, ys = nil, zs = nil)
-    @xrange = Range.coerce(xs)
-    @yrange = Range.coerce(ys)
-    @zrange = Range.coerce(zs)
+    @xrange = Range.coerce(xs, true)
+    @yrange = Range.coerce(ys, true)
+    @zrange = Range.coerce(zs, true)
     @planes = Set.new
     @planes << :x unless xrange.nil?
     @planes << :y unless yrange.nil?
@@ -208,32 +204,32 @@ class Area
       equal?(other) || self.class == other.class && @area == other.instance_variable_get(:@area)
     end
     def write_intf(stream)
-      stream << %$
-        extern #{type} #{instance};
-      $
+      stream << %$extern #{type} #{instance};$
     end
     def write_defs(stream)
-      stream << %$
-        #{type} #{instance};
-      $
+      stream << %$#{type} #{instance};$
     end
     def write_initializer(stream)
       args = (@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a).collect {|e| CEmitter.new.emit!(e)}.join(",")
-      stream << %$
-        #{ctor}(&#{instance}, #{args});
-      $
+      stream << %$#{ctor}(&#{instance}, #{args});$
     end
   end # Code
 end # Area
 
 
 class Domain < Area
+  def initialize(xs = nil, ys = nil, zs = nil)
+    super(Range.coerce(xs, false), Range.coerce(ys, false), Range.coerce(zs, false))
+  end
   def decompose
     set = Set.new
     xrange.decompose.each do |xr|
+      xopen = xr.nil? || xr.open?
       yrange.decompose.each do |yr|
+        yopen = yr.nil? || yr.open?
         zrange.decompose.each do |zr|
-          set << Area.new(xr, yr, zr)
+          zopen = zr.nil? || zr.open?
+          set << ((xopen && yopen && zopen) ? Area : Domain).new(xr, yr, zr)
         end
       end
     end

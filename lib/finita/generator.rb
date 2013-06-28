@@ -2,17 +2,25 @@ require "autoc"
 
 
 class DataStructBuilder::Code
-  def setup_overrides
-    @overrides = {:malloc=>"FINITA_MALLOC", :calloc=>"FINITA_CALLOC", :free=>"FINITA_FREE", :assert=>"FINITA_ASSERT", :abort=>"FINITA_ABORT", :inline=>"FINITA_INLINE", :public=>"extern"}
-  end
+  @@overrides.merge!({
+    :malloc=>"FINITA_MALLOC",
+    :calloc=>"FINITA_CALLOC",
+    :free=>"FINITA_FREE",
+    :assert=>"FINITA_ASSERT",
+    :abort=>"FINITA_ABORT",
+    :inline=>"FINITA_INLINE",
+    :extern=>"FINITA_EXTERN"
+  })
 end # DataStructBuilder::Code
 
 
 module Finita::Generator
 
 
-class PrologueCode < CodeBuilder::Code
-  def priority; CodeBuilder::Priority::MAX end
+class PrologueCode < DataStructBuilder::Code
+  def priority
+    CodeBuilder::Priority::MAX
+  end
   def entities
     super + [CallStackCode]
   end
@@ -26,40 +34,50 @@ class PrologueCode < CodeBuilder::Code
       #include <stdlib.h>
       #include <malloc.h>
 
-      #if defined _MSC_VER || __PGI
+      #ifndef FINITA_INLINE
+        #if defined(_MSC_VER) || defined(__PGI)
+          #define FINITA_INLINE __inline static
+        #elif __STDC_VERSION__ >= 199901L && !defined(__DMC__)
+          #define FINITA_INLINE inline static
+        #else
+          #define FINITA_INLINE static
+        #endif
+      #endif
+
+      #ifndef FINITA_EXTERN
+        #if defined(__cplusplus)
+          #define FINITA_EXTERN extern "C"
+        #else
+          #define FINITA_EXTERN extern
+        #endif
+      #endif
+
+      #if defined(_MSC_VER) || defined(__PGI)
         #define __func__ __FUNCTION__
       #endif
 
-      #if defined _MSC_VER
+      #if defined(_MSC_VER)
         #define FINITA_ARGSUSED __pragma(warning(disable:4100))
-      #elif __STDC_VERSION__ >= 199901L && !defined __DMC__
+      #elif __STDC_VERSION__ >= 199901L && !defined(__DMC__)
         #define FINITA_ARGSUSED _Pragma("argsused")
       #else
         #define FINITA_ARGSUSED
       #endif
 
-      #if defined _MSC_VER
+      #if defined(_MSC_VER)
         #define FINITA_NORETURN(x) __declspec(noreturn) x
-      #elif defined __GNUC__
+      #elif defined(__GNUC__)
         #define FINITA_NORETURN(x) x __attribute__((noreturn))
       #else
         #define FINITA_NORETURN(x) x
-      #endif
-
-      #if defined _MSC_VER
-        #define FINITA_INLINE __inline static
-      #elif __STDC_VERSION__ >= 199901L && !defined __PGI && !defined __DMC__
-        #define FINITA_INLINE inline static
-      #else
-        #define FINITA_INLINE static
       #endif
 
       #ifndef NDEBUG
         #define FINITA_ENTER FinitaEnterFrame(__func__, __FILE__, __LINE__);
         #define FINITA_LEAVE FinitaLeaveFrame();
         #define FINITA_RETURN(x) FinitaLeaveFrame(); return x;
-        void FinitaEnterFrame(const char*, const char*, int);
-        void FinitaLeaveFrame(void);
+        #{extern} void FinitaEnterFrame(const char*, const char*, int);
+        #{extern} void FinitaLeaveFrame(void);
       #else
         #define FINITA_ENTER
         #define FINITA_LEAVE
@@ -67,11 +85,11 @@ class PrologueCode < CodeBuilder::Code
       #endif
 
       #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
-      FINITA_NORETURN(void FinitaFailure(const char*, const char*, int, const char*));
+      FINITA_NORETURN(#{extern} void FinitaFailure(const char*, const char*, int, const char*));
 
       #ifndef NDEBUG
         #define FINITA_ASSERT(test) if(!(test)) FinitaAssert(__func__, __FILE__, __LINE__, #test);
-        FINITA_NORETURN(void FinitaAssert(const char*, const char*, int, const char*));
+        FINITA_NORETURN(#{extern} void FinitaAssert(const char*, const char*, int, const char*));
       #else
         #define FINITA_ASSERT(test)
       #endif
@@ -97,7 +115,7 @@ class PrologueCode < CodeBuilder::Code
         #define FINITA_NHEAD
       #endif
 
-      FINITA_INLINE size_t FinitaHashMix(size_t hash) {
+      #{inline} size_t FinitaHashMix(size_t hash) {
         FINITA_ENTER;
         hash = (hash ^ 61) ^ (hash >> 16);
         hash = hash + (hash << 3);
@@ -117,7 +135,7 @@ class PrologueCode < CodeBuilder::Code
       #include <stdio.h>
       #ifndef NDEBUG
         /* FIXME : __thread is not portable */
-        #if defined _MSC_VER || __PGI || __DMC__
+        #if defined(_MSC_VER) || defined(__PGI) || defined(__DMC__)
           #define FINITA_TLS __declspec(thread)
         #else
           #define FINITA_TLS __thread
@@ -160,7 +178,7 @@ class PrologueCode < CodeBuilder::Code
         FinitaAbort(EXIT_FAILURE);
       }
       #ifndef NDEBUG
-      #if defined _MSC_VER || defined __PGI
+      #if defined(_MSC_VER) || defined(__PGI)
         #define FINITA_SNPRINTF sprintf_s
       #else
         #define FINITA_SNPRINTF snprintf

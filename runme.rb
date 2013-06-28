@@ -11,10 +11,10 @@ C = Constant.new(:C, 5)
 
 if d3
   A = Domain::Rectangular::Domain.new(N,N,N)
-  B = Domain::Rectangular::Domain.new([1,N-2],[1,N-2],[1,N-2])
+  B = Domain::Rectangular::Area.new([1,N-2],[1,N-2],[1,N-2])
 else
   A = Domain::Rectangular::Domain.new(N,N)
-  B = Domain::Rectangular::Domain.new([1,N-2],[1,N-2])
+  B = Domain::Rectangular::Area.new([1,N-2],[1,N-2])
 end
 F = Field.new(:F, Float, A)
 G = Field.new(:G, Float, A)
