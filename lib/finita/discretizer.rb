@@ -21,6 +21,7 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
   def process!(equations)
     equations.collect do |equation|
       diffed = IncompleteDiffer.new.apply!(equation.expression)
+      raise "discretizer requires a Rectangular::Domain domain instance" unless equation.domain.is_a?(Finita::Domain::Rectangular::Area)
       equation.domain.decompose.collect do |domain|
         @domain = domain
         diffed.apply(self) # this sets @expression
@@ -72,8 +73,10 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
       (f[i+1] - f[i-1])/2
     elsif r.before?
       f - f[i-1]
-    else
+    elsif r.after?
       f[i+1] - f
+    else
+      raise
     end
   end
   def self.d2i(f,i,d)
@@ -84,8 +87,10 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
       f[i+1] - 2*f + f[i-1]
     elsif r.before?
       f - 2*f[i-1] + f[i-2]
-    else
+    elsif r.after?
       f - 2*f[i+1] + f[i+2]
+    else
+      raise
     end
   end
     Diffs = {

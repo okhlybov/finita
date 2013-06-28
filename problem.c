@@ -34,7 +34,7 @@
 int main(int argc, char** argv)
 {
     clock_t c;
-	N = 11;
+	N = 101;
 	ProblemSetup(argc, argv);
 {
 	int x, y;
