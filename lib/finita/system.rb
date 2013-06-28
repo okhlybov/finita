@@ -93,7 +93,7 @@ class System
       problem_code.finalizer_codes << self
     end
     def entities
-      super + [solver_code] + equation_codes + (initializer_codes | finalizer_codes).to_a
+      @entities.nil? ? @entities = super + [solver_code] + equation_codes + (initializer_codes | finalizer_codes).to_a : @entities
     end
     attr_reader :initializer_codes
     attr_reader :finalizer_codes

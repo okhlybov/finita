@@ -27,7 +27,7 @@ class RHS
       sc.initializer_codes << self
     end
     def entities
-      super + [NodeCode, @vector_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes
+      @entities.nil? ? @entities = super + [NodeCode, @vector_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes : @entities
     end
     attr_reader :solver_code
     def hash
