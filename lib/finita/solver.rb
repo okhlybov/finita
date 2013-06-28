@@ -45,7 +45,7 @@ class Solver
       @decomposer_code = check_type(@solver.decomposer.code(self), Decomposer::Code)
     end
     def entities
-      super + [mapper_code, decomposer_code, @environment_code]
+      @entities.nil? ? @entities = super + [mapper_code, decomposer_code, @environment_code] : @entities
     end
     attr_reader :system_code
     attr_reader :mapper_code
@@ -115,7 +115,7 @@ class Solver::Matrix < Solver
   attr_reader :rhs
   class Code < Solver::Code
     def entities
-      super + [SparsityPatternCode, @node_set_code, jacobian_code, residual_code, lhs_code, rhs_code].compact + all_dependent_codes
+      @entities.nil? ? @entities = super + [SparsityPatternCode, @node_set_code, jacobian_code, residual_code, lhs_code, rhs_code].compact + all_dependent_codes : @entities
     end
     def initialize(*args)
       super
