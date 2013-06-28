@@ -64,7 +64,7 @@ class Problem
     attr_reader :initializer_codes
     attr_reader :finalizer_codes
     def entities
-      @entities.nil? ? @entities = super + [Finita::Generator::PrologueCode.new(defines)] + @codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a : @entities
+      @entities.nil? ? @entities = [Finita::Generator::PrologueCode.new(defines)] + @codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a : @entities
     end
     def hash
       @problem.hash # TODO

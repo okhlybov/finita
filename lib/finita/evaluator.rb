@@ -42,7 +42,7 @@ class Evaluator
     @@count = 0
     attr_reader :instance
     def entities
-      @entities.nil? ? @entities = super + Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)} : @entities
+      @entities.nil? ? @entities = Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)} : @entities
     end
     def priority
       CodeBuilder::Priority::DEFAULT + 1
@@ -178,7 +178,7 @@ end.new("FinitaNodeIndexMap", NodeCode, {:type=>'size_t'}) # NodeIndexMapCode
 
 
 NodeCoordCode = Class.new(DataStructBuilder::Code) do
-  def entities; super << NodeCode end
+  def entities; [NodeCode] end
   def initialize(*args)
     super
     @self_hash = {:type=>type, :hash=>hasher, :equal=>comparator}

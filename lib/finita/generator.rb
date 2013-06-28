@@ -22,7 +22,7 @@ class PrologueCode < DataStructBuilder::Code
     CodeBuilder::Priority::MAX
   end
   def entities
-    @entities.nil? ? @entities = super + [CallStackCode] : @entities
+    @entities.nil? ? @entities = [CallStackCode] : @entities
   end
   def initialize(defines)
     @defines = defines

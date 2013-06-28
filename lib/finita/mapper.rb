@@ -28,7 +28,7 @@ class Mapper
       @numeric_array_code = NumericArrayCode[solver_code.system_code.result] if solver_code.mpi?
     end
     def entities
-      @entities.nil? ? @entities = super + [NodeCode, @numeric_array_code].compact : @entities
+      @entities.nil? ? @entities = [NodeCode, @numeric_array_code].compact : @entities
     end
     attr_reader :solver_code
     def write_intf(stream)

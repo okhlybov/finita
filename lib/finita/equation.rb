@@ -64,7 +64,7 @@ class Binding
     end
     class Code < DataStructBuilder::Code
       def entities
-        @entities.nil? ? @entities = super + [unknown_code, domain_code] : @entities
+        @entities.nil? ? @entities = [unknown_code, domain_code] : @entities
       end
       def initialize(binding, problem_code)
         @binding = check_type(binding, Binding)
