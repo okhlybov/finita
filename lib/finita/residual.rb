@@ -28,7 +28,7 @@ class Residual
       @mapping_codes = solver_code.mapping_codes
     end
     def entities
-      @entities.nil? ? @entities = super + [NodeCode, @array_code, @function_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes : @entities
+      @entities.nil? ? @entities = [NodeCode, @array_code, @function_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes : @entities
     end
     attr_reader :solver_code
     def hash

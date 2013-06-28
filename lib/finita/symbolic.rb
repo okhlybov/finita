@@ -267,7 +267,7 @@ class Field < Symbolic::Expression
       end
     end
     def entities
-      @entities.nil? ? @entities = super + [@domain_code] : @entities
+      @entities.nil? ? @entities = [@domain_code] : @entities
     end
     attr_reader :field, :symbol, :instance
     def initialize(field, problem_code)

@@ -45,7 +45,7 @@ class Solver
       @decomposer_code = check_type(@solver.decomposer.code(self), Decomposer::Code)
     end
     def entities
-      @entities.nil? ? @entities = super + [mapper_code, decomposer_code, @environment_code] : @entities
+      @entities.nil? ? @entities = [mapper_code, decomposer_code, @environment_code] : @entities
     end
     attr_reader :system_code
     attr_reader :mapper_code

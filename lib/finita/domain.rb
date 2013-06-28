@@ -188,7 +188,7 @@ class Area
     @@codes = {}
     attr_reader :instance
     def entities
-      @entities.nil? ? @entities = super + [StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)} : @entities
+      @entities.nil? ? @entities = [StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)} : @entities
     end
     def initialize(area, problem_code)
       @area = area

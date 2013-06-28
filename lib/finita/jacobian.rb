@@ -21,7 +21,7 @@ class Jacobian
       super("#{solver_code.system_code.type}Jacobian")
     end
     def entities
-      @entities.nil? ? @entities = super + [NodeCode, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes : @entities
+      @entities.nil? ? @entities = [NodeCode, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes : @entities
     end
     attr_reader :solver_code
     def hash
