@@ -15,6 +15,7 @@ module Finita::Domain::Rectangular
 
 
 class Range
+  Symbolic.freezing_new(self)
   def self.coerce(obj, open = false)
     if obj.nil?
       Range::Nil
@@ -26,8 +27,7 @@ class Range
       Range.new(0, Symbolic.coerce(obj)-1, open, open)
     end
   end
-  attr_reader :first
-  attr_reader :last
+  attr_reader :hash, :first, :last
   def nil?; equal?(Nil) end
   def before?; @before end
   def after?; @after end
@@ -37,9 +37,7 @@ class Range
     @last = Finita.simplify(Symbolic.coerce(last))
     @before = before_first
     @after = after_last
-  end
-  def hash
-    first.hash ^ last.hash # TODO
+    @hash = first.hash ^ (last.hash << 1) # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && first == other.first && last == other.last && before? == other.before? && after? == other.after?
@@ -148,8 +146,8 @@ end.new("FinitaCubicArea") # StaticCode
 
 
 class Area
-  attr_reader :xrange, :yrange, :zrange
-  attr_reader :planes
+  Symbolic.freezing_new(self)
+  attr_reader :hash, :xrange, :yrange, :zrange, :planes
   def initialize(xs = nil, ys = nil, zs = nil)
     @xrange = Range.coerce(xs, true)
     @yrange = Range.coerce(ys, true)
@@ -158,9 +156,7 @@ class Area
     @planes << :x unless xrange.nil?
     @planes << :y unless yrange.nil?
     @planes << :z unless zrange.nil?
-  end
-  def hash
-    self.class.hash ^ (xrange.hash << 1) ^ (yrange.hash << 2) ^ (zrange.hash << 3) # TODO
+    @hash = self.class.hash ^ (xrange.hash << 1) ^ (yrange.hash << 2) ^ (zrange.hash << 3) # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && xrange == other.xrange && yrange == other.yrange && zrange == other.zrange
@@ -180,8 +176,7 @@ class Area
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
-        obj = __new__(owner, problem_code)
-        problem_code << obj
+        problem_code.bound!(owner) {__new__(owner, problem_code)}
       end
     end
     @@count = 0

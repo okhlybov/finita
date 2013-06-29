@@ -6,11 +6,13 @@ module Finita
 
 
 class Evaluator
-  attr_reader :expression, :result
+  Symbolic.freezing_new(self)
+  attr_reader :hash, :expression, :result
   def initialize(expression, result)
     # TODO merge attribute is not needed
     @expression = expression
     @result = result
+    @hash = expression.hash ^ result.hash # TODO
   end
   def integer?
     result == Integer
@@ -20,9 +22,6 @@ class Evaluator
   end
   def complex?
     result == Complex
-  end
-  def hash
-    expression.hash ^ result.hash # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && expression == other.expression && result == other.result
@@ -35,12 +34,11 @@ class Evaluator
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
-        obj = __new__(owner, problem_code)
-        problem_code << obj
+        problem_code.bound!(owner) {__new__(owner, problem_code)}
       end
     end
     @@count = 0
-    attr_reader :instance
+    attr_reader :hash, :instance
     def entities
       @entities.nil? ? @entities = Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)} : @entities
     end
@@ -53,10 +51,8 @@ class Evaluator
       @instance = "#{@problem_code.type}#{@@count += 1}"
       @cresult = CType[evaluator.result]
       @problem_code.defines << :FINITA_COMPLEX if evaluator.complex?
+      @hash = @evaluator.hash
       super("FinitaEvaluator")
-    end
-    def hash
-      @evaluator.hash # TODO
     end
     def eql?(other)
       equal?(other) || self.class == other.class && @evaluator == other.instance_variable_get(:@evaluator)
