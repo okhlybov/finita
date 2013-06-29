@@ -138,8 +138,7 @@ class Constant < Numeric
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
-        obj = __new__(owner, problem_code)
-        problem_code << obj
+        problem_code.bound!(owner) {__new__(owner, problem_code)}
       end
     end
     attr_reader :constant, :symbol
@@ -167,6 +166,9 @@ class Constant < Numeric
     end
   end # Code
 end # Constant
+
+
+Symbolic.freezing_new(Constant)
 
 
 class Variable < Symbolic::Expression
@@ -198,8 +200,7 @@ class Variable < Symbolic::Expression
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
-        obj = __new__(owner, problem_code)
-        problem_code << obj
+        problem_code.bound!(owner) {__new__(owner, problem_code)}
       end
     end
     attr_reader :variable, :symbol
@@ -262,8 +263,7 @@ class Field < Symbolic::Expression
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
-        obj = __new__(owner, problem_code)
-        problem_code << obj
+        problem_code.bound!(owner) {__new__(owner, problem_code)}
       end
     end
     def entities
@@ -312,6 +312,7 @@ end # Field
 
 
 class Index
+  Symbolic.freezing_new(self)
   Coords = Set.new [:x, :y, :z]
   class Hash < ::Hash
     def []=(key, value)
@@ -474,13 +475,11 @@ class Ref < Symbolic::UnaryFunction
       @xindex = ids.include?(:x) ? ids[:x] : Index::X
       @yindex = ids.include?(:y) ? ids[:y] : Index::Y
       @zindex = ids.include?(:z) ? ids[:z] : Index::Z
+      @hash ^= (xindex.hash << 1) ^ (yindex.hash << 2) ^ (zindex.hash << 3) # TODO
     end
   end
   def xyz?
     xindex == Index::X && yindex == Index::Y && zindex == Index::Z
-  end
-  def hash
-    super ^ (xindex.hash << 1) ^ (yindex.hash << 2) ^ (zindex.hash << 3)
   end
   def ==(other)
     super && xindex == other.xindex && yindex == other.yindex && zindex == other.zindex

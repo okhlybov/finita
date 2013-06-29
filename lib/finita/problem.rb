@@ -43,6 +43,9 @@ class Problem
   def process!
     @systems = systems.collect {|s| s.process!(self)}
     new_module(code).generate!
+    #$objs.each do |k,v|
+    #  puts "#{k} --> #{v.size}"
+    #end
     self
   end
   def code
@@ -56,6 +59,7 @@ class Problem
       @defines = Set.new
       @symbols = {}
       @codes = {}
+      @bound_codes = {}
       super(problem.name)
       @system_codes = @problem.systems.collect {|s| s.code(self)}
       @instance_codes = @problem.instances.collect {|i| i.code(self)}
@@ -64,13 +68,16 @@ class Problem
     attr_reader :initializer_codes
     attr_reader :finalizer_codes
     def entities
-      @entities.nil? ? @entities = [Finita::Generator::PrologueCode.new(defines)] + @codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a : @entities
+      @entities.nil? ? @entities = [Finita::Generator::PrologueCode.new(defines)] + @bound_codes.values + @codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a : @entities
     end
     def hash
       @problem.hash # TODO
     end
     def eql?(other)
       equal?(other) || self.class == other.class && @problem == other.instance_variable_get(:@problem)
+    end
+    def bound!(owner, &ctor)
+      @bound_codes.include?(owner) ? @bound_codes[owner] : @bound_codes[owner] = yield(self)
     end
     def <<(code)
       if @codes.key?(code)

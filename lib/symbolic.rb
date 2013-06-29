@@ -75,6 +75,26 @@ def self.split_args(args, obj)
 end
 
 
+#$objs = {}
+# Instructs the constructor to freeze the object after creation.
+def self.freezing_new(cls)
+  class << cls
+    alias :freezing_new :new
+    def new(*args)
+      obj = freezing_new(*args)
+      obj.freeze
+      #hash = obj.hash
+      #if $objs.include?(hash)
+      #  $objs[hash] << obj
+      #else
+      #  $objs[hash] = Set.new [obj]
+      #end
+      obj
+    end
+  end
+end
+
+
 # Predefined operators.
 module Operators
   def +@() Symbolic::Plus.new(self) end
@@ -157,7 +177,8 @@ end
 # of the Expression hierarchy but nonetheless considered valid expressions are
 # modified accordingly to mimic Expression behavior.
 class Expression
-  include Operators
+  # Enforces the immutability of all user-defined expression descendants.
+  Symbolic.freezing_new(self)
   # Returns string representation of self. Employs Emitter class for string rendering.
   def to_s
     Emitter.new.emit!(self)
@@ -170,6 +191,7 @@ class Expression
   # the subclasses of the Expression class redefine the latter to provide object comparison, therefore
   # this definition must be left as is otherwise things might break.
   # Each redefinition of #== should be followed by the corresponding alias :eql? :==
+  include Operators
 end
 
 
@@ -178,7 +200,7 @@ class UnaryFunction < Expression
   attr_reader :arg, :hash
   def initialize(arg)
     @arg = Symbolic.coerce(arg)
-    @hash = arg.hash
+    @hash = arg.hash ^ self.class.hash # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && arg == other.arg
@@ -211,7 +233,7 @@ class NaryFunction < Expression
     @args = args.collect {|obj| Symbolic.coerce(obj)}
     @contents = Hash.new; contents.default = 0
     args.each {|arg| contents[arg] += 1}
-    @hash = contents.hash
+    @hash = contents.hash ^ self.class.hash # TODO
   end
   def convert
     new_instance(*args.collect{|arg| arg.convert})
