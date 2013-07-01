@@ -43,9 +43,6 @@ class Problem
   def process!
     @systems = systems.collect {|s| s.process!(self)}
     new_module(code).generate!
-    #$objs.each do |k,v|
-    #  puts "#{k} --> #{v.size}"
-    #end
     self
   end
   def code

@@ -74,8 +74,6 @@ def self.split_args(args, obj)
   found ? out : nil
 end
 
-
-#$objs = {}
 # Instructs the constructor to freeze the object after creation.
 def self.freezing_new(cls)
   class << cls
@@ -83,12 +81,6 @@ def self.freezing_new(cls)
     def new(*args)
       obj = freezing_new(*args)
       obj.freeze
-      #hash = obj.hash
-      #if $objs.include?(hash)
-      #  $objs[hash] << obj
-      #else
-      #  $objs[hash] = Set.new [obj]
-      #end
       obj
     end
   end
@@ -197,10 +189,10 @@ end
 
 # Base class for functions of one argument.
 class UnaryFunction < Expression
-  attr_reader :arg, :hash
+  attr_reader :hash, :arg
   def initialize(arg)
     @arg = Symbolic.coerce(arg)
-    @hash = arg.hash ^ self.class.hash # TODO
+    @hash = self.class.hash ^ arg.hash # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && arg == other.arg
@@ -228,12 +220,12 @@ end
 
 # Base class for functions of two or more arguments.
 class NaryFunction < Expression
-  attr_reader :args, :contents, :hash
+  attr_reader :hash, :args, :contents
   def initialize(*args)
     @args = args.collect {|obj| Symbolic.coerce(obj)}
     @contents = Hash.new; contents.default = 0
     args.each {|arg| contents[arg] += 1}
-    @hash = contents.hash ^ self.class.hash # TODO
+    @hash = self.class.hash ^ contents.hash # TODO
   end
   def convert
     new_instance(*args.collect{|arg| arg.convert})
