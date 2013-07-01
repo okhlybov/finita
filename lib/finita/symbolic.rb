@@ -102,14 +102,13 @@ end # Collector
 
 
 class Constant < Numeric
-  attr_reader :name, :type, :value
+  Symbolic.freezing_new(self)
+  attr_reader :hash, :name, :type, :value
   def initialize(name, value)
     @name = name.to_s
     @value = value
     @type = Numeric.type_of(value)
-  end
-  def hash
-    value.hash
+    @hash = value.hash # TODO
   end
   def ==(other)
     if other.is_a?(Numeric)
@@ -168,18 +167,13 @@ class Constant < Numeric
 end # Constant
 
 
-Symbolic.freezing_new(Constant)
-
-
 class Variable < Symbolic::Expression
-  attr_reader :name, :type
+  attr_reader :hash, :name, :type
   def initialize(name, type)
     raise "numeric type expected" unless CType.key?(type)
     @name = name.to_s
     @type = type
-  end
-  def hash
-    name.hash ^ type.hash # TODO
+    @hash = self.class.hash ^ name.hash ^ type.hash # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && name == other.name && type == other.type
@@ -235,15 +229,13 @@ end # Variable
 
 
 class Field < Symbolic::Expression
-  attr_reader :name, :type, :domain
+  attr_reader :hash, :name, :type, :domain
   def initialize(name, type, domain)
     raise "numeric type expected" unless CType.key?(type)
     @name = name.to_s # TODO validate
     @type = type # TODO validate
     @domain = domain
-  end
-  def hash
-    name.hash ^ domain.hash # TODO
+    @hash =  self.class.hash ^ name.hash ^ domain.hash # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && name == other.name && type == other.type && domain == other.domain
@@ -370,7 +362,7 @@ class Index
       end
       @index = Finita.simplify(arg)
     end
-    @hash = @index.hash
+    @hash = self.class.hash ^ index.hash # TODO
   end
   def ==(other)
     equal?(other) || self.class == other.class && base == other.base && delta == other.delta
@@ -397,9 +389,7 @@ class D < Symbolic::UnaryFunction
   def initialize(op, arg)
     super(op)
     @diffs = Symbolic::Differ.coerce(arg)
-  end
-  def hash
-    super ^ diffs.hash # TODO
+    @hash ^= diffs.hash # TODO
   end
   def ==(other)
     super && diffs == other.diffs
@@ -475,8 +465,8 @@ class Ref < Symbolic::UnaryFunction
       @xindex = ids.include?(:x) ? ids[:x] : Index::X
       @yindex = ids.include?(:y) ? ids[:y] : Index::Y
       @zindex = ids.include?(:z) ? ids[:z] : Index::Z
-      @hash ^= (xindex.hash << 1) ^ (yindex.hash << 2) ^ (zindex.hash << 3) # TODO
     end
+    @hash ^= (xindex.hash << 1) ^ (yindex.hash << 2) ^ (zindex.hash << 3) # TODO
   end
   def xyz?
     xindex == Index::X && yindex == Index::Y && zindex == Index::Z

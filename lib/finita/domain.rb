@@ -181,7 +181,7 @@ class Area
     end
     @@count = 0
     @@codes = {}
-    attr_reader :instance
+    attr_reader :hash, :instance
     def entities
       @entities.nil? ? @entities = [StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)} : @entities
     end
@@ -190,10 +190,8 @@ class Area
       @instance = "#{StaticCode.type}#{@@count += 1}"
       @problem_code = problem_code
       super(StaticCode.type)
+      @hash = @area.hash
       problem_code.initializer_codes << self
-    end
-    def hash
-      @area.hash
     end
     def eql?(other)
       equal?(other) || self.class == other.class && @area == other.instance_variable_get(:@area)
