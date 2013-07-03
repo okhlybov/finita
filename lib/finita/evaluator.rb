@@ -10,7 +10,7 @@ class Evaluator
   attr_reader :hash, :expression, :result
   def initialize(expression, result)
     # TODO merge attribute is not needed
-    @expression = expression
+    @expression = Symbolic.simplify(expression)
     @result = result
     @hash = expression.hash ^ result.hash # TODO
   end

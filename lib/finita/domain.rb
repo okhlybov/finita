@@ -50,7 +50,13 @@ class Range
     (before? ? "(" : "[") << Finita::Emitter.new.emit!(first) << "..." << Finita::Emitter.new.emit!(last) << (after? ? ")" : "]")
   end
   def decompose
-    nil? ? [self] : [Range.new(first, first, false, true), Range.new(first+1, last-1, true, true), Range.new(last, last, true, false)]
+    nil? || first == last ? [self] : [Range.new(first, first, false, true), Range.new(first+1, last-1, true, true), Range.new(last, last, true, false)]
+  end
+  def to_first
+    nil? ? Nil : Range.new(first, first, before?, true)
+  end
+  def to_last
+    nil? ? Nil : Range.new(last, last, true, after?)
   end
   Nil = Range.new(0,0)
 end # Range
@@ -168,6 +174,24 @@ class Area
   def decompose
     [self]
   end
+  def top
+    self.class.new(xrange, yrange.to_last, zrange)
+  end
+  def bottom
+    self.class.new(xrange, yrange.to_first, zrange)
+  end
+  def left
+    self.class.new(xrange.to_first, yrange, zrange)
+  end
+  def right
+    self.class.new(xrange.to_last, yrange, zrange)
+  end
+  def forth
+    self.class.new(xrange, yrange, zrange.to_last)
+  end
+  def back
+    self.class.new(xrange, yrange, zrange.to_first)
+  end
   def code(problem_code)
     Code.new(self, problem_code)
   end
@@ -180,7 +204,6 @@ class Area
       end
     end
     @@count = 0
-    @@codes = {}
     attr_reader :hash, :instance
     def entities
       @entities.nil? ? @entities = [StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)} : @entities
@@ -227,6 +250,9 @@ class Domain < Area
       end
     end
     set.to_a
+  end
+  def area
+    Area.new(Range.new(xrange.first, xrange.last, true, true), Range.new(yrange.first, yrange.last, true, true), Range.new(zrange.first, zrange.last, true, true))
   end
 end # Domain
 
