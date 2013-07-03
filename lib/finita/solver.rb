@@ -82,6 +82,7 @@ class Solver::Matrix < Solver
           rs[r] = Evaluator.new(x*r, system.result) unless r.nil? || r.xyz?
           rs[r] = Evaluator.new(x, system.result) if r.nil?
         end
+        rs[nil] = Evaluator.new(0, system.result) if rs[nil].nil?
         {:lhs=>ls, :rhs=>rs, :domain=>e.domain, :unknown=>e.unknown, :merge=>e.merge?}
       end
       @lhs = lhs.process!(self)

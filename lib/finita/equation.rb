@@ -36,7 +36,7 @@ class Decomposition < Hash
     end
     fc = ObjectCollector.new(Field)
     map.each do |r,e|
-      fc.apply!(self[r] = Finita.simplify(e))
+      fc.apply!(self[r] = e)
     end
     @linear = true
     fc.objects.each do |f|
@@ -55,7 +55,7 @@ class Binding
       TypeInferer.new.apply!(unknown)
     end
     def decomposition(unknowns)
-      Decomposition.new(equation, unknowns) # TODO cache the result
+      @decomposition[unknowns].nil? ? @decomposition[unknowns] = Decomposition.new(equation, unknowns) : @decomposition[unknowns]
     end
     # def equation()
     # def assignment()
@@ -92,6 +92,7 @@ class Binding
     @unknown = unknown
     @domain = domain # TODO type check
     @merge = merge
+    @decomposition = {}
   end
   def new_algebraic(expression, domain)
     self.class::Algebraic.new(expression, unknown, domain, merge?)

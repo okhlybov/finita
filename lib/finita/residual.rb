@@ -62,7 +62,7 @@ class Residual
           if(node.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, node.x, node.y, node.z)) {
             #{@array_code.merge}(&#{evaluators}, index - first, #{mc[:residual_code].instance});
         $
-        stream << "continue;" unless m
+        stream << "continue;" unless mc[:merge]
         stream << "}"
       end
       stream << "}FINITA_LEAVE;}"

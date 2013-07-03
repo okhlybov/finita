@@ -67,7 +67,7 @@ class LHS
             }
           $
         end
-        stream << "continue;" unless m
+        stream << "continue;" unless mc[:merge]
         stream << "}"
       end
       stream << "}"

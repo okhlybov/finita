@@ -54,8 +54,6 @@ class Problem
       @initializer_codes = Set.new
       @finalizer_codes = Set.new
       @defines = Set.new
-      @symbols = {}
-      @codes = {}
       @bound_codes = {}
       super(problem.name)
       @system_codes = @problem.systems.collect {|s| s.code(self)}
@@ -65,7 +63,7 @@ class Problem
     attr_reader :initializer_codes
     attr_reader :finalizer_codes
     def entities
-      @entities.nil? ? @entities = [Finita::Generator::PrologueCode.new(defines)] + @bound_codes.values + @codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a : @entities
+      @entities.nil? ? @entities = [Finita::Generator::PrologueCode.new(defines)] + @bound_codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a : @entities
     end
     def hash
       @problem.hash # TODO
@@ -75,18 +73,6 @@ class Problem
     end
     def bound!(owner, &ctor)
       @bound_codes.include?(owner) ? @bound_codes[owner] : @bound_codes[owner] = yield(self)
-    end
-    def <<(code)
-      if @codes.key?(code)
-        @codes[code]
-      else
-        if code.respond_to?(:symbol)
-          symbol = code.symbol
-          raise "duplicate global symbol #{symbol}" if @symbols.key?(symbol) && @symbols[symbol] != code
-          @symbols[symbol] = code
-        end
-        @codes[code] = code
-      end
     end
     def write_intf(stream)
       stream << %$
