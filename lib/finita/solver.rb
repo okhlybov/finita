@@ -214,7 +214,7 @@ class Solver::Matrix < Solver
             }
           $
         end
-        stream << "continue;" unless m
+        stream << "continue;" unless mc[:merge]
         stream << "}"
       end
       stream << "}FINITA_LEAVE;}"

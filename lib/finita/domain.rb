@@ -32,11 +32,13 @@ class Range
   def before?; @before end
   def after?; @after end
   def open?; before? && after? end
+  def unit?; @unit end
   def initialize(first, last, before_first = false, after_last = false)
-    @first = Finita.simplify(Symbolic.coerce(first))
-    @last = Finita.simplify(Symbolic.coerce(last))
+    @first = Symbolic.simplify(Symbolic.coerce(first))
+    @last = Symbolic.simplify(Symbolic.coerce(last))
     @before = before_first
     @after = after_last
+    @unit = (first == last)
     @hash = first.hash ^ (last.hash << 1) # TODO
   end
   def ==(other)
@@ -50,13 +52,25 @@ class Range
     (before? ? "(" : "[") << Finita::Emitter.new.emit!(first) << "..." << Finita::Emitter.new.emit!(last) << (after? ? ")" : "]")
   end
   def decompose
-    nil? || first == last ? [self] : [Range.new(first, first, false, true), Range.new(first+1, last-1, true, true), Range.new(last, last, true, false)]
+    nil? || unit? ? [self] : [Range.new(first, first, false, true), Range.new(first+1, last-1, true, true), Range.new(last, last, true, false)]
   end
   def to_first
     nil? ? Nil : Range.new(first, first, before?, true)
   end
   def to_last
     nil? ? Nil : Range.new(last, last, true, after?)
+  end
+  #def sup(n = 1)
+  #  nil? ? Nil : Range.new(first-n, last+n)
+  #end
+  def sub(n = 1)
+    if nil?
+      Nil
+    elsif unit?
+      self
+    else
+      Range.new(first+n, last-n, true, true)
+    end
   end
   Nil = Range.new(0,0)
 end # Range
@@ -191,6 +205,9 @@ class Area
   end
   def back
     self.class.new(xrange, yrange, zrange.to_first)
+  end
+  def interior
+    Area.new(xrange.sub, yrange.sub, zrange.sub)
   end
   def code(problem_code)
     Code.new(self, problem_code)
