@@ -1,11 +1,30 @@
+#include <stdio.h>
+
 #include "Cavity.auto.h"
 
+#define PRINT_FIELD(file_name, f) \
+FINITA_HEAD { \
+	int x, y; \
+	FILE* file = fopen(file_name, "wt"); \
+	for(x = 0; x < NX; ++x) \
+	for(y = 0; y < NY; ++y) \
+		{ \
+			fprintf(file, "%d\t%d\t%e\n", x, y, f(x, y, 0)); \
+		} \
+	fclose(file); \
+}
+
 int main(int argc, char** argv) {
-    NX = NY = 11;
-    A = NX;
-    B = NY;
+    NX = NY = 51;
+    A = (NX-1)/1.0;
+    B = (NY-1)/1.0;
+    Pr = 1;
+    double _[] = {1, 1e4, 1e5, 5e5, -1}, *p = _;
     CavitySetup(argc, argv);
-    CavitySystemSolve();
+    while((Gr = *p++) >= 0) CavitySystemSolve();
+    PRINT_FIELD("T.dat", T);
+    PRINT_FIELD("Psi.dat", Psi);
+    PRINT_FIELD("Phi.dat", Phi);
     CavityCleanup();
     return 0;
 }
