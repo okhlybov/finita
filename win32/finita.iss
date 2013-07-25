@@ -1,6 +1,7 @@
-; Download path for the MODPATH extension is: http://www.legroom.net/files/software/modpath.iss
+; MODPATH extension URL: http://www.legroom.net/files/software/modpath.iss
 
-#define Version "0.1"
+#define Version "preview"
+#define Build "0"
 
 [PreCompile]
 Name: "prepare.cmd"; Flags: abortonerror
@@ -14,18 +15,24 @@ AppVersion="{#Version}"
 AppId={{9FC3B76A-A9F6-4AE7-8414-50E0667D5B17}
 SolidCompression=True
 DefaultDirName={pf}\Finita
-OutputBaseFilename="finita-{#Version}"
+OutputBaseFilename="finita-{#Version}-{#Build}"
 OutputDir=..
 ChangesEnvironment=True
+DefaultGroupName=Finita
+DisableProgramGroupPage=yes
 
 [Files]
 Source: ".dist\*"; DestDir: "{app}"; Flags: ignoreversion createallsubdirs recursesubdirs
+Source: "..\sample\*"; DestDir: "{app}\sample"; Flags: ignoreversion createallsubdirs recursesubdirs
 
-[Dirs]
+[Dirs]                                                        
 Name: "{app}"; Flags: setntfscompression
 
 [Tasks]
-Name: "modifypath"; Description: "&Add finitac executable to the path"
+Name: "modifypath"; Description: "&Add finitac executable to path"
+
+[Icons]
+Name: "{group}\Samples"; Filename: "{app}\sample"
 
 [Code]
 const

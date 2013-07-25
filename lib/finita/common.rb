@@ -4,6 +4,9 @@ require "symbolic"
 module Finita
 
 
+Version = "0.1"
+
+
 def self.expand(obj)
   Symbolic.coerce(obj).convert.expand
 end

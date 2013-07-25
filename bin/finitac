@@ -1,6 +1,24 @@
 #!/usr/bin/env ruby
+
 require "finita"
+require "optparse"
+
 include Symbolic
 include Finita
-eval(IO.read(ARGV[0]), binding, ARGV[0], 1)
+
+argv = ARGV.empty? ? ["-h"] : ARGV
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: finitac [options] input-file"
+  opts.on_tail("-h", "--help", "Show this message") do
+    puts opts
+    exit
+  end
+  opts.on_tail("--version", "Show version") do
+    puts Finita::Version
+    exit
+  end
+end.parse!(argv)
+
+eval(IO.read(argv[0]), binding, argv[0], 1)
 Problem.problems.each {|p| p.process!}
