@@ -42,7 +42,7 @@ Any samples?
 
 A few working examples can be found in the \sample subdirectory of the installation.
 
-Provided that both Finita and WHPC are successfully installed on the system the instruction for building a sample Cavity problem employing sequential debugging version of MUMPS linear solver is as follows:
+Provided that both Finita and WHPC are successfully installed on the system the instruction for building a sample Cavity problem is (from the WHPC shell):
 
 1) Generate source code cavity.auto.h and cavity.auto.c
 
@@ -50,21 +50,24 @@ Provided that both Finita and WHPC are successfully installed on the system the 
 
 2) Build executable cavity.exe
 
-> %CC% -g -o cavity %MUMPS_DSG_CPPFLAGS% cavity.c cavity.auto.c %MUMPS_DSG_LDFLAGS% %MUMPS_DSG_LDLIBS%
+> %CC% -g -o cavity.exe %MUMPS_DSG_CPPFLAGS% cavity.c cavity.auto.c %MUMPS_DSG_LDFLAGS% %MUMPS_DSG_LDLIBS%
 
 3) Perform a test run
 
 > cavity.exe
+
+This will result in a few .dat files which contain the computed physical fields.
 
 For more information on WHPC refer to the respective documentation.
 
 3rd parties
 -----------
 
-This installation ships an unmodified Ruby runtime from the RubyInstaller project. The installer itself is built by the Inno Setup distribution generator.
+This installation ships an unmodified Ruby runtime from the RubyInstaller project.
+The installer itself is built by the Inno Setup distribution generator.
 
-RubyInstaller home page: http://rubyinstaller.org
-Inno Setup home page: http://www.jrsoftware.org/isinfo.php
+RubyInstaller home page: http://rubyinstaller.org/
+Inno Setup home page: http://www.jrsoftware.org/isinfo.php/
 
 THE END
 =======
