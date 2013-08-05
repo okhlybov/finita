@@ -1,7 +1,7 @@
 ; MODPATH extension URL: http://www.legroom.net/files/software/modpath.iss
 
 #define Version "preview"
-#define Build "0"
+#define Build "1"
 
 [PreCompile]
 Name: "prepare.cmd"; Flags: abortonerror
@@ -24,7 +24,7 @@ DisableProgramGroupPage=yes
 [Files]
 Source: ".dist\*"; DestDir: "{app}"; Flags: ignoreversion createallsubdirs recursesubdirs
 Source: "..\sample\*"; DestDir: "{app}\sample"; Flags: ignoreversion createallsubdirs recursesubdirs
-
+Source: "README.txt"; DestDir: "{app}\doc"; Flags: isreadme
 [Dirs]                                                        
 Name: "{app}"; Flags: setntfscompression
 
