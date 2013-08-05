@@ -32,6 +32,7 @@ Name: "{app}"; Flags: setntfscompression
 Name: "modifypath"; Description: "&Add finitac executable to path"
 
 [Icons]
+Name: "{group}\README"; Filename: "{app}\doc\README.txt"
 Name: "{group}\Samples"; Filename: "{app}\sample"
 
 [Code]

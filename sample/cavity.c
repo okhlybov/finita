@@ -2,7 +2,7 @@
 
 #include "Cavity.auto.h"
 
-#define PRINT_FIELD(file_name, f) \
+#define WRITE_FIELD(file_name, f) \
 FINITA_HEAD { \
 	int x, y; \
 	FILE* file = fopen(file_name, "wt"); \
@@ -22,9 +22,9 @@ int main(int argc, char** argv) {
     double _[] = {1, 1e4, 1e5, 5e5, -1}, *p = _;
     CavitySetup(argc, argv);
     while((Gr = *p++) >= 0) CavitySystemSolve();
-    PRINT_FIELD("T.dat", T);
-    PRINT_FIELD("Psi.dat", Psi);
-    PRINT_FIELD("Phi.dat", Phi);
+    WRITE_FIELD("T.dat", T);
+    WRITE_FIELD("Psi.dat", Psi);
+    WRITE_FIELD("Phi.dat", Phi);
     CavityCleanup();
     return 0;
 }

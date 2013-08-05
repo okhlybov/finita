@@ -1,8 +1,8 @@
 /* Import the auto-generated interface part */
 #include "Bratu.auto.h"
 
-/* Define the field output macro */
-#define PRINT_FIELD(file_name, f) \
+/* Define the field writer macro */
+#define WRITE_FIELD(file_name, f) \
 FINITA_HEAD { \
 	int x, y, z; \
 	FILE* file = fopen(file_name, "wt"); \
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     /* Solve the system */
     BratuSystemSolve();
     /* Dump the computed field F */
-    PRINT_FIELD("F.dat", F);
+    WRITE_FIELD("F.dat", F);
     /* Finalize the auto-generated part*/
     BratuCleanup();
     return 0;

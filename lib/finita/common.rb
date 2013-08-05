@@ -4,7 +4,7 @@ require "symbolic"
 module Finita
 
 
-Version = "0.1"
+Version = "0.1.1"
 
 
 def self.expand(obj)
