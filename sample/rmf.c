@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
         R(x, y, 0) = x/A;
         Z(x, y, 0) = y/B;
     }
-    //RMFFormSolve();
+    RMFFormSolve();
     /*while((Tm = *p++) >= 0) {
         FINITA_HEAD printf("*** Tm = %e\n", Tm);
     }*/

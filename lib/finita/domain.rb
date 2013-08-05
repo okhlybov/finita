@@ -93,10 +93,13 @@ StaticCode = Class.new(DataStructBuilder::Code) do
       int #{within}(#{type}*, int, int, int);
       size_t #{size}(#{type}*);
       #{inline} size_t #{index}(#{type}* self, int x, int y, int z) {
-        size_t index;
+        size_t index, dx, dy;
         FINITA_ENTER;
         #{assert}(#{within}(self, x, y, z));
-        index = (x-self->x1) + (self->y2-self->y1+1)*((y-self->y1) + (z-self->z1)*(self->x2-self->x1+1));
+        dx = self->x2 - self->x1 + 1;
+        dy = self->y2 - self->y1 + 1;
+        index = (x - self->x1) + dx*(y - self->y1) + dx*dy*(z - self->z1);
+        FINITA_ASSERT(index < self->size);
         FINITA_RETURN(index);
       }
       void #{itCtor}(#{it}*, #{type}*);

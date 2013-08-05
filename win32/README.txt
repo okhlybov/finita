@@ -50,7 +50,7 @@ Provided that both Finita and WHPC are successfully installed on the system the 
 
 2) Build executable cavity.exe
 
-> %CC% -g -o cavity.exe %MUMPS_DSG_CPPFLAGS% cavity.c cavity.auto.c %MUMPS_DSG_LDFLAGS% %MUMPS_DSG_LDLIBS%
+> %CC% -g -o cavity %MUMPS_DSG_CPPFLAGS% cavity.c cavity.auto1.c %MUMPS_DSG_LDFLAGS% %MUMPS_DSG_LDLIBS%
 
 3) Perform a test run
 
