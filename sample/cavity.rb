@@ -1,4 +1,4 @@
-# Buoyancy-driven convection in 2D square cavity.
+# Buoyancy-driven convection in 2D square cavity
 
 NX = Variable.new(:NX, Integer)
 NY = Variable.new(:NY, Integer)

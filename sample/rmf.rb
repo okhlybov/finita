@@ -37,7 +37,7 @@ def c(f)
 end
 
 Problem.new(:RMF) do |p|
-  p << R << Z << Tm << F << P
+  p << R << Z << Tm << F << P << A << B
   System.new(:Form) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
     s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
