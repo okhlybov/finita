@@ -4,6 +4,7 @@ Gem::Specification.new do |spec|
   spec.version = Finita::Version
   spec.author = "Oleg A. Khlybov"
   spec.email = "fougas@mail.ru"
+  spec.license = "BSD"
   spec.homepage = "http://finita.sourceforge.net/"
   spec.summary = "Package for solving complex PDE/algebraic systems of equations numerically using grid methods"
   spec.required_ruby_version = Gem::Requirement.new(">= 1.9")
