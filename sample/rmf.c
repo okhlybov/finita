@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "RMF.auto.h"
 
 #define PRINT_FIELD(file_name, f) \
@@ -16,22 +14,34 @@ FINITA_HEAD { \
 
 int main(int argc, char** argv) {
     int x, y;
-    NX = 51;
-    NY = 101;
+    NX = 25;
+    NY = 50;
     A = (NX-1)/1.0;
     B = (NY-1)/2.0;
     double _[] = {10, 1e2, 1e3, 1e4, 1e5, -1}, *p = _;
     RMFSetup(argc, argv);
+    /*
+        Setting up the coordinate transformation.
+        This has to be done after the problem setup phase as the fields need to be constructed
+        but before the solution phase because these fields are a part of equations.
+    */
     for(x = 0; x < NX; ++x) for(y = 0; y < NY; ++y) {
         R(x, y, 0) = x/A;
         Z(x, y, 0) = y/B;
     }
-    RMFFormSolve();
-    /*while((Tm = *p++) >= 0) {
+    /* Attain the solution for the Lorenz force as the first step */
+    RMFForceSolve();
+    /* Employing the continuation technique with respect to Tm to attain the solution for the flow */
+    while((Tm = *p++) >= 0) {
         FINITA_HEAD printf("*** Tm = %e\n", Tm);
-    }*/
+        /* Attain the solution for the flow field */
+        RMFFlowSolve();
+    }
     PRINT_FIELD("P.dat", P);
     PRINT_FIELD("F.dat", F);
+    PRINT_FIELD("Psi.dat", Psi);
+    PRINT_FIELD("Phi.dat", Phi);
+    PRINT_FIELD("M.dat", M);
     RMFCleanup();
     return 0;
 }
