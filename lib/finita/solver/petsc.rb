@@ -114,7 +114,7 @@ class Solver::PETSc < Solver::Matrix
           PetscErrorCode ierr;
           #{SparsityPatternCode.it} it;
           size_t size, index, first, last;
-          const MatType mat_type;
+          MatType mat_type;
           int preallocated = 1;
           FINITA_ENTER;
           size = #{decomposer_code.indexCount}();
