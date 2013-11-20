@@ -76,7 +76,7 @@ version of MUMPS linear solver is as follows:
 
 2) Build executable cavity.exe
 
-> %CC% -g -o cavity %MUMPS_DSG_CPPFLAGS% cavity.c cavity.auto1.c %%MUMPS_DSG_LDFLAGS% %MUMPS_DSG_LDLIBS%
+> %CC% -g -o cavity %MUMPS_DSO_CPPFLAGS% cavity.c cavity.auto1.c %MUMPS_DSO_LDFLAGS% %MUMPS_DSO_LDLIBS%
 
 3) Perform a test run
 

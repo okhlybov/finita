@@ -281,18 +281,19 @@ class Decomposer::Naive < Decomposer
           void #{setup}(void) {
             FINITA_ENTER;
             size_t index, base_index, process, size = #{@mapper_code.size}();
+            FINITA_ASSERT(FinitaProcessCount <= size);
             #{counts} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{counts});
             #{offsets} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{offsets});
             for(base_index = process = index = 0; index < size; ++index) {
               if(process < FinitaProcessCount*index/size) {
                 #{offsets}[process] = base_index;
-                #{counts}[process] = index - base_index;
+                #{counts}[process] = index - base_index; FINITA_ASSERT(#{counts}[process] > 0);
                 base_index = index;
                 ++process;
               }
             }
             #{offsets}[process] = base_index;
-            #{counts}[process] = index - base_index;
+            #{counts}[process] = index - base_index;  FINITA_ASSERT(#{counts}[process] > 0);
             FINITA_LEAVE;
           }
         $
