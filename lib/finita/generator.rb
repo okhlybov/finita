@@ -217,7 +217,7 @@ class Source < CodeBuilder::Source
   attr_reader :file_name
   def initialize(m, index)
     super(m, index)
-    @file_name = "#{@module.file_prefix}.auto#{index}.c"
+    @file_name = "#{@module.file_prefix.downcase}.auto#{index}.c"
   end
   def new_stream
     File.new(file_name, "wt")
@@ -236,7 +236,7 @@ class Header < CodeBuilder::Header
   attr_reader :file_name, :header_tag
   def initialize(m)
     super(m)
-    @file_name = "#{@module.file_prefix}.auto.h"
+    @file_name = "#{@module.file_prefix.downcase}.auto.h"
     @header_tag = @module.file_prefix.upcase + "_AUTO_H"
   end
   def new_stream

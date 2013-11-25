@@ -74,7 +74,7 @@ class Jacobian::Numeric < Jacobian
             x = row.x; y = row.y; z = row.z;
       $
       @mapping_codes.each do |mc|
-        stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, row.x, row.y, row.z)) {$
+        stream << %$if(row.field == #{mc[:unknown_index]} && #{mc[:domain_code].within}(&#{mc[:domain_code].instance}, x, y, z)) {$
         mc[:jacobian_codes].each do |r, ec|
           stream << %$
             if(#{solver_code.mapper_code.hasNode}(column = #{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {

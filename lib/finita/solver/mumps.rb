@@ -58,12 +58,13 @@ class Solver::MUMPS < Solver::Matrix
         }
         #{invoke}(1);
       $
-      stream << %$#{@numeric_array_code.ctor}(&#{array}, #{ctx}.n);$ if mpi?
+      stream << "#{@numeric_array_code.ctor}(&#{array}, #{ctx}.n);" if mpi?
       stream << "FINITA_LEAVE;}"
     end
     def write_cleanup_body(stream)
       super
-      stream << %$
+      stream << %${
+        FINITA_ENTER;
         #{free}(#{ctx}.irn_loc);
         #{free}(#{ctx}.jcn_loc);
         FINITA_HEAD {
@@ -71,6 +72,8 @@ class Solver::MUMPS < Solver::Matrix
         }
         #{invoke}(-2);
       $
+      stream << "#{@numeric_array_code.dtor}(&#{array});" if mpi?
+      stream << "FINITA_LEAVE;}"
     end
     def write_defs(stream)
       stream << %$static #{@numeric_array_code.type} #{array};$ if mpi?
