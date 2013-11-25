@@ -87,9 +87,9 @@ class Solver::LIS < Solver::Matrix
           {
             LIS_INT is, ie;
             ierr = lis_vector_get_range(#{b}, &is, &ie); CHKERR(ierr);
-            FINITA_ASSERT(first == is && last == ie);
+            FINITA_ASSERT(first == is && last == ie-1);
             ierr = lis_vector_get_range(#{x}, &is, &ie); CHKERR(ierr);
-            FINITA_ASSERT(first == is && last == ie);
+            FINITA_ASSERT(first == is && last == ie-1);
           }
           #endif
           #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
@@ -167,10 +167,12 @@ class Solver::LIS < Solver::Matrix
       stream << %$
         norm = !step || base == 0 ? 1 : delta/base;
         stop = norm < #{@solver.rtol};
-        FINITA_HEAD {
-          printf("norm=%d\\n", norm);
-          fflush(stdout);
-        }
+        #ifndef NDEBUG
+          FINITA_HEAD {
+            printf("norm=%d\\n", norm);
+            fflush(stdout);
+          }
+        #endif
       $
       if mpi?
         stream << %$

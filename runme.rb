@@ -8,14 +8,8 @@ N = Variable.new(:N, Integer)
 Z = Variable.new(:Z, Complex)
 C = Constant.new(:C, 5)
 
+A = d3 ? Domain::Rectangular::Domain.new(N,N,N) : Domain::Rectangular::Area.new(N,N)
 
-if d3
-  A = Domain::Rectangular::Domain.new(N,N,N)
-  B = Domain::Rectangular::Area.new([1,N-2],[1,N-2],[1,N-2])
-else
-  A = Domain::Rectangular::Domain.new(N,N)
-  B = Domain::Rectangular::Domain.new([1,N-2],[1,N-2],[1,N-2])
-end
 F = Field.new(:F, Float, A)
 G = Field.new(:G, Float, A)
 
@@ -38,11 +32,11 @@ end
 Problem.new(:Problem) do
   System.new(:System) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
-    env = Environment::MPI.new
+    #env = Environment::MPI.new
     env = Environment::Sequential.new
-    s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, env, Jacobian::Numeric.new) do |s|
-      s.nonlinear!
+    s.solver = Solver::LIS.new(Mapper::Naive.new, Decomposer::Naive.new, env, Jacobian::Numeric.new) do |s|
+      #s.nonlinear!
     end
-    Equation.new(laplace(F) - G, F, B)
+    Equation.new(laplace(F) - G, F, A.interior)
   end
 end

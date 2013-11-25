@@ -34,7 +34,7 @@
 int main(int argc, char** argv)
 {
     clock_t c;
-	N = 101;
+	N = 11;
 	ProblemSetup(argc, argv);
 {
 	int x, y;
@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 	for(y = 0; y < N; ++y)
 		{
 			F(x,y,0) = 0;
-			G(x,y,0) = 5e-4;
+			//G(x,y,0) = 5e-4;
 		}
 #ifdef D3
 	for(x = 0; x < N; ++x) for(y = 0; y < N; ++y) F(x,y,0) = 1;
