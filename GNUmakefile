@@ -4,10 +4,10 @@ program = problem
 
 sources = problem.c problem.auto1.c
 
-packages = PETSC_DMG
+packages = LIS_DSO
 
-CPPFLAGS = -g -ansi -pedantic -std=c99 -pg #-O3 -DNDEBUG
-LDFLAGS = -g -pg
+CPPFLAGS = -g -ansi -pedantic -std=c99 #-O3 -DNDEBUG
+LDFLAGS = -g
 
 ### End custom definitions
 
