@@ -134,12 +134,15 @@ class PrologueCode < DataStructBuilder::Code
         http://www.cygnus-software.com/papers/comparingfloats/comparingfloats.htm
       */
       #{inline} int FinitaFloatsAlmostEqual(float a, float b) {
+        int ai, bi, result;
+        FINITA_ENTER;
         #{assert}(sizeof(int) == 4);
-        int ai = *(int*)&a;
+        ai = *(int*)&a;
         if(ai < 0) ai = 0x80000000 - ai;
-        int bi = *(int*)&b;
+        bi = *(int*)&b;
         if (bi < 0) bi = 0x80000000 - bi;
-        return abs(ai - bi) <= 1 ? 1 : 0;
+        result =  abs(ai - bi) <= 1 ? 1 : 0;
+        FINITA_RETURN(result);
       }
     $
   end
