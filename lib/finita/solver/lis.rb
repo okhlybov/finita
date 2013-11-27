@@ -177,10 +177,14 @@ class Solver::LIS < Solver::Matrix
         stream << %$
           ierr = MPI_Reduce(&base, &base_, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
           ierr = MPI_Reduce(&delta, &delta_, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
+          norm = !step || FinitaFloatsAlmostEqual(base_, 0) ? 1 : delta_ / base_;
+        $
+      else
+        stream << %$
+          norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
         $
       end
       stream << %$
-        norm = !step || base == 0 ? 1 : delta_ / base_;
         stop = norm < #{@solver.rtol};
         #ifndef NDEBUG
           FINITA_HEAD {

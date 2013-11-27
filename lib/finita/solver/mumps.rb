@@ -183,15 +183,15 @@ class Solver::MUMPS < Solver::Matrix
             }
             #{decomposer_code.broadcastArray}(&#{array});
             for(index = 0; index < #{ctx}.n; ++index) {
-              #{system_code.cresult} sigma = #{@numeric_array_code.get}(&#{array}, index), value = #{mapper_code.indexGet}(index);
+              #{system_code.cresult} dvalue = #{@numeric_array_code.get}(&#{array}, index), value = #{mapper_code.indexGet}(index);
               FINITA_HEAD {
                 base += #{abs}(value);
-                delta += #{abs}(sigma);
+                delta += #{abs}(dvalue);
               }
-              #{mapper_code.indexSet}(index, value + sigma);
+              #{mapper_code.indexSet}(index, value + dvalue);
             }
             FINITA_HEAD {
-              norm = first || base == 0 ? 1 : delta/base;
+              norm = first || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
               first = 0;
               stop = norm < #{@solver.rtol}; /* FIXME : wont work for complex numbers */
             }
@@ -205,7 +205,7 @@ class Solver::MUMPS < Solver::Matrix
               delta += #{abs}(#{ctx}.rhs[index]);
               #{mapper_code.indexSet}(index, value + #{ctx}.rhs[index]);
             }
-            norm = first || base == 0 ? 1 : delta/base;
+            norm = first || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
             first = 0;
             stop = norm < #{@solver.rtol};
           $
