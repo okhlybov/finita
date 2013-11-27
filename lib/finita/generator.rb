@@ -115,6 +115,10 @@ class PrologueCode < DataStructBuilder::Code
         #define FINITA_NHEAD
       #endif
 
+      /*
+        Thomas Wang's mixing algorithm, 32-bit version
+        http://www.concentric.net/~ttwang/tech/inthash.htm
+      */
       #{inline} size_t FinitaHashMix(size_t hash) {
         FINITA_ENTER;
         hash = (hash ^ 61) ^ (hash >> 16);
@@ -124,9 +128,20 @@ class PrologueCode < DataStructBuilder::Code
         hash = hash ^ (hash >> 15);
         FINITA_RETURN(hash);
       }
+
+      /*
+        Bruce Dawson's floating-point comparison algorithm
+        http://www.cygnus-software.com/papers/comparingfloats/comparingfloats.htm
+      */
+      #{inline} int FinitaFloatsAlmostEqual(float a, float b) {
+        #{assert}(sizeof(int) == 4);
+        int ai = *(int*)&a;
+        if(ai < 0) ai = 0x80000000 - ai;
+        int bi = *(int*)&b;
+        if (bi < 0) bi = 0x80000000 - bi;
+        return abs(ai - bi) <= 1 ? 1 : 0;
+      }
     $
-    # Thomas Wang's mixing algorithm, 32-bit version
-    # http://www.concentric.net/~ttwang/tech/inthash.htm
   end
   def write_defs(stream)
     # TODO portable version of snprintf
