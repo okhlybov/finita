@@ -50,16 +50,32 @@ class Solver::LIS < Solver::Matrix
     def write_defs(stream)
       stream << %$static #{@numeric_array_code.type} #{array};$ if @have_array
       super
+      stream << %$
+        static void #{collectNNZ}(LIS_INT** nnz) {
+          size_t first_row;
+          #{SparsityPatternCode.it} it;
+          FINITA_ENTER;
+          *nnz = (LIS_INT*) #{calloc}(#{decomposer_code.indexCount}(), sizeof(LIS_INT)); #{assert}(*nnz);
+          first_row = #{decomposer_code.firstIndex}();
+          #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
+          while(#{SparsityPatternCode.itHasNext}(&it)) {
+            ++((*nnz)[#{mapper_code.index}(#{SparsityPatternCode.itNext}(&it).row) - first_row]);
+          }
+          FINITA_LEAVE;
+        }
+      $
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
     end
     def write_solve_linear(stream)
       stream << %$
         void #{system_code.solve}(void) {
-          LIS_INT ierr, first, last, index;
+          int ierr;
+          size_t first, last, index;
           #{SparsityPatternCode.it} it;
           LIS_SOLVER solver;
           LIS_MATRIX A;
           LIS_VECTOR b, x;
+          LIS_INT* nnz;
           FINITA_ENTER;
           ierr = lis_solver_create(&solver); CHKERR(ierr);
           ierr = lis_solver_set_option("-initx_zeros false", solver); CHKERR(ierr);
@@ -83,6 +99,9 @@ class Solver::LIS < Solver::Matrix
             FINITA_ASSERT(first == is && last == ie-1);
           }
           #endif
+          #{collectNNZ}(&nnz);
+          ierr = lis_matrix_malloc(A, 0, nnz); CHKERR(ierr);
+          #{free}(nnz);
           #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
           while(#{SparsityPatternCode.itHasNext}(&it)) {
             #{NodeCoordCode.type} coord;
@@ -114,18 +133,19 @@ class Solver::LIS < Solver::Matrix
       stream << %$
         void #{system_code.solve}(void) {
           int stop, step = 0;
-          LIS_INT ierr, first, last, index;
-          size_t size;
+          int ierr;
+          size_t first, last, index;
           #{SparsityPatternCode.it} it;
           LIS_SOLVER solver;
           LIS_MATRIX A;
           LIS_VECTOR b, x;
+          LIS_INT* nnz;
           FINITA_ENTER;
-          size = #{mapper_code.size}();
           first = #{decomposer_code.firstIndex}();
           last = #{decomposer_code.lastIndex}();
+          #{collectNNZ}(&nnz);
           do {
-            double norm, base = 0, delta = 0, base_, delta_; /* TODO : complex */
+            double norm, base = 0, delta = 0; /* TODO : complex */
             ierr = lis_solver_create(&solver); CHKERR(ierr);
             #ifndef NDEBUG
               ierr = lis_solver_set_option("-print mem", solver); CHKERR(ierr);
@@ -145,6 +165,7 @@ class Solver::LIS < Solver::Matrix
               FINITA_ASSERT(first == is && last == ie-1);
             }
             #endif
+            ierr = lis_matrix_malloc(A, 0, nnz); CHKERR(ierr);
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
             while(#{SparsityPatternCode.itHasNext}(&it)) {
               #{NodeCoordCode.type} coord;
@@ -174,11 +195,12 @@ class Solver::LIS < Solver::Matrix
         ierr = lis_vector_destroy(b); CHKERR(ierr);
       $
       if mpi?
-        stream << %$
+        stream << %${
+          double base_, delta_; /* TODO : complex??? */
           ierr = MPI_Reduce(&base, &base_, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
           ierr = MPI_Reduce(&delta, &delta_, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
           norm = !step || FinitaFloatsAlmostEqual(base_, 0) ? 1 : delta_ / base_;
-        $
+        }$
       else
         stream << %$
           norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
@@ -201,6 +223,7 @@ class Solver::LIS < Solver::Matrix
       stream << %$
           ++step;
         } while(!stop);
+        #{free}(nnz);
         FINITA_LEAVE;
       }$
     end
