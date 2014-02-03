@@ -111,8 +111,8 @@ class PrologueCode < DataStructBuilder::Code
         #define FINITA_HEAD if(FinitaProcessIndex == 0)
         #define FINITA_NHEAD if(FinitaProcessIndex != 0)
       #else
-        #define FINITA_HEAD
-        #define FINITA_NHEAD
+        #define FINITA_HEAD if(1)
+        #define FINITA_NHEAD if(0)
       #endif
 
       /*
