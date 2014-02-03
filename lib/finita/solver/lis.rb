@@ -202,9 +202,7 @@ class Solver::LIS < Solver::Matrix
           norm = !step || FinitaFloatsAlmostEqual(base_, 0) ? 1 : delta_ / base_;
         }$
       else
-        stream << %$
-          norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
-        $
+        stream << %$norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;$
       end
       stream << %$
         stop = norm < #{@solver.rtol};
@@ -215,11 +213,7 @@ class Solver::LIS < Solver::Matrix
           }
         #endif
       $
-      if mpi?
-        stream << %$
-          ierr = MPI_Bcast(&stop, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
-        $
-      end
+      stream << %$ierr = MPI_Bcast(&stop, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);$ if mpi?
       stream << %$
           ++step;
         } while(!stop);
