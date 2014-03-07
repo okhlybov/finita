@@ -29,16 +29,16 @@ class Decomposer
     end
     def write_intf(stream)
       stream << %$
-        void #{setup}(void);
-        size_t #{firstIndex}(void);
-        size_t #{lastIndex}(void);
-        size_t #{indexCount}(void);
-        void #{synchronizeUnknowns}(void);
+        #{extern} void #{setup}(void);
+        #{extern} size_t #{firstIndex}(void);
+        #{extern} size_t #{lastIndex}(void);
+        #{extern} size_t #{indexCount}(void);
+        #{extern} void #{synchronizeUnknowns}(void);
       $
       stream << %$
-        void #{synchronizeArray}(#{@numeric_array_code.type}*);
-        void #{gatherArray}(#{@numeric_array_code.type}*);
-        void #{scatterArray}(#{@numeric_array_code.type}*);
+        #{extern} void #{synchronizeArray}(#{@numeric_array_code.type}*);
+        #{extern} void #{gatherArray}(#{@numeric_array_code.type}*);
+        #{extern} void #{scatterArray}(#{@numeric_array_code.type}*);
       $ if solver_code.mpi?
     end
     def write_defs(stream)

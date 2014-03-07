@@ -38,7 +38,7 @@ class Residual
       equal?(other) || self.class == other.class && @residual == other.instance_variable_get(:@residual)
     end
     def write_intf(stream)
-      stream << %$#{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type});$
+      stream << %$#{extern} #{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type});$
     end
     def write_defs(stream)
       super
