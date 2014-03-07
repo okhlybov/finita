@@ -31,7 +31,7 @@ class Jacobian
       equal?(other) || self.class == other.class && @jacobian == other.instance_variable_get(:@jacobian)
     end
     def write_intf(stream)
-      stream << %$#{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type}, #{NodeCode.type});$
+      stream << %$#{extern} #{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type}, #{NodeCode.type});$
     end
   end # Code
 end # Jacobian

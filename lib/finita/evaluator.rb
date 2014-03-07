@@ -61,7 +61,7 @@ class Evaluator
       @evaluator.expression
     end
     def write_intf(stream)
-      stream << %$#{@cresult} #{instance}(int, int, int);$
+      stream << %$#{extern} #{@cresult} #{instance}(int, int, int);$
     end
     def write_defs(stream)
       stream << %$
@@ -96,7 +96,7 @@ NumericArrayCode = numeric_instances_hash do |type|
     end
     def write_intf(stream)
       super
-      stream << %$void #{dump}(#{type}*, FILE*);$
+      stream << %$#{extern} void #{dump}(#{type}*, FILE*);$
     end
     def write_defs(stream)
       super
@@ -250,7 +250,7 @@ FunctionListCode = numeric_instances_hash do |type|
     end
     def write_intf(stream)
       super
-      stream << %$#{@ctype} #{summate}(#{type}*, int, int, int);$
+      stream << %$#{extern} #{@ctype} #{summate}(#{type}*, int, int, int);$
     end
     def write_defs(stream)
       super
@@ -283,7 +283,7 @@ FunctionArrayCode = numeric_instances_hash do |type|
     end
     def write_intf(stream)
       super
-      stream << %$void #{merge}(#{type}*, size_t, #{@function_code.type});$
+      stream << %$#{extern} void #{merge}(#{type}*, size_t, #{@function_code.type});$
     end
     def write_defs(stream)
       super
@@ -313,7 +313,7 @@ SparseMatrixCode = numeric_instances_hash do |type|
     end
     def write_intf(stream)
       super
-      stream << %$void #{merge}(#{type}*, #{NodeCode.type}, #{NodeCode.type}, #{@function_code.type});$
+      stream << %$#{extern} void #{merge}(#{type}*, #{NodeCode.type}, #{NodeCode.type}, #{@function_code.type});$
     end
     def write_defs(stream)
       super
@@ -352,7 +352,7 @@ SparseVectorCode = numeric_instances_hash do |type|
     end
     def write_intf(stream)
       super
-      stream << %$void #{merge}(#{type}*, #{NodeCode.type}, #{@function_code.type});$
+      stream << %$#{extern} void #{merge}(#{type}*, #{NodeCode.type}, #{@function_code.type});$
     end
     def write_defs(stream)
       super

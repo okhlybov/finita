@@ -40,7 +40,7 @@ class Solver::Explicit < Solver
     end
     def write_intf(stream)
       super
-      stream << %$void #{setup}(void);$
+      stream << %$#{extern} void #{setup}(void);$
     end
     def write_defs(stream)
       super

@@ -89,9 +89,9 @@ StaticCode = Class.new(DataStructBuilder::Code) do
         #{node}* nodes;
       };
       typedef struct #{it} #{it};
-      void #{ctor}(#{type}*, int, int, int, int, int, int);
-      int #{within}(#{type}*, int, int, int);
-      size_t #{size}(#{type}*);
+      #{extern} void #{ctor}(#{type}*, int, int, int, int, int, int);
+      #{extern} int #{within}(#{type}*, int, int, int);
+      #{extern} size_t #{size}(#{type}*);
       #{inline} size_t #{index}(#{type}* self, int x, int y, int z) {
         size_t index, dx, dy;
         FINITA_ENTER;
@@ -102,9 +102,9 @@ StaticCode = Class.new(DataStructBuilder::Code) do
         FINITA_ASSERT(index < self->size);
         FINITA_RETURN(index);
       }
-      void #{itCtor}(#{it}*, #{type}*);
-      int #{itHasNext}(#{it}*);
-      #{node} #{itNext}(#{it}*);
+      #{extern} void #{itCtor}(#{it}*, #{type}*);
+      #{extern} int #{itHasNext}(#{it}*);
+      #{extern} #{node} #{itNext}(#{it}*);
     $
   end
   def write_defs(stream)

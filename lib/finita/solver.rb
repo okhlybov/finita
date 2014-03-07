@@ -54,7 +54,7 @@ class Solver
     def mpi?; @environment_code.mpi? end
     def omp?; @environment_code.omp? end
     def write_intf(stream)
-      stream << %$void #{system_code.solve}(void);$
+      stream << %$#{extern} void #{system_code.solve}(void);$
     end
   end # Code
 end # Solver

@@ -76,8 +76,8 @@ class Problem
     end
     def write_intf(stream)
       stream << %$
-        void #{setup}(int, char**);
-        void #{cleanup}(void);
+        #{extern} void #{setup}(int, char**);
+        #{extern} void #{cleanup}(void);
       $
     end
     def write_defs(stream)

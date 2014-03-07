@@ -38,8 +38,8 @@ class RHS
     end
     def write_intf(stream)
       stream << %$
-        void #{setup}(void);
-        #{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type});
+        #{extern} void #{setup}(void);
+        #{extern} #{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type});
       $
     end
     def write_defs(stream)

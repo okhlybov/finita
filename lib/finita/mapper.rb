@@ -34,14 +34,14 @@ class Mapper
     def write_intf(stream)
       sc = solver_code.system_code
       stream << %$
-        size_t #{size}(void);
-        #{NodeCode.type} #{node}(size_t);
-        int #{hasNode}(#{NodeCode.type});
-        size_t #{index}(#{NodeCode.type});
-        void #{indexSet}(size_t, #{sc.cresult});
-        #{sc.cresult} #{indexGet}(size_t);
-        void #{nodeSet}(#{NodeCode.type}, #{sc.cresult});
-        #{sc.cresult} #{nodeGet}(#{NodeCode.type});
+        #{extern} size_t #{size}(void);
+        #{extern} #{NodeCode.type} #{node}(size_t);
+        #{extern} int #{hasNode}(#{NodeCode.type});
+        #{extern} size_t #{index}(#{NodeCode.type});
+        #{extern} void #{indexSet}(size_t, #{sc.cresult});
+        #{extern} #{sc.cresult} #{indexGet}(size_t);
+        #{extern} void #{nodeSet}(#{NodeCode.type}, #{sc.cresult});
+        #{extern} #{sc.cresult} #{nodeGet}(#{NodeCode.type});
       $
     end
     def write_defs(stream)
@@ -156,7 +156,7 @@ class Mapper::Naive < Mapper
     end
     def write_intf(stream)
       super
-      stream << %$void #{setup}(void);$
+      stream << %$#{extern} void #{setup}(void);$
     end
     def write_defs(stream)
       super
