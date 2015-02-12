@@ -133,7 +133,7 @@ class Constant < Numeric
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < CodeBuilder::Code
+  class Code < AutoC::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -142,7 +142,7 @@ class Constant < Numeric
     end
     attr_reader :constant, :symbol
     def priority
-      CodeBuilder::Priority::DEFAULT + 3
+      AutoC::Priority::DEFAULT + 3
     end
     def initialize(constant, problem_code)
       @constant = constant
@@ -160,7 +160,7 @@ class Constant < Numeric
       value = constant.type == Complex ? "#{constant.value.real}+_Complex_I*(#{constant.value.imaginary})" : constant.value
       stream << %$
         #define #{constant.name} #{@problem_code.problem.name}#{constant.name}
-        static const #{CType[constant.type]} #{constant.name} = #{value};
+        #{static} const #{CType[constant.type]} #{constant.name} = #{value};
       $
     end
   end # Code
@@ -190,7 +190,7 @@ class Variable < Symbolic::Expression
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < CodeBuilder::Code
+  class Code < AutoC::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -199,7 +199,7 @@ class Variable < Symbolic::Expression
     end
     attr_reader :variable, :symbol
     def priority
-      CodeBuilder::Priority::DEFAULT + 2
+      AutoC::Priority::DEFAULT + 2
     end
     def initialize(variable, problem_code)
       @variable = variable
@@ -216,13 +216,11 @@ class Variable < Symbolic::Expression
     def write_intf(stream)
       stream << %$
         #define #{variable.name} #{@problem_code.type}#{variable.name}
-        extern #{CType[variable.type]} #{variable.name};
+        #{extern} #{CType[variable.type]} #{variable.name};
       $
     end
     def write_defs(stream)
-      stream << %$
-        #{CType[variable.type]} #{variable.name};
-      $
+      stream << %$#{CType[variable.type]} #{variable.name};$
     end
   end # Code
 end # Variable
@@ -251,7 +249,7 @@ class Field < Symbolic::Expression
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -285,19 +283,17 @@ class Field < Symbolic::Expression
           #{@ctype}* data;
           #{@domain_code.type}* area;
         };
-        extern struct #{type} #{instance};
+        #{extern} struct #{type} #{instance};
       $
     end
     def write_defs(stream)
-      stream << %$
-        struct #{type} #{instance};
-      $
+      stream << %$struct #{type} #{instance};$
     end
     def write_initializer(stream)
-      stream << %${
+      stream << %$
         #{instance}.area = &#{@domain_code.instance};
         #{instance}.data = (#{@ctype}*)#{calloc}(#{@domain_code.size}(#{instance}.area), sizeof(#{@ctype})); #{assert}(#{instance}.data);
-      }$
+      $
     end
   end # Code
 end # Field

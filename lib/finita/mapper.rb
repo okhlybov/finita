@@ -20,7 +20,7 @@ class Mapper
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     def initialize(mapper, solver_code)
       @mapper = check_type(mapper, Mapper)
       @solver_code = check_type(solver_code, Solver::Code)

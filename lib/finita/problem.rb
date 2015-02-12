@@ -48,7 +48,7 @@ class Problem
   def code
     Code.new(self)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     def initialize(problem)
       @problem = problem
       @initializer_codes = Set.new
@@ -92,12 +92,12 @@ class Problem
       stream << %$
         FINITA_ARGSUSED
         void #{setup}(int argc, char** argv) {FINITA_ENTER;$
-      CodeBuilder.priority_sort(initializer_codes, false).each do |e|
+      AutoC.priority_sort(initializer_codes, false).each do |e|
         e.write_initializer(stream)
       end
       stream << "FINITA_LEAVE;}"
       stream << %$void #{cleanup}(void) {FINITA_ENTER;$
-      CodeBuilder.priority_sort(finalizer_codes, true).each do |e|
+      AutoC.priority_sort(finalizer_codes, true).each do |e|
         e.write_finalizer(stream)
       end
       stream << "FINITA_LEAVE;}"
@@ -105,7 +105,7 @@ class Problem
   end # Code
   private
   def new_module(root_code)
-    Generator::Module.new(name) << root_code
+    AutoC::Module.new(name) << root_code
   end
 end # Problem
 

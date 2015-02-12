@@ -80,7 +80,7 @@ class System
   def code(problem_code)
     self.class::Code.new(self, problem_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     def initialize(system, problem_code)
       @system = check_type(system, System)
       @problem_code = check_type(problem_code, Problem::Code)
@@ -126,12 +126,12 @@ class System
     end
     def write_defs(stream)
       stream << %$void #{setup}(void) {FINITA_ENTER;$
-      CodeBuilder.priority_sort(initializer_codes, false).each do |e|
+      AutoC.priority_sort(initializer_codes, false).each do |e|
         e.write_initializer(stream)
       end
       stream << "FINITA_LEAVE;}"
       stream << %$void #{cleanup}(void) {FINITA_ENTER;$
-      CodeBuilder.priority_sort(finalizer_codes, true).each do |e|
+      AutoC.priority_sort(finalizer_codes, true).each do |e|
         e.write_finalizer(stream)
       end
       stream << "FINITA_LEAVE;}"

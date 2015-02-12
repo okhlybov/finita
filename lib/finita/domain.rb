@@ -76,7 +76,7 @@ class Range
 end # Range
 
 
-StaticCode = Class.new(DataStructBuilder::Code) do
+StaticCode = Class.new(AutoC::Type) do
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -216,7 +216,7 @@ class Area
     Code.new(self, problem_code)
   end
   private
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -240,7 +240,7 @@ class Area
       equal?(other) || self.class == other.class && @area == other.instance_variable_get(:@area)
     end
     def write_intf(stream)
-      stream << %$extern #{type} #{instance};$
+      stream << %$#{extern} #{type} #{instance};$
     end
     def write_defs(stream)
       stream << %$#{type} #{instance};$
