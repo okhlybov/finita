@@ -30,7 +30,7 @@ class Evaluator
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -43,7 +43,7 @@ class Evaluator
       @entities.nil? ? @entities = Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)} : @entities
     end
     def priority
-      CodeBuilder::Priority::DEFAULT + 1
+      AutoC::Priority::DEFAULT + 1
     end
     def initialize(evaluator, problem_code)
       @evaluator = evaluator
@@ -79,19 +79,19 @@ end # Evaluator
 
 
 def self.numeric_instances_hash(&block)
-  Hash[[Integer, Float, Complex].collect {|type| [type, block.call(type)]}]
+  Hash[[Integer, Float, Complex].collect {|type| [type, yield(type)]}]
 end
 
 
 NumericArrayCode = numeric_instances_hash do |type|
-  Class.new(DataStructBuilder::Vector) do
+  Class.new(AutoC::Vector) do
     @@fprintf_stmt = {
       Integer => %$fprintf(file, "%d\\t%d\\n", index, value)$,
       Float => %$fprintf(file, "%d\\t%e\\n", index, value)$,
       Complex => %$fprintf(file, "%d\\t%e+i(%e)\\n", index, creal(value), cimag(value))$
     }
     def initialize(type)
-      super("Finita#{type}Array", {:type=>CType[type]})
+      super("Finita#{type}Array", {:type=>CType[type], :forward =>%$#include <stdio.h>$})
       @result = type
     end
     def write_intf(stream)
@@ -116,25 +116,23 @@ NumericArrayCode = numeric_instances_hash do |type|
 end
 
 
-NodeCode = Class.new(DataStructBuilder::Code) do
-  def initialize(*args)
-    super
-    @self_hash = {:type=>type, :hash=>hasher, :equal=>comparator}
-  end
-  def [](symbol)
-    @self_hash[symbol]
-  end
-  def include?(symbol)
-    @self_hash.include?(symbol)
-  end
+NodeCode = Class.new(Type) do
+  def initialize; super("FinitaNode") end
   def write_intf(stream)
     stream << %$
       typedef struct {
         int field, x, y, z;
         size_t hash;
       } #{type};
+      #{extern} #{type} #{new}(int, int, int, int);
+      #{extern} int #{equal}(#{type}, #{type});
+      #{extern} int #{less}(#{type}, #{type});
+    $
+  end
+  def write_defs(stream)
+    stream << %$
       #define SIGN2LSB(x) ((abs(x) << 1) | (x < 0))
-      #{inline} #{type} #{new}(int field, int x, int y, int z) {
+      #{type} #{new}(int field, int x, int y, int z) {
         #{type} result;
         FINITA_ENTER;
         #{assert}(field >= 0);
@@ -147,71 +145,76 @@ NodeCode = Class.new(DataStructBuilder::Code) do
         FINITA_RETURN(result);
       }
       #undef SIGN2LSB
-      #{inline} size_t #{hasher}(#{type} node) {
-        return node.hash;
+      int #{equal}(#{type} lt, #{type} rt) {
+        FINITA_ENTER;
+        FINITA_RETURN(lt.field == rt.field && lt.x == rt.x && lt.y == rt.y && lt.z == rt.z);
       }
-      #{inline} int #{comparator}(#{type} lt, #{type} rt) {
-        return lt.field == rt.field && lt.x == rt.x && lt.y == rt.y && lt.z == rt.z;
+      int #{less}(#{type} lt, #{type} rt) {
+        #{abort}(); /* TODO */
       }
     $
   end
-end.new("FinitaNode") # NodeCode
+  def ctor(obj) "#{obj} = #{new}(0, 0, 0, 0)" end
+  def dtor(obj) end
+  def copy(dst, src) "(#{dst}) = (#{src})" end
+  def identify(obj) "(#{obj}).hash" end
+end.new # NodeCode
 
 
-NodeArrayCode = Class.new(DataStructBuilder::Vector) do
+NodeArrayCode = Class.new(AutoC::Vector) do
   def entities; super << NodeCode end
 end.new("FinitaNodeArray", NodeCode) # NodeArrayCode
 
 
-NodeSetCode = Class.new(DataStructBuilder::HashSet) do
+NodeSetCode = Class.new(AutoC::HashSet) do
   def entities; super << NodeCode end
 end.new("FinitaNodeSet", NodeCode) # NodeSetCode
 
 
-NodeIndexMapCode = Class.new(DataStructBuilder::HashMap) do
+NodeIndexMapCode = Class.new(AutoC::HashMap) do
   def entities; super << NodeCode end
-end.new("FinitaNodeIndexMap", NodeCode, {:type=>'size_t'}) # NodeIndexMapCode
+end.new("FinitaNodeIndexMap", NodeCode, {:type=>"size_t"}) # NodeIndexMapCode
 
 
-NodeCoordCode = Class.new(DataStructBuilder::Code) do
-  def entities; [NodeCode] end
-  def initialize(*args)
-    super
-    @self_hash = {:type=>type, :hash=>hasher, :equal=>comparator}
-  end
-  def [](symbol)
-    @self_hash[symbol]
-  end
-  def include?(symbol)
-    @self_hash.include?(symbol)
-  end
+NodeCoordCode = Class.new(Type) do
+  def entities; super << NodeCode end
+  def initialize; super("FinitaNodeCoord") end
   def write_intf(stream)
     stream << %$
       typedef struct {
         #{NodeCode.type} row, column;
         size_t hash;
       } #{type};
-      #{inline} #{type} #{new}(#{NodeCode.type} row, #{NodeCode.type} column) {
+      #{extern} #{type} #{new}(#{NodeCode.type}, #{NodeCode.type});
+      #{extern} int #{equal}(#{type}, #{type});
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      #{type} #{new}(#{NodeCode.type} row, #{NodeCode.type} column) {
         #{type} result;
+        FINITA_ENTER;
         result.row = row;
         result.column = column;
-        result.hash = #{NodeCode.hasher}(row) ^ (#{NodeCode.hasher}(column) << 1);
-        return result;
+        result.hash = #{NodeCode.identify("row")} ^ (#{NodeCode.identify("column")} << 1);
+        FINITA_RETURN(result);
       }
-      #{inline} size_t #{hasher}(#{type} node) {
-        return node.hash;
-      }
-      #{inline} int #{comparator}(#{type} lt, #{type} rt) {
-        return #{NodeCode.comparator}(lt.row, rt.row) && #{NodeCode.comparator}(lt.column, rt.column);
+      int #{equal}(#{type} lt, #{type} rt) {
+        FINITA_ENTER;
+        FINITA_RETURN(#{NodeCode.equal("lt.row", "rt.row")} && #{NodeCode.equal("lt.column", "rt.column")});
       }
     $
   end
-end.new("FinitaNodeCoord") # NodeCoordCode
+  def ctor(obj) end
+  def dtor(obj) end
+  def copy(dst, src) "(#{dst}) = (#{src})" end
+  def identify(obj) "(#{obj}).hash" end
+end.new # NodeCoordCode
 
 
-SparsityPatternCode = Class.new(DataStructBuilder::HashSet) do |type|
+SparsityPatternCode = Class.new(AutoC::HashSet) do |type|
   def entities
-    super + [NodeCoordCode]
+    super << NodeCoordCode
   end
   def initialize(type)
     super(type, NodeCoordCode)
@@ -220,29 +223,27 @@ end.new("FinitaSparsityPattern")
 
 
 FunctionCode = numeric_instances_hash do |type|
-  Class.new(CodeBuilder::Code) do
+  Class.new(Type) do
     attr_reader :type
     def initialize(type)
-      @type = "Finita#{type}Function"
+      super("Finita#{type}Function")
       @ctype = CType[type]
-      @self_hash = {:type=>self.type}
-    end
-    def [](symbol)
-      @self_hash[symbol]
-    end
-    def include?(symbol)
-      @self_hash.include?(symbol)
     end
     def write_intf(stream)
       stream << %$typedef #{@ctype} (*#{@type})(int,int,int);$
     end
+    def ctor(obj) end
+    def dtor(obj) end
+    def identify(obj) "((size_t)#{obj})" end
+    def equal(lt, rt) "(#{lt}) == (#{rt})" end
+    def copy(dst, src) "(#{dst}) = (#{src})" end
   end.new(type)
 end # FunctionCode
 
 
 FunctionListCode = numeric_instances_hash do |type|
-  Class.new(DataStructBuilder::List) do
-    def entities; super + [@function_code] end
+  Class.new(AutoC::List) do
+    def entities; super << @function_code end
     def initialize(type)
       @ctype = CType[type]
       @function_code = FunctionCode[type]
@@ -261,8 +262,8 @@ FunctionListCode = numeric_instances_hash do |type|
           FINITA_ENTER;
           #{assert}(self);
           #{itCtor}(&it, self);
-          while(#{itHasNext}(&it)) {
-            result += #{itNext}(&it)(x, y, z);
+          while(#{itMove}(&it)) {
+            result += #{itGet}(&it)(x, y, z);
           }
           FINITA_RETURN(result);
         }
@@ -273,7 +274,7 @@ end # FunctionListCode
 
 
 FunctionArrayCode = numeric_instances_hash do |type|
-  Class.new(DataStructBuilder::Vector) do
+  Class.new(AutoC::Vector) do
     def entities; super + [NodeCode, @function_code, @function_list_code] end
     def initialize(type)
       @ctype = CType[type]
@@ -292,7 +293,7 @@ FunctionArrayCode = numeric_instances_hash do |type|
           FINITA_ENTER;
           #{assert}(self);
           #{assert}(fp);
-          #{@function_list_code.add}(#{get}(self, index), fp);
+          #{@function_list_code.push}(#{get}(self, index), fp);
           FINITA_LEAVE;
         }
       $
@@ -302,7 +303,7 @@ end # FunctionArrayCode
 
 
 SparseMatrixCode = numeric_instances_hash do |type|
-  Class.new(DataStructBuilder::HashMap) do
+  Class.new(AutoC::HashMap) do
     def entities; super + [NodeCoordCode, @function_code, @function_list_code] end
     def initialize(type)
       @type = type
@@ -341,7 +342,7 @@ end # SparseMatrixCode
 
 
 SparseVectorCode = numeric_instances_hash do |type|
-  Class.new(DataStructBuilder::HashMap) do
+  Class.new(AutoC::HashMap) do
     def entities; super + [NodeCode, @function_code, @function_list_code] end
     def initialize(type)
       @type = type
@@ -377,8 +378,9 @@ SparseVectorCode = numeric_instances_hash do |type|
 end # SparseVectorCode
 
 
-CallStackCode = Class.new(DataStructBuilder::List) do
+CallStackCode = Class.new(AutoC::List) do
   def initialize
+    # FIXME : custom hash code
     super("FinitaCallStack", {:type=>"FinitaCallStackEntry", :equal=>"FinitaCallStackEntryEqual", :forward=>"
       #ifndef NDEBUG
         typedef struct {const char* func; const char* file; int line;} FinitaCallStackEntry;

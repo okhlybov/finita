@@ -62,7 +62,7 @@ class Binding
     def code(problem_code)
       Code.new(self, problem_code)
     end
-    class Code < DataStructBuilder::Code
+    class Code < AutoC::Type
       def entities
         @entities.nil? ? @entities = [unknown_code, domain_code] : @entities
       end

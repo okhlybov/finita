@@ -13,7 +13,7 @@ class Decomposer
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     attr_reader :solver_code
     attr_reader :mapper_code
     def initialize(decomposer, solver_code)

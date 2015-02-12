@@ -21,4 +21,5 @@ OptionParser.new do |opts|
 end.parse!(argv)
 
 eval(IO.read(argv[0]), binding, argv[0], 1)
+
 Problem.problems.each {|p| p.process!}

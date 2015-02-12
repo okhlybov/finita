@@ -2,7 +2,7 @@ module Finita
 
 
 class Solver::PETSc < Solver::Matrix
-  StaticCode = Class.new(DataStructBuilder::Code) do
+  StaticCode = Class.new(AutoC::Type) do
     def write_defs(stream)
       super
       stream << %$

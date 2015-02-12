@@ -35,7 +35,7 @@ class Solver
   def code(system_code)
     self.class::Code.new(self, system_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     def initialize(solver, system_code)
       @solver = check_type(solver, Solver)
       @system_code = check_type(system_code, System::Code)

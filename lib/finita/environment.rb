@@ -19,10 +19,10 @@ class Environment::Sequential < Environment
     problem_code.defines << :FINITA_SEQ
     Code.instance
   end
-  class Code < CodeBuilder::Code
-    include Singleton
+  class Code < AutoC::Code
+    include Singleton # TODO convert to anonymous class
     def priority
-      CodeBuilder::Priority::DEFAULT + 1
+      AutoC::Priority::DEFAULT + 1
     end
     def seq?; true end
     def mpi?; false end
@@ -39,10 +39,10 @@ class Environment::MPI < Environment
     problem_code.finalizer_codes << Code.instance
     Code.instance
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Code
     include Singleton
     def priority
-      CodeBuilder::Priority::DEFAULT + 1
+      AutoC::Priority::DEFAULT + 1
     end
     def seq?; false end
     def mpi?; true end
@@ -90,10 +90,10 @@ class Environment::OpenMP < Environment
     problem_code.defines << :FINITA_OMP
     Code.instance
   end
-  class Code < CodeBuilder::Code
+  class Code < AutoC::Code
     include Singleton
     def priority
-      CodeBuilder::Priority::DEFAULT + 1
+      AutoC::Priority::DEFAULT + 1
     end
     def seq?; false end
     def mpi?; false end

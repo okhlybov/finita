@@ -14,7 +14,7 @@ class Jacobian
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     def initialize(jacobian, solver_code)
       @jacobian = check_type(jacobian, Jacobian)
       @solver_code = check_type(solver_code, Solver::Matrix::Code)

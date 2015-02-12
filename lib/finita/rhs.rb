@@ -14,7 +14,7 @@ class RHS
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < DataStructBuilder::Code
+  class Code < AutoC::Type
     def initialize(lhs, solver_code)
       @rhs = check_type(lhs, RHS)
       @solver_code = check_type(solver_code, Solver::Matrix::Code)

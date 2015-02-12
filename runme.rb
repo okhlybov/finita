@@ -38,5 +38,5 @@ Problem.new(:Problem) do
       #s.nonlinear!
     end
     Equation.new(laplace(F) - G, F, A.interior)
-  end
+  end if false
 end
