@@ -1,3 +1,4 @@
+require "autoc"
 require "symbolic"
 
 
@@ -61,4 +62,13 @@ CAbs = {
 }
 
 
+class AutoC::Type
+  def debug_code(stream, &block)
+    stream << "\n#ifndef NDEBUG\n"
+    yield
+    stream << "\n#endif\n"
+  end
+end
+  
+  
 end # Finita

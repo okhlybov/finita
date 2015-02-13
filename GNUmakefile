@@ -1,60 +1,144 @@
-### Begin custom definitions
+# This is a template of the WHPC-friendly makefile for building single executable
+# from multiple source files written in C, C++ and/or FORTRAN languages.
+# The makefile requires GCC compilers and GNU Make.
+# It should be usable on UNIX systems with little or no modifications.
+# The makefile does its best to handle source dependencies for all languages
+# including FORTRAN.
 
-program = problem
 
-sources = problem.c problem.auto1.c
+### [MANDATORY] user-defined variables which must be set.
 
-packages = LIS_DSO
+# Name of executable without extension, ex. <runme>.
+# On Windows the executable <runme.exe> will be produced.
+PROG ?= test
 
-CPPFLAGS = -g -ansi -pedantic -std=c99 #-O3 -DNDEBUG
-LDFLAGS = -g
+# Space-separated list of source files which consitute the program.
+# C, C++ and FORTRAN source files may be specified simultaneously.
+# Ex. <main.c lib.cpp solver.f intf.f90>.
+# The following file extensions are recognized:
+# <.c> for C language,
+# <.cpp .cxx .cc> for C++ language,
+# <.f .F .for .f90> for FORTRAN language.
+SRC ?= test.c test_auto.c
 
-### End custom definitions
+
+### [optional] user-definable variables which are normally set.
+
+# Space-separated list of WHPC packages to be used, ex. <mpi blas lapack>.
+# This list will be passed to the PkgConfig utility to determine proper
+# compile and link command line options.
+PKG ?=
+
+# Options passed to the C preprocessor, ex. <-DNDEBUG>.
+# The same options will used to preprocess all kinds of sources
+# (FORTRAN included).
+CPPFLAGS ?=
+
+# Language-neutral options passed to all compilers, ex. <-O3>.
+# This variable is mainly intended to control the compilers optimizations.
+OPTFLAGS ?= -ansi -Wall -pedantic -g
+
+
+### [extra] user-definable variables that might be of use.
+
+# Below are the language-specific compiler flags.
+# Normally these need not contain common optimization flags which
+# go into the OPTFLAGS variable.
+
+# Options passed to the C compiler.
+CFLAGS ?=
+
+# Options passed to the C++ compiler.
+CXXFLAGS ?=
+
+# Options passed to the FORTRAN compiler.
+FFLAGS ?=
+
+# Options passed to the linker, ex. <-s>.
+LDFLAGS ?= -g
+
+# Extra library options, ex. <-lm>.
+LDLIBS ?=
+
+### No user-serviceable parts below ###
 
 ifeq ($(OS),Windows_NT)
-PROGEXT ?= .exe
-LIBEXT ?= .lib
-OBJEXT ?= .obj
-else
-PROGEXT ?=
-LIBEXT ?= .a
-OBJEXT ?= .o
+EXEXT := .exe
+# Rough Windows equivalent of the UNIX's <rm -f>
+RM := erase /f /s
 endif
 
-OBJS := $(addsuffix $(OBJEXT),$(basename $(sources)))
+CPAT := %.c
+CEXT := $(suffix $(CPAT))
+CSRC := $(filter $(CPAT),$(SRC))
 
-cppflags := $(foreach package,$(packages),$(cppflags) $($(package)_CPPFLAGS))
+CXXPAT := %.cc %.cpp %.cxx
+CXXEXT := $(suffix $(CXXPAT))
+CXXSRC := $(filter $(CXXPAT),$(SRC))
 
-ldflags := $(foreach package,$(packages),$(ldflags) $($(package)_LDFLAGS))
+FORPAT := %.f %.F %.for %.f90
+FOREXT := $(suffix $(FORPAT))
+FORSRC := $(filter $(FORPAT),$(SRC))
 
-ldlibs := $(foreach package,$(packages),$(ldlibs) $($(package)_LDLIBS))
+OBJPAT := %.o
+OBJEXT := $(suffix $(OBJPAT))
+OBJ := $(addsuffix $(OBJEXT),$(basename $(SRC)))
 
-CPPFLAGS := $(cppflags) $(CPPFLAGS)
+EXE := $(PROG)$(EXEXT)
 
-LDFLAGS := $(ldflags) $(LDFLAGS)
+DEPEXT := .d
+DEP := $(addsuffix $(DEPEXT),$(basename $(SRC)))
 
-LDLIBS := $(ldlibs) $(LDLIBS)
+MODEXT := .mod
+MOD := $(addsuffix $(MODEXT),$(basename $(FORSRC)))
 
-PROG := $(program)$(PROGEXT)
+PKG_CONFIG ?= pkg-config
 
-all : $(PROG)
+ifneq ($(PKG),)
+PKGCFLAGS := $(shell $(PKG_CONFIG) $(PKG) --cflags)
+PKGLIBS := $(shell $(PKG_CONFIG) $(PKG) --libs)
+endif
 
-run : $(PROG)
-	$(PROG)
+CFLAGS += $(OPTFLAGS) $(PKGCFLAGS)
+CXXFLAGS += $(OPTFLAGS) $(PKGCFLAGS)
+FFLAGS += $(OPTFLAGS) $(PKGCFLAGS)
+LDLIBS += $(PKGLIBS)
 
-$(PROG) : $(OBJS)
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+# Determine extra required runtimes based upon the sources used
+STDLIBS = -lgcc
+ifneq ($(filter $(FOREXT),$(suffix $(SRC))),)
+STDLIBS += -lgfortran
+endif
+ifneq ($(filter $(CXXEXT),$(suffix $(SRC))),)
+STDLIBS += -lstdc++
+endif
 
-%$(OBJEXT) : %.c
-	$(COMPILE.c) $(OUTPUT_OPTION) $<
+.SUFFIXES:
+.SUFFIXES: $(EXEXT) $(OBJEXT) $(CEXT) $(CXXEXT) $(FOREXT)
 
-%$(OBJEXT) : %.f
-	$(COMPILE.f) $(OUTPUT_OPTION) $<
+# Add GCC-specific dependency info generation options
+DEPFLAGS = -MMD -MP -MT $(addsuffix $(OBJEXT),$(basename $@)) -MT $(addsuffix $(DEPEXT),$(basename $@))
+COMPILE.c += $(DEPFLAGS)
+COMPILE.cc += $(DEPFLAGS)
+COMPILE.F += -cpp $(DEPFLAGS) -MT $(addsuffix $(MODEXT),$(basename $@))
 
-%$(OBJEXT) : %.F
-	$(COMPILE.F) $(OUTPUT_OPTION) $<
+# Pass all FORTRAN sources through the CPP to force generate the dependency info
+COMPILE.f = $(COMPILE.F)
+
+all : $(EXE)
+
+$(EXE) : $(OBJ)
+	$(LINK.o) -o $@ $^ $(LDLIBS) $(STDLIBS)
+
+# Extra implicit rules for the FORTRAN language absent in the GNU Make rules catalogue
+
+$(OBJPAT) : %.for
+	$(COMPILE.f) -o $@ $<
+
+$(OBJPAT) : %.f90
+	$(COMPILE.f) -o $@ $<
 
 clean :
-	$(RM) $(PROG) $(OBJS)
+	$(RM) $(EXE) $(OBJ) $(MOD) $(DEP)
 
-problem.auto1.obj problem.obj : problem.auto.h
+-include $(DEP)
