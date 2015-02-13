@@ -116,8 +116,8 @@ NumericArrayCode = numeric_instances_hash do |type|
 end
 
 
-NodeCode = Class.new(Type) do
-  def initialize; super("FinitaNode") end
+NodeCode = Class.new(UserDefinedType) do
+  def initialize; super(:type => :FinitaNode, :equal => :FinitaNodeEqual, :identify => :FinitaNodeIdentify, :ctor => :FinitaNodeDefault, :less => nil) end
   def write_intf(stream)
     stream << %$
       typedef struct {
@@ -125,8 +125,9 @@ NodeCode = Class.new(Type) do
         size_t hash;
       } #{type};
       #{extern} #{type} #{new}(int, int, int, int);
-      #{extern} int #{equal}(#{type}, #{type});
-      #{extern} int #{less}(#{type}, #{type});
+      #define #{equal}(lt,rt) ((lt).field == (rt).field && (lt).x == (rt).x && (lt).y == (rt).y && (lt).z == (rt).z)
+      #define #{identify}(obj) ((obj).hash)
+      #define #{ctor}(obj) ((obj) = #{new}(0,0,0,0))
     $
   end
   def write_defs(stream)
@@ -145,19 +146,8 @@ NodeCode = Class.new(Type) do
         FINITA_RETURN(result);
       }
       #undef SIGN2LSB
-      int #{equal}(#{type} lt, #{type} rt) {
-        FINITA_ENTER;
-        FINITA_RETURN(lt.field == rt.field && lt.x == rt.x && lt.y == rt.y && lt.z == rt.z);
-      }
-      int #{less}(#{type} lt, #{type} rt) {
-        #{abort}(); /* TODO */
-      }
     $
   end
-  def ctor(obj) "#{obj} = #{new}(0, 0, 0, 0)" end
-  def dtor(obj) end
-  def copy(dst, src) "(#{dst}) = (#{src})" end
-  def identify(obj) "(#{obj}).hash" end
 end.new # NodeCode
 
 
@@ -173,12 +163,12 @@ end.new("FinitaNodeSet", NodeCode) # NodeSetCode
 
 NodeIndexMapCode = Class.new(AutoC::HashMap) do
   def entities; super << NodeCode end
-end.new("FinitaNodeIndexMap", NodeCode, {:type=>"size_t"}) # NodeIndexMapCode
+end.new("FinitaNodeIndexMap", NodeCode, {:type => :size_t}) # NodeIndexMapCode
 
 
-NodeCoordCode = Class.new(Type) do
+NodeCoordCode = Class.new(UserDefinedType) do
   def entities; super << NodeCode end
-  def initialize; super("FinitaNodeCoord") end
+  def initialize; super(:type => :FinitaNodeCoord, :equal => :FinitaNodeCoordEqual, :identify => :FinitaNodeCoordIdentify) end
   def write_intf(stream)
     stream << %$
       typedef struct {
@@ -187,6 +177,7 @@ NodeCoordCode = Class.new(Type) do
       } #{type};
       #{extern} #{type} #{new}(#{NodeCode.type}, #{NodeCode.type});
       #{extern} int #{equal}(#{type}, #{type});
+      #define #{identify}(obj) ((obj).hash)
     $
   end
   def write_defs(stream)
@@ -205,45 +196,34 @@ NodeCoordCode = Class.new(Type) do
       }
     $
   end
-  def ctor(obj) end
-  def dtor(obj) end
-  def copy(dst, src) "(#{dst}) = (#{src})" end
-  def identify(obj) "(#{obj}).hash" end
 end.new # NodeCoordCode
 
 
 SparsityPatternCode = Class.new(AutoC::HashSet) do |type|
-  def entities
-    super << NodeCoordCode
-  end
-  def initialize(type)
-    super(type, NodeCoordCode)
-  end
+  def entities; super << NodeCoordCode end
+  def initialize(type) super(type, NodeCoordCode) end
 end.new("FinitaSparsityPattern")
 
 
 FunctionCode = numeric_instances_hash do |type|
-  Class.new(Type) do
+  Class.new(UserDefinedType) do
     attr_reader :type
     def initialize(type)
-      super("Finita#{type}Function")
+      super(:type => "Finita#{type}Function", :identify => "Finita#{type}Identify")
       @ctype = CType[type]
     end
     def write_intf(stream)
-      stream << %$typedef #{@ctype} (*#{@type})(int,int,int);$
+      stream << %$
+        typedef #{@ctype} (*#{@type})(int,int,int);
+        #define #{identify}(obj) ((size_t)obj)
+      $
     end
-    def ctor(obj) end
-    def dtor(obj) end
-    def identify(obj) "((size_t)#{obj})" end
-    def equal(lt, rt) "(#{lt}) == (#{rt})" end
-    def copy(dst, src) "(#{dst}) = (#{src})" end
   end.new(type)
 end # FunctionCode
 
 
 FunctionListCode = numeric_instances_hash do |type|
   Class.new(AutoC::List) do
-    def entities; super << @function_code end
     def initialize(type)
       @ctype = CType[type]
       @function_code = FunctionCode[type]
@@ -256,7 +236,7 @@ FunctionListCode = numeric_instances_hash do |type|
     def write_defs(stream)
       super
       stream << %$
-        #{@ctype} #{summate}(#{type}* self, int x, int y, int z) {
+        #{@ctype} #{summate}(#{type_ref} self, int x, int y, int z) {
           #{@ctype} result = 0;
           #{it} it;
           FINITA_ENTER;
@@ -275,12 +255,10 @@ end # FunctionListCode
 
 FunctionArrayCode = numeric_instances_hash do |type|
   Class.new(AutoC::Vector) do
-    def entities; super + [NodeCode, @function_code, @function_list_code] end
     def initialize(type)
       @ctype = CType[type]
       @function_code = FunctionCode[type]
-      @function_list_code = FunctionListCode[type]
-      super("Finita#{type}FunctionArray", @function_list_code)
+      super("Finita#{type}FunctionArray", AutoC::Reference.new(FunctionListCode[type]))
     end
     def write_intf(stream)
       super
@@ -290,10 +268,12 @@ FunctionArrayCode = numeric_instances_hash do |type|
       super
       stream << %$
         void #{merge}(#{type}* self, size_t index, #{@function_code.type} fp) {
+          #{element.type} obj;
           FINITA_ENTER;
           #{assert}(self);
           #{assert}(fp);
-          #{@function_list_code.push}(#{get}(self, index), fp);
+          #{element.push}(obj = #{get}(self, index), fp);
+          #{element.dtor(:obj)};
           FINITA_LEAVE;
         }
       $
@@ -304,13 +284,10 @@ end # FunctionArrayCode
 
 SparseMatrixCode = numeric_instances_hash do |type|
   Class.new(AutoC::HashMap) do
-    def entities; super + [NodeCoordCode, @function_code, @function_list_code] end
     def initialize(type)
       @type = type
-      @ctype = CType[type]
       @function_code = FunctionCode[type]
-      @function_list_code = FunctionListCode[type]
-      super("Finita#{type}SparseMatrix", NodeCoordCode, @function_list_code)
+      super("Finita#{type}SparseMatrix", NodeCoordCode, AutoC::Reference.new(FunctionListCode[type]))
     end
     def write_intf(stream)
       super
@@ -320,7 +297,7 @@ SparseMatrixCode = numeric_instances_hash do |type|
       super
       stream << %$
         void #{merge}(#{type}* self, #{NodeCode.type} row, #{NodeCode.type} column, #{@function_code.type} fp) {
-          #{@function_list_code.type}* list;
+          #{element.type} list;
           #{NodeCoordCode.type} node;
           FINITA_ENTER;
           node = #{NodeCoordCode.new}(row, column);
@@ -329,10 +306,11 @@ SparseMatrixCode = numeric_instances_hash do |type|
           if(#{containsKey}(self, node)) {
             list = #{get}(self, node);
           } else {
-            list = #{@function_list_code.new}();
+            #{element.ctor(:list)};
             #{put}(self, node, list);
           }
-          #{@function_list_code.add}(list, fp);
+          #{element.push}(list, fp);
+          #{element.dtor(:list)}
           FINITA_LEAVE;
         }
       $
@@ -343,13 +321,10 @@ end # SparseMatrixCode
 
 SparseVectorCode = numeric_instances_hash do |type|
   Class.new(AutoC::HashMap) do
-    def entities; super + [NodeCode, @function_code, @function_list_code] end
     def initialize(type)
       @type = type
-      @ctype = CType[type]
       @function_code = FunctionCode[type]
-      @function_list_code = FunctionListCode[type]
-      super("Finita#{type}SparseVector", NodeCode, @function_list_code)
+      super("Finita#{type}SparseVector", NodeCode, AutoC::Reference.new(FunctionListCode[type]))
     end
     def write_intf(stream)
       super
@@ -359,17 +334,18 @@ SparseVectorCode = numeric_instances_hash do |type|
       super
       stream << %$
       void #{merge}(#{type}* self, #{NodeCode.type} node, #{@function_code.type} fp) {
-        #{@function_list_code.type}* list;
+        #{element.type} list;
         FINITA_ENTER;
         #{assert}(self);
         #{assert}(fp);
         if(#{containsKey}(self, node)) {
           list = #{get}(self, node);
         } else {
-          list = #{@function_list_code.new}();
+          #{element.ctor(:list)};
           #{put}(self, node, list);
         }
-        #{@function_list_code.add}(list, fp);
+        #{element.push}(list, fp);
+        #{element.dtor(:list)}
         FINITA_LEAVE;
       }
     $
@@ -381,34 +357,29 @@ end # SparseVectorCode
 CallStackCode = Class.new(AutoC::List) do
   def initialize
     # FIXME : custom hash code
-    super("FinitaCallStack", {:type=>"FinitaCallStackEntry", :equal=>"FinitaCallStackEntryEqual", :forward=>"
+    super(:FinitaCallStack, {:type => :FinitaCallStackEntry, :identify => :FinitaCallStackEntryIdentify, :equal => :FinitaCallStackEntryEqual, :forward => %$
       #ifndef NDEBUG
-        typedef struct {const char* func; const char* file; int line;} FinitaCallStackEntry;
+        typedef struct {const char* func; const char* file; size_t line;} FinitaCallStackEntry;
       #endif
-    "})
+    $})
   end
   def write_intf(stream)
-    stream << %$
-      #ifndef NDEBUG
-    $
-    super
-    stream << %$
-      #endif
-    $
+    debug_code(stream) {
+      super
+    }
   end
   def write_defs(stream)
-    stream << %$
-      #ifndef NDEBUG
-    $
-    stream << %$
-      int FinitaCallStackEntryEqual(FinitaCallStackEntry lt, FinitaCallStackEntry rt) {
-        return 0;
-      }
-    $
-    super
-    stream << %$
-      #endif
-    $
+    debug_code(stream) {
+      stream << %$
+        int FinitaCallStackEntryEqual(#{element.type} lt, #{element.type} rt) {
+          return 0;
+        }
+        size_t FinitaCallStackEntryIdentify(#{element.type} obj) {
+          return 0;
+        }
+      $
+      super
+    }
   end
 end.new
 
