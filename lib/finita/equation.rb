@@ -62,13 +62,13 @@ class Binding
     def code(problem_code)
       Code.new(self, problem_code)
     end
-    class Code < AutoC::Type
+    class Code < Finita::Type
       def entities
-        @entities.nil? ? @entities = [unknown_code, domain_code] : @entities
+        @entities.nil? ? @entities = super.concat([unknown_code, domain_code]) : @entities
       end
       def initialize(binding, problem_code)
-        @binding = check_type(binding, Binding)
-        @problem_code = check_type(problem_code, Problem::Code)
+        @binding = Finita.check_type(binding, Binding)
+        @problem_code = Finita.check_type(problem_code, Problem::Code)
         super("#{problem_code.type}Binding")
         @unknown_code = @binding.unknown.code(problem_code)
         @domain_code = @binding.domain.code(problem_code)
@@ -77,9 +77,10 @@ class Binding
       def hash
         @binding.hash # TODO
       end
-      def eql?(other)
+      def ==(other)
         equal?(other) || self.class == other.class && @binding == other.instance_variable_get(:@binding)
       end
+      alias :eql? :==
       attr_reader :unknown_code
       attr_reader :domain_code
     end

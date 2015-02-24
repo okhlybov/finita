@@ -48,7 +48,7 @@ class Problem
   def code
     Code.new(self)
   end
-  class Code < AutoC::Type
+  class Code < Type
     def initialize(problem)
       @problem = problem
       @initializer_codes = Set.new
@@ -63,14 +63,15 @@ class Problem
     attr_reader :initializer_codes
     attr_reader :finalizer_codes
     def entities
-      @entities.nil? ? @entities = [Finita::Generator::PrologueCode.new(defines)] + @bound_codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a : @entities
+      @entities.nil? ? @entities = super.concat(@bound_codes.values + @system_codes + @instance_codes + (initializer_codes | finalizer_codes).to_a) : @entities
     end
     def hash
       @problem.hash # TODO
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && @problem == other.instance_variable_get(:@problem)
     end
+    alias :eql? :==
     def bound!(owner, &ctor)
       @bound_codes.include?(owner) ? @bound_codes[owner] : @bound_codes[owner] = yield(self)
     end
@@ -92,14 +93,10 @@ class Problem
       stream << %$
         FINITA_ARGSUSED
         void #{setup}(int argc, char** argv) {FINITA_ENTER;$
-      AutoC.priority_sort(initializer_codes, false).each do |e|
-        e.write_initializer(stream)
-      end
+      AutoC.priority_sort(initializer_codes, false).each {|e| e.write_initializer(stream)}
       stream << "FINITA_LEAVE;}"
       stream << %$void #{cleanup}(void) {FINITA_ENTER;$
-      AutoC.priority_sort(finalizer_codes, true).each do |e|
-        e.write_finalizer(stream)
-      end
+      AutoC.priority_sort(finalizer_codes, true).each {|e| e.write_finalizer(stream)}
       stream << "FINITA_LEAVE;}"
     end
   end # Code

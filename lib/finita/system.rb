@@ -35,7 +35,7 @@ class System
   attr_reader :name
   attr_reader :equations
   def solver=(solver)
-    @solver = check_type(solver, Solver)
+    @solver = Finita.check_type(solver, Solver)
   end
   def solver
     if @solver.nil?
@@ -45,7 +45,7 @@ class System
     end
   end
   def discretizer=(discretizer)
-    @discretizer = discretizer # check_type(discretizer, Discretizer)
+    @discretizer = discretizer # Finita.check_type(discretizer, Discretizer)
   end
   def discretizer
     if @discretizer.nil?
@@ -65,7 +65,7 @@ class System
   end
   attr_reader :problem
   def process!(problem)
-    @problem = check_type(problem, Problem)
+    @problem = Finita.check_type(problem, Problem)
     @equations = discretizer.process!(equations)
     @linear = true
     equations.each do |e|
@@ -80,20 +80,20 @@ class System
   def code(problem_code)
     self.class::Code.new(self, problem_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     def initialize(system, problem_code)
-      @system = check_type(system, System)
-      @problem_code = check_type(problem_code, Problem::Code)
+      @system = Finita.check_type(system, System)
+      @problem_code = Finita.check_type(problem_code, Problem::Code)
       @initializer_codes = Set.new
       @finalizer_codes = Set.new
       super("#{problem_code.type}#{@system.name}")
-      @solver_code = check_type(@system.solver.code(self), Solver::Code)
-      @equation_codes = @system.equations.collect {|e| check_type(e.code(problem_code), Binding::Algebraic::Code)}
+      @solver_code = Finita.check_type(@system.solver.code(self), Solver::Code)
+      @equation_codes = @system.equations.collect {|e| Finita.check_type(e.code(problem_code), Binding::Algebraic::Code)}
       problem_code.initializer_codes << self
       problem_code.finalizer_codes << self
     end
     def entities
-      @entities.nil? ? @entities = [solver_code] + equation_codes + (initializer_codes | finalizer_codes).to_a : @entities
+      @entities.nil? ? @entities = super.concat([solver_code] + equation_codes + (initializer_codes | finalizer_codes).to_a) : @entities
     end
     attr_reader :initializer_codes
     attr_reader :finalizer_codes

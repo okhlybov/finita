@@ -18,7 +18,7 @@ class Solver::MUMPS < Solver::Matrix
       @numeric_array_code = NumericArrayCode[system_code.result] if mpi?
     end
     def entities
-      @entities.nil? ? @entities = super + [@numeric_array_code].compact : @entities
+      @entities.nil? ? @entities = super.concat([@numeric_array_code].compact) : @entities
     end
     def write_setup_body(stream)
       super

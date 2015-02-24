@@ -7,17 +7,17 @@ module Finita
 
 class RHS
   def process!(solver)
-    @solver = check_type(solver, Solver::Matrix)
+    @solver = Finita.check_type(solver, Solver::Matrix)
     self
   end
   attr_reader :solver
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     def initialize(lhs, solver_code)
-      @rhs = check_type(lhs, RHS)
-      @solver_code = check_type(solver_code, Solver::Matrix::Code)
+      @rhs = Finita.check_type(lhs, RHS)
+      @solver_code = Finita.check_type(solver_code, Solver::Matrix::Code)
       super("#{solver_code.system_code.type}RHS")
       sc = solver_code.system_code
       pc = sc.problem_code
@@ -27,15 +27,16 @@ class RHS
       sc.initializer_codes << self
     end
     def entities
-      @entities.nil? ? @entities = [NodeCode, @vector_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes : @entities
+      @entities.nil? ? @entities = super.concat([NodeCode, @vector_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes) : @entities
     end
     attr_reader :solver_code
     def hash
       @rhs.hash # TODO
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && @rhs == other.instance_variable_get(:@rhs)
     end
+    alias :eql? :==
     def write_intf(stream)
       stream << %$
         #{extern} void #{setup}(void);

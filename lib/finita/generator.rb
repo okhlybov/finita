@@ -4,8 +4,28 @@ require "autoc"
 module Finita
 
 
+module BasicType
+  def entities; super << CommonCode end
+  def debug_code(stream, &block)
+    stream << "\n#ifndef NDEBUG\n"
+    yield
+    stream << "\n#endif\n"
+  end
+end
+
+
+class Type < AutoC::Type
+  include BasicType
+end # Type
+
+
+class UserDefinedType < AutoC::UserDefinedType
+  include BasicType
+end # UserDefinedType
+
+
 # @private
-PrologueCode = Class.new(AutoC::Type) do
+CommonCode = Class.new(Finita::Type) do
   def write_intf(stream)
     stream << %$
       #include <stdio.h>
@@ -118,17 +138,7 @@ PrologueCode = Class.new(AutoC::Type) do
       }
     $
   end
-end.new(:Finita) # PrologueCode
+end.new(:Finita) # CommonCode
   
-
-class Type < AutoC::Type
-  def entities; super << PrologueCode end
-end # Type
-
-
-class UserDefinedType < AutoC::UserDefinedType
-  def entities; super << PrologueCode end
-end # UserDefinedType
-
 
 end # Finita

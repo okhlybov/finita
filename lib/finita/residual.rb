@@ -7,17 +7,17 @@ module Finita
 
 class Residual
   def process!(solver)
-    @solver = check_type(solver, Solver::Matrix)
+    @solver = Finita.check_type(solver, Solver::Matrix)
     self
   end
   attr_reader :solver
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     def initialize(residual, solver_code)
-      @residual = check_type(residual, Residual)
-      @solver_code = check_type(solver_code, Solver::Matrix::Code)
+      @residual = Finita.check_type(residual, Residual)
+      @solver_code = Finita.check_type(solver_code, Solver::Matrix::Code)
       super("#{solver_code.system_code.type}Residual")
       sc = solver_code.system_code
       pc = sc.problem_code
@@ -28,15 +28,16 @@ class Residual
       @mapping_codes = solver_code.mapping_codes
     end
     def entities
-      @entities.nil? ? @entities = [NodeCode, @array_code, @function_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes : @entities
+      @entities.nil? ? @entities = super.concat([NodeCode, @array_code, @function_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes) : @entities
     end
     attr_reader :solver_code
     def hash
       @residual.hash # TODO
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && @residual == other.instance_variable_get(:@residual)
     end
+    alias :eql? :==
     def write_intf(stream)
       stream << %$#{extern} #{solver_code.system_code.cresult} #{evaluate}(#{NodeCode.type});$
     end

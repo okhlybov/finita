@@ -76,7 +76,7 @@ class Range
 end # Range
 
 
-StaticCode = Class.new(AutoC::Type) do
+StaticCode = Class.new(Finita::Type) do
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -216,7 +216,7 @@ class Area
     Code.new(self, problem_code)
   end
   private
-  class Code < AutoC::Type
+  class Code < Finita::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -226,7 +226,7 @@ class Area
     @@count = 0
     attr_reader :hash, :instance
     def entities
-      @entities.nil? ? @entities = [StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)} : @entities
+      @entities.nil? ? @entities = super.concat([StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)}) : @entities
     end
     def initialize(area, problem_code)
       @area = area
@@ -236,9 +236,10 @@ class Area
       @hash = @area.hash
       problem_code.initializer_codes << self
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && @area == other.instance_variable_get(:@area)
     end
+    alias :eql? :==
     def write_intf(stream)
       stream << %$#{extern} #{type} #{instance};$
     end

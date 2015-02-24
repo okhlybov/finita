@@ -18,16 +18,16 @@ class Solver
   attr_reader :decomposer
   attr_reader :environment
   def initialize(mapper, decomposer, environment, &block)
-    @mapper = check_type(mapper, Mapper)
-    @decomposer = check_type(decomposer, Decomposer)
-    @environment = check_type(environment, Environment)
+    @mapper = Finita.check_type(mapper, Mapper)
+    @decomposer = Finita.check_type(decomposer, Decomposer)
+    @environment = Finita.check_type(environment, Environment)
     if block_given?
       block.call(self)
     end
   end
   attr_reader :system
   def process!(system)
-    @system = check_type(system, System)
+    @system = Finita.check_type(system, System)
     @mapper = mapper.process!(self)
     @decomposer = decomposer.process!(self)
     self
@@ -35,17 +35,17 @@ class Solver
   def code(system_code)
     self.class::Code.new(self, system_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     def initialize(solver, system_code)
-      @solver = check_type(solver, Solver)
-      @system_code = check_type(system_code, System::Code)
+      @solver = Finita.check_type(solver, Solver)
+      @system_code = Finita.check_type(system_code, System::Code)
       super("#{system_code.type}Solver")
       @environment_code = @solver.environment.code(system_code.problem_code) # TODO type check
-      @mapper_code = check_type(@solver.mapper.code(self), Mapper::Code)
-      @decomposer_code = check_type(@solver.decomposer.code(self), Decomposer::Code)
+      @mapper_code = Finita.check_type(@solver.mapper.code(self), Mapper::Code)
+      @decomposer_code = Finita.check_type(@solver.decomposer.code(self), Decomposer::Code)
     end
     def entities
-      @entities.nil? ? @entities = [mapper_code, decomposer_code, @environment_code] : @entities
+      @entities.nil? ? @entities = super.concat([mapper_code, decomposer_code, @environment_code]) : @entities
     end
     attr_reader :system_code
     attr_reader :mapper_code
@@ -63,7 +63,7 @@ end # Solver
 class Solver::Matrix < Solver
   def initialize(mapper, decomposer, environment, jacobian, rtol = 1e-9)
     super(mapper, decomposer, environment)
-    @jacobian = check_type(jacobian, Jacobian)
+    @jacobian = Finita.check_type(jacobian, Jacobian)
     @residual = Residual.new
     @lhs = LHS.new
     @rhs = RHS.new
@@ -116,14 +116,14 @@ class Solver::Matrix < Solver
   attr_reader :rhs
   class Code < Solver::Code
     def entities
-      @entities.nil? ? @entities = super + [SparsityPatternCode, @node_set_code, jacobian_code, residual_code, lhs_code, rhs_code].compact + all_dependent_codes : @entities
+      @entities.nil? ? @entities = super.concat([SparsityPatternCode, @node_set_code, jacobian_code, residual_code, lhs_code, rhs_code].compact + all_dependent_codes) : @entities
     end
     def initialize(*args)
       super
       pc = system_code.problem_code
       uns = @solver.mapper.unknowns
       @node_set_code = NodeSetCode if $debug
-      @unknown_codes = @solver.unknowns.collect {|u| check_type(u.code(pc), Field::Code)}
+      @unknown_codes = @solver.unknowns.collect {|u| Finita.check_type(u.code(pc), Field::Code)}
       @evaluator_codes = []
       @domain_codes = []
       if @solver.linear?
@@ -132,13 +132,13 @@ class Solver::Matrix < Solver
           rcs = {}
           m[:lhs].each do |r, e|
             k = [r.xindex, r.yindex, r.zindex].collect {|index| index.to_s}.unshift(uns.index(r.arg))
-            ec = check_type(e.code(pc), Evaluator::Code)
+            ec = Finita.check_type(e.code(pc), Evaluator::Code)
             @evaluator_codes << ec
             lcs[k] = ec
           end
           m[:rhs].each do |r, e|
             k = r.nil? ? nil : [r.xindex, r.yindex, r.zindex].collect {|index| index.to_s}.unshift(uns.index(r.arg))
-            ec = check_type(e.code(pc), Evaluator::Code)
+            ec = Finita.check_type(e.code(pc), Evaluator::Code)
             @evaluator_codes << ec
             rcs[k] = ec
           end
@@ -153,7 +153,7 @@ class Solver::Matrix < Solver
           jcs = {}
           m[:jacobian].each do |r, e|
             k = [r.xindex, r.yindex, r.zindex].collect {|index| index.to_s}.unshift(uns.index(r.arg))
-            ec = check_type(e.code(pc), Evaluator::Code)
+            ec = Finita.check_type(e.code(pc), Evaluator::Code)
             @evaluator_codes << ec
             jcs[k] = ec
           end

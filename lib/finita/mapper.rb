@@ -10,7 +10,7 @@ class Mapper
   attr_reader :unknowns
   attr_reader :mappings
   def process!(solver)
-    @solver = check_type(solver, Solver)
+    @solver = Finita.check_type(solver, Solver)
     @unknowns = @solver.system.unknowns.to_a # ordered list
     @mappings = @solver.system.equations.collect do |e|
       [e.domain, e.unknown]
@@ -20,15 +20,15 @@ class Mapper
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     def initialize(mapper, solver_code)
-      @mapper = check_type(mapper, Mapper)
-      @solver_code = check_type(solver_code, Solver::Code)
+      @mapper = Finita.check_type(mapper, Mapper)
+      @solver_code = Finita.check_type(solver_code, Solver::Code)
       super("#{solver_code.system_code.type}Mapper")
       @numeric_array_code = NumericArrayCode[solver_code.system_code.result] if solver_code.mpi?
     end
     def entities
-      @entities.nil? ? @entities = [NodeCode, @numeric_array_code].compact : @entities
+      @entities.nil? ? @entities = super.concat([NodeCode, @numeric_array_code].compact) : @entities
     end
     attr_reader :solver_code
     def write_intf(stream)
@@ -143,7 +143,7 @@ class Mapper::Naive < Mapper
       super
       solver_code.system_code.initializer_codes << self
       pc = solver_code.system_code.problem_code
-      @unknown_codes = @mapper.unknowns.collect {|u| check_type(u.code(pc), Field::Code)}
+      @unknown_codes = @mapper.unknowns.collect {|u| Finita.check_type(u.code(pc), Field::Code)}
       @domain_codes = []
       @mapping_codes = @mapper.mappings.collect do |m|
         dc = m.first.code(pc)
@@ -152,7 +152,7 @@ class Mapper::Naive < Mapper
       end
     end
     def entities
-      @entities.nil? ? @entities = super + [NodeArrayCode, NodeIndexMapCode] + @domain_codes : @entities
+      @entities.nil? ? @entities = super.concat([NodeArrayCode, NodeIndexMapCode] + @domain_codes) : @entities
     end
     def write_intf(stream)
       super

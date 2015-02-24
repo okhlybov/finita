@@ -2,7 +2,7 @@ module Finita
 
 
 class Solver::LIS < Solver::Matrix
-  StaticCode = Class.new(AutoC::Type) do
+  StaticCode = Class.new(Finita::Type) do
     def write_defs(stream)
       super
       stream << %$
@@ -37,7 +37,7 @@ class Solver::LIS < Solver::Matrix
       @comm = mpi? ? :MPI_COMM_WORLD : 0
     end
     def entities
-      @entities.nil? ? @entities = super + [@numeric_array_code].compact : @entities
+      @entities.nil? ? @entities = super.concat([@numeric_array_code].compact) : @entities
     end
     def write_setup_body(stream)
       super
