@@ -25,7 +25,7 @@ end # UserDefinedType
 
 
 # @private
-CommonCode = Class.new(Finita::Type) do
+CommonCode = Class.new(AutoC::Type) do
   def write_intf(stream)
     stream << %$
       #include <stdio.h>
