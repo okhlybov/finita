@@ -62,7 +62,7 @@ class Binding
     def code(problem_code)
       Code.new(self, problem_code)
     end
-    class Code < Finita::Type
+    class Code < Finita::Code
       def entities
         @entities.nil? ? @entities = super.concat([unknown_code, domain_code]) : @entities
       end

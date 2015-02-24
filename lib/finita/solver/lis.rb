@@ -2,7 +2,7 @@ module Finita
 
 
 class Solver::LIS < Solver::Matrix
-  StaticCode = Class.new(Finita::Type) do
+  StaticCode = Class.new(Finita::Code) do
     def write_defs(stream)
       super
       stream << %$

@@ -48,7 +48,7 @@ class Problem
   def code
     Code.new(self)
   end
-  class Code < Type
+  class Code < Finita::Code
     def initialize(problem)
       @problem = problem
       @initializer_codes = Set.new

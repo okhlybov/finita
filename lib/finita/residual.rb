@@ -14,7 +14,7 @@ class Residual
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     def initialize(residual, solver_code)
       @residual = Finita.check_type(residual, Residual)
       @solver_code = Finita.check_type(solver_code, Solver::Matrix::Code)

@@ -80,7 +80,7 @@ class System
   def code(problem_code)
     self.class::Code.new(self, problem_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     def initialize(system, problem_code)
       @system = Finita.check_type(system, System)
       @problem_code = Finita.check_type(problem_code, Problem::Code)

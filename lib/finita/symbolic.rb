@@ -133,7 +133,7 @@ class Constant < Numeric
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -191,7 +191,7 @@ class Variable < Symbolic::Expression
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -251,7 +251,7 @@ class Field < Symbolic::Expression
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)

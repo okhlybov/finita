@@ -30,7 +30,7 @@ class Evaluator
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -41,9 +41,6 @@ class Evaluator
     attr_reader :hash, :instance
     def entities
       @entities.nil? ? @entities = super.concat(Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)}) : @entities
-    end
-    def priority
-      AutoC::Priority::DEFAULT + 1
     end
     def initialize(evaluator, problem_code)
       @evaluator = evaluator
@@ -117,7 +114,7 @@ NumericArrayCode = numeric_instances_hash do |type|
 end
 
 
-NodeCode = Class.new(UserDefinedType) do
+NodeCode = Class.new(AutoC::UserDefinedType) do
   def initialize; super(:type => :FinitaNode, :equal => :FinitaNodeEqual, :identify => :FinitaNodeIdentify, :ctor => :FinitaNodeDefault, :less => nil) end
   def write_intf(stream)
     stream << %$
@@ -167,7 +164,7 @@ NodeIndexMapCode = Class.new(AutoC::HashMap) do
 end.new(:FinitaNodeIndexMap, NodeCode, {:type => :size_t}) # NodeIndexMapCode
 
 
-NodeCoordCode = Class.new(UserDefinedType) do
+NodeCoordCode = Class.new(AutoC::UserDefinedType) do
   def entities; super << NodeCode end
   def initialize; super(:type => :FinitaNodeCoord, :equal => :FinitaNodeCoordEqual, :identify => :FinitaNodeCoordIdentify) end
   def write_intf(stream)
@@ -207,7 +204,7 @@ end.new(:FinitaSparsityPattern)
 
 
 FunctionCode = numeric_instances_hash do |type|
-  Class.new(UserDefinedType) do
+  Class.new(AutoC::UserDefinedType) do
     attr_reader :type
     def initialize(type)
       super(:type => "Finita#{type}Function", :identify => "Finita#{type}Identify")

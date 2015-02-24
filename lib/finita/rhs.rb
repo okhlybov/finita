@@ -14,7 +14,7 @@ class RHS
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     def initialize(lhs, solver_code)
       @rhs = Finita.check_type(lhs, RHS)
       @solver_code = Finita.check_type(solver_code, Solver::Matrix::Code)
