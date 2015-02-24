@@ -678,7 +678,7 @@ class ProductExtractor
     else
       args = obj.args.dup
       args.slice!(index)
-      @rest = Multiply.make(*args)
+      @rest = Symbolic::Multiply.make(*args)
     end
   end
 end # TermExtractor

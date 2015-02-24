@@ -103,8 +103,8 @@ StaticCode = Class.new(Finita::Type) do
         FINITA_RETURN(index);
       }
       #{extern} void #{itCtor}(#{it}*, #{type}*);
-      #{extern} int #{itHasNext}(#{it}*);
-      #{extern} #{node} #{itNext}(#{it}*);
+      #{extern} int #{itMove}(#{it}*);
+      #{extern} #{node} #{itGet}(#{it}*);
     $
   end
   def write_defs(stream)
@@ -157,11 +157,11 @@ StaticCode = Class.new(Finita::Type) do
         self->index = 0;
         FINITA_LEAVE;
       }
-      int #{itHasNext}(#{it}* self) {
-        return self->index < #{size}(self->area);
+      int #{itMove}(#{it}* self) {
+        return self->index++ < #{size}(self->area);
       }
-      #{node} #{itNext}(#{it}* self) {
-        return self->area->nodes[self->index++];
+      #{node} #{itGet}(#{it}* self) {
+        return self->area->nodes[self->index-1];
       }
     $
   end

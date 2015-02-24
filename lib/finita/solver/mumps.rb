@@ -50,8 +50,8 @@ class Solver::MUMPS < Solver::Matrix
         }
         #{ctx}.nrhs = 1;
         #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-        while(#{SparsityPatternCode.itHasNext}(&it)) {
-          #{NodeCoordCode.type} coord = #{SparsityPatternCode.itNext}(&it);
+        while(#{SparsityPatternCode.itMove}(&it)) {
+          #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
           #{ctx}.irn_loc[index] = #{mapper_code.index}(coord.row) + 1;
           #{ctx}.jcn_loc[index] = #{mapper_code.index}(coord.column) + 1;
           ++index;

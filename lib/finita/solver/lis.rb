@@ -58,8 +58,8 @@ class Solver::LIS < Solver::Matrix
           *nnz = (LIS_INT*) #{calloc}(#{decomposer_code.indexCount}(), sizeof(LIS_INT)); #{assert}(*nnz);
           first_row = #{decomposer_code.firstIndex}();
           #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-          while(#{SparsityPatternCode.itHasNext}(&it)) {
-            ++((*nnz)[#{mapper_code.index}(#{SparsityPatternCode.itNext}(&it).row) - first_row]);
+          while(#{SparsityPatternCode.itMove}(&it)) {
+            ++((*nnz)[#{mapper_code.index}(#{SparsityPatternCode.itGet}(&it).row) - first_row]);
           }
           FINITA_LEAVE;
         }
@@ -103,9 +103,9 @@ class Solver::LIS < Solver::Matrix
           ierr = lis_matrix_malloc(A, 0, nnz); CHKERR(ierr);
           #{free}(nnz);
           #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-          while(#{SparsityPatternCode.itHasNext}(&it)) {
+          while(#{SparsityPatternCode.itMove}(&it)) {
             #{NodeCoordCode.type} coord;
-            coord = #{SparsityPatternCode.itNext}(&it);
+            coord = #{SparsityPatternCode.itGet}(&it);
             ierr = lis_matrix_set_value(LIS_INS_VALUE, #{mapper_code.index}(coord.row), #{mapper_code.index}(coord.column), #{lhs_code.evaluate}(coord.row, coord.column), A); CHKERR(ierr);
           }
           ierr = lis_matrix_assemble(A); CHKERR(ierr);
@@ -167,9 +167,9 @@ class Solver::LIS < Solver::Matrix
             #endif
             ierr = lis_matrix_malloc(A, 0, nnz); CHKERR(ierr);
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-            while(#{SparsityPatternCode.itHasNext}(&it)) {
+            while(#{SparsityPatternCode.itMove}(&it)) {
               #{NodeCoordCode.type} coord;
-              coord = #{SparsityPatternCode.itNext}(&it);
+              coord = #{SparsityPatternCode.itGet}(&it);
               ierr = lis_matrix_set_value(LIS_INS_VALUE, #{mapper_code.index}(coord.row), #{mapper_code.index}(coord.column), #{jacobian_code.evaluate}(coord.row, coord.column), A); CHKERR(ierr);
             }
             ierr = lis_matrix_assemble(A); CHKERR(ierr);
