@@ -129,9 +129,9 @@ class Solver::PETSc < Solver::Matrix
             FINITA_ENTER;
             nnz = (PetscInt*)#{calloc}(size, sizeof(PetscInt)); #{assert}(nnz);
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-            while(#{SparsityPatternCode.itHasNext}(&it)) {
+            while(#{SparsityPatternCode.itMove}(&it)) {
               size_t row, column;
-              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itNext}(&it);
+              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
               row = #{mapper_code.index}(coord.row);
               #{assert}(first <= row && row <= last);
               column = #{mapper_code.index}(coord.column);
@@ -147,9 +147,9 @@ class Solver::PETSc < Solver::Matrix
             dnz = (PetscInt*)#{calloc}(size, sizeof(PetscInt)); #{assert}(dnz);
             onz = (PetscInt*)#{calloc}(size, sizeof(PetscInt)); #{assert}(onz);
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-            while(#{SparsityPatternCode.itHasNext}(&it)) {
+            while(#{SparsityPatternCode.itMove}(&it)) {
               size_t row, column;
-              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itNext}(&it);
+              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
               row = #{mapper_code.index}(coord.row);
               #{assert}(first <= row && row <= last);
               column = #{mapper_code.index}(coord.column);
@@ -184,8 +184,8 @@ class Solver::PETSc < Solver::Matrix
             #{matrixSize} = #{SparsityPatternCode.size}(&#{sparsity});
             #{matrixRC} = (FinitaRowColumn*)#{malloc}(#{matrixSize}*sizeof(FinitaRowColumn)); #{assert}(#{matrixRC});
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-            while(#{SparsityPatternCode.itHasNext}(&it)) {
-              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itNext}(&it);
+            while(#{SparsityPatternCode.itMove}(&it)) {
+              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
               #{matrixRC}[index].row = #{mapper_code.index}(coord.row);
               #{matrixRC}[index].column = #{mapper_code.index}(coord.column);
               ++index;

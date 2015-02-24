@@ -168,8 +168,8 @@ class Mapper::Naive < Mapper
         stream << %${
           #{dc.it} it;
           #{dc.itCtor}(&it, &#{dc.instance});
-          while(#{dc.itHasNext}(&it)) {
-            #{dc.node} coord = #{dc.itNext}(&it);
+          while(#{dc.itMove}(&it)) {
+            #{dc.node} coord = #{dc.itGet}(&it);
             if(#{NodeIndexMapCode.put}(&#{indices}, #{NodeCode.new}(#{f}, coord.x, coord.y, coord.z), index)) ++index;
           }
         }$
@@ -178,9 +178,8 @@ class Mapper::Naive < Mapper
         #{NodeIndexMapCode.it} it;
         #{NodeArrayCode.ctor}(&#{nodes}, #{NodeIndexMapCode.size}(&#{indices}));
         #{NodeIndexMapCode.itCtor}(&it, &#{indices});
-        while(#{NodeIndexMapCode.itHasNext}(&it)) {
-          #{NodeIndexMapCode.entry} entry = #{NodeIndexMapCode.itNext}(&it);
-          #{NodeArrayCode.set}(&#{nodes}, entry.value, entry.key);
+        while(#{NodeIndexMapCode.itMove}(&it)) {
+          #{NodeArrayCode.set}(&#{nodes}, #{NodeIndexMapCode.itGetElement}(&it), #{NodeIndexMapCode.itGetKey}(&it));
         }
       }}$
       stream << %$#{broadcastOrdering}();$ if solver_code.mpi?

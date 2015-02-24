@@ -154,17 +154,17 @@ end.new # NodeCode
 
 NodeArrayCode = Class.new(AutoC::Vector) do
   def entities; super << NodeCode end
-end.new("FinitaNodeArray", NodeCode) # NodeArrayCode
+end.new(:FinitaNodeArray, NodeCode) # NodeArrayCode
 
 
 NodeSetCode = Class.new(AutoC::HashSet) do
   def entities; super << NodeCode end
-end.new("FinitaNodeSet", NodeCode) # NodeSetCode
+end.new(:FinitaNodeSet, NodeCode) # NodeSetCode
 
 
 NodeIndexMapCode = Class.new(AutoC::HashMap) do
   def entities; super << NodeCode end
-end.new("FinitaNodeIndexMap", NodeCode, {:type => :size_t}) # NodeIndexMapCode
+end.new(:FinitaNodeIndexMap, NodeCode, {:type => :size_t}) # NodeIndexMapCode
 
 
 NodeCoordCode = Class.new(UserDefinedType) do
@@ -203,7 +203,7 @@ end.new # NodeCoordCode
 SparsityPatternCode = Class.new(AutoC::HashSet) do |type|
   def entities; super << NodeCoordCode end
   def initialize(type) super(type, NodeCoordCode) end
-end.new("FinitaSparsityPattern")
+end.new(:FinitaSparsityPattern)
 
 
 FunctionCode = numeric_instances_hash do |type|
