@@ -13,7 +13,7 @@ class Decomposer
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < Finita::Type
+  class Code < Finita::Code
     attr_reader :solver_code
     attr_reader :mapper_code
     def initialize(decomposer, solver_code)

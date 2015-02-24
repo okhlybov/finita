@@ -76,7 +76,7 @@ class Range
 end # Range
 
 
-StaticCode = Class.new(Finita::Type) do
+StaticCode = Class.new(Finita::Code) do
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -165,7 +165,7 @@ StaticCode = Class.new(Finita::Type) do
       }
     $
   end
-end.new("FinitaCubicArea") # StaticCode
+end.new(:FinitaCubicArea) # StaticCode
 
 
 class Area
@@ -216,7 +216,7 @@ class Area
     Code.new(self, problem_code)
   end
   private
-  class Code < Finita::Type
+  class Code < Finita::Code
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
