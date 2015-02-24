@@ -18,7 +18,7 @@ class Solver::Explicit < Solver
   attr_reader :unknowns
   class Code < Solver::Code
     def entities
-      @entities.nil? ? @entities = super + [@array_code, @function_code, @function_list_code] + @evaluator_codes + @unknown_codes + @domain_codes : @entities
+      @entities.nil? ? @entities = super.concat([@array_code, @function_code, @function_list_code] + @evaluator_codes + @unknown_codes + @domain_codes) : @entities
     end
     def initialize(*args)
       super
@@ -27,11 +27,11 @@ class Solver::Explicit < Solver
       @array_code = FunctionArrayCode[system_code.result]
       @function_code = FunctionCode[system_code.result]
       @function_list_code = FunctionListCode[system_code.result]
-      @unknown_codes = @solver.unknowns.collect {|u| check_type(u.code(pc), Field::Code)}
+      @unknown_codes = @solver.unknowns.collect {|u| Finita.check_type(u.code(pc), Field::Code)}
       @evaluator_codes = []
       @domain_codes = []
       @mapping_codes = @solver.mappings.collect do |m|
-        ec = check_type(m[0].code(pc), Evaluator::Code)
+        ec = Finita.check_type(m[0].code(pc), Evaluator::Code)
         dc = m[1].code(pc)
         @evaluator_codes << ec
         @domain_codes << dc

@@ -7,25 +7,25 @@ module Finita
 
 class Decomposer
   def process!(solver)
-    @solver = check_type(solver, Solver)
+    @solver = Finita.check_type(solver, Solver)
     self
   end
   def code(solver_code)
     self.class::Code.new(self, solver_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     attr_reader :solver_code
     attr_reader :mapper_code
     def initialize(decomposer, solver_code)
-      @decomposer = check_type(decomposer, Decomposer)
-      @solver_code = check_type(solver_code, Solver::Code)
-      @mapper_code = check_type(solver_code.mapper_code, Mapper::Code)
+      @decomposer = Finita.check_type(decomposer, Decomposer)
+      @solver_code = Finita.check_type(solver_code, Solver::Code)
+      @mapper_code = Finita.check_type(solver_code.mapper_code, Mapper::Code)
       super("#{solver_code.system_code.type}Decomposer")
       @numeric_array_code = NumericArrayCode[solver_code.system_code.result] if solver_code.mpi?
       solver_code.system_code.initializer_codes << self
     end
     def entities
-      @entities.nil? ? @entities = [@mapper_code, @numeric_array_code].compact : @entities
+      @entities.nil? ? @entities = super.concat([@mapper_code, @numeric_array_code].compact) : @entities
     end
     def write_intf(stream)
       stream << %$

@@ -18,21 +18,7 @@ def self.simplify(obj)
 end
 
 
-def shallow_flatten(ary)
-  # a helper function to circumvent Array#flatten unwanted internal call to Object#to_ary; mimics Array#flatten(1)
-  result = []
-  ary.each do |o|
-    if o.is_a?(Array)
-      result.concat(o)
-    else
-      result << o
-    end
-  end
-  result
-end
-
-
-def check_type(obj, cls)
+def self.check_type(obj, cls)
   if obj.is_a?(cls)
     obj
   else
@@ -62,13 +48,4 @@ CAbs = {
 }
 
 
-class AutoC::Type
-  def debug_code(stream, &block)
-    stream << "\n#ifndef NDEBUG\n"
-    yield
-    stream << "\n#endif\n"
-  end
-end
-  
-  
 end # Finita

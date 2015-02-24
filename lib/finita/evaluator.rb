@@ -30,7 +30,7 @@ class Evaluator
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -40,7 +40,7 @@ class Evaluator
     @@count = 0
     attr_reader :hash, :instance
     def entities
-      @entities.nil? ? @entities = Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)} : @entities
+      @entities.nil? ? @entities = super.concat(Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)}) : @entities
     end
     def priority
       AutoC::Priority::DEFAULT + 1
@@ -54,9 +54,10 @@ class Evaluator
       @hash = @evaluator.hash
       super("FinitaEvaluator")
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && @evaluator == other.instance_variable_get(:@evaluator)
     end
+    alias :eql? :==
     def expression
       @evaluator.expression
     end

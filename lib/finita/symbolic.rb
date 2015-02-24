@@ -133,7 +133,7 @@ class Constant < Numeric
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -153,9 +153,10 @@ class Constant < Numeric
     def hash
       constant.hash
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && constant == other.constant
     end
+    alias :eql? :==
     def write_intf(stream)
       value = constant.type == Complex ? "#{constant.value.real}+_Complex_I*(#{constant.value.imaginary})" : constant.value
       stream << %$
@@ -190,7 +191,7 @@ class Variable < Symbolic::Expression
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -210,9 +211,10 @@ class Variable < Symbolic::Expression
     def hash
       variable.hash
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && variable == other.variable
     end
+    alias :eql? :==
     def write_intf(stream)
       stream << %$
         #define #{variable.name} #{@problem_code.type}#{variable.name}
@@ -249,7 +251,7 @@ class Field < Symbolic::Expression
   def code(problem_code)
     Code.new(self, problem_code)
   end
-  class Code < AutoC::Type
+  class Code < Finita::Type
     class << self
       alias :__new__ :new
       def new(owner, problem_code)
@@ -257,7 +259,7 @@ class Field < Symbolic::Expression
       end
     end
     def entities
-      @entities.nil? ? @entities = [@domain_code] : @entities
+      @entities.nil? ? @entities = super << @domain_code : @entities
     end
     attr_reader :field, :symbol, :instance
     def initialize(field, problem_code)
@@ -273,9 +275,10 @@ class Field < Symbolic::Expression
     def hash
       field.hash
     end
-    def eql?(other)
+    def ==(other)
       equal?(other) || self.class == other.class && field == other.field
     end
+    alias :eql? :==
     def write_intf(stream)
       stream << %$
         #define #{field.name}(x,y,z) (#{instance}.data[#{@domain_code.index}(#{instance}.area, x, y, z)])
