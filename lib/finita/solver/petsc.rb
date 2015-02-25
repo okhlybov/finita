@@ -87,13 +87,13 @@ class Solver::PETSc < Solver::Matrix
         solver_setup_stmt = %$
           ierr = KSPCreate(PETSC_COMM_WORLD, &#{ksp}); CHKERRQ(ierr);
           ierr = KSPSetFromOptions(#{ksp}); CHKERRQ(ierr);
-          ierr = KSPSetOperators(#{ksp}, #{matrix}, #{matrix}, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+          ierr = KSPSetOperators(#{ksp}, #{matrix}, #{matrix}); CHKERRQ(ierr);
         $
       else
         stream << %$
           static SNES #{snes};
           static Vec #{functionVector};
-          static PetscErrorCode #{jacobianEvaluator}(SNES, Vec, Mat*, Mat*, MatStructure*, void*);
+          static PetscErrorCode #{jacobianEvaluator}(SNES, Vec, Mat, Mat, void*);
           static PetscErrorCode #{residualEvaluator}(SNES, Vec, Vec, void*);
         $
         solver_setup_stmt = %$
@@ -316,7 +316,7 @@ class Solver::PETSc < Solver::Matrix
           ierr = VecAssemblyEnd(f); CHKERRQ(ierr);
           FINITA_RETURN(0);
         }
-        static PetscErrorCode #{jacobianEvaluator}(SNES snes, Vec x, Mat* A, Mat* B, MatStructure* flag, void* ctx) {
+        static PetscErrorCode #{jacobianEvaluator}(SNES snes, Vec x, Mat A, Mat B, void* ctx) {
           PetscErrorCode ierr;
           size_t index, count;
           PetscScalar* values;
@@ -329,7 +329,7 @@ class Solver::PETSc < Solver::Matrix
           #ifndef NDEBUG
           {
             PetscInt first, last;
-            ierr = MatGetOwnershipRange(*A, &first, &last);
+            ierr = MatGetOwnershipRange(A, &first, &last);
             #{assert}(#{decomposer_code.firstIndex}() == first);
             #{assert}(#{decomposer_code.lastIndex}() == last - 1);
           }
@@ -347,9 +347,9 @@ class Solver::PETSc < Solver::Matrix
             columns[count] = #{matrixRC}[index].column;
             ++count;
           }
-          ierr = MatSetValues(*A, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
-          ierr = MatAssemblyBegin(*A, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-          ierr = MatAssemblyEnd(*A, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+          ierr = MatSetValues(A, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
+          ierr = MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+          ierr = MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
           #{free}(columns);
           #{free}(values);
           FINITA_RETURN(0);
