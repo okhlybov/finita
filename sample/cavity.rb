@@ -31,7 +31,7 @@ Problem.new(:Cavity) do |p|
   p << A << B << Gr << Pr << T << Psi << Phi
   System.new(:System) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
-    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    s.solver = Solver::LIS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
     Equation.new(T-0, T, Cavity.left)
     Equation.new(T-1, T, Cavity.right)
     Equation.new(dy(T), T, Cavity.top)

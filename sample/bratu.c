@@ -1,5 +1,5 @@
 /* Import the auto-generated interface part */
-#include "Bratu.auto.h"
+#include "bratu_auto.h"
 
 /* Define the field writer macro */
 #define WRITE_FIELD(file_name, f) \
@@ -18,9 +18,7 @@ FINITA_HEAD { \
 /* The code entry point is under user's control  */
 int main(int argc, char** argv) {
     /* Set up the problem dimensions; this has to be done prior initializing the auto-generated part */
-    NX = 10;
-    NY = 10;
-    NZ = 10;
+    NX = NY = NZ = 10;
     /* Set up the parameter */
     Lambda = 1e-3;
     /* Initialize the auto-generated part */

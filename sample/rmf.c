@@ -1,4 +1,4 @@
-#include "RMF.auto.h"
+#include "rmf_auto.h"
 
 #define PRINT_FIELD(file_name, f) \
 FINITA_HEAD { \
