@@ -60,9 +60,6 @@ class Range
   def to_last
     nil? ? Nil : Range.new(last, last, true, after?)
   end
-  #def sup(n = 1)
-  #  nil? ? Nil : Range.new(first-n, last+n)
-  #end
   def sub(n = 1)
     if nil?
       Nil

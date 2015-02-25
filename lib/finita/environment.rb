@@ -10,48 +10,56 @@ class Environment
   def seq?; is_a?(Sequential) end
   def mpi?; is_a?(MPI) end
   def omp?; is_a?(OpenMP) end
+  class Code < Finita::Code
+    def initialize(prefix, seq, mpi, omp)
+      super(prefix)
+      @seq = seq
+      @mpi = mpi
+      @omp = omp
+    end
+    def priority; AutoC::Priority::MAX end
+    def seq?; @seq end
+    def mpi?; @mpi end
+    def omp?; @omp end
+  end
 end # Environment
 
 
 class Environment::Sequential < Environment
-  Tag = :seq
-  def code(problem_code)
-    problem_code.defines << :FINITA_SEQ
-    Code.instance
-  end
-  class Code < AutoC::Code
-    include Singleton # TODO convert to anonymous class
-    def priority
-      AutoC::Priority::DEFAULT + 1
+  StaticCode = Class.new(Environment::Code) do
+    def write_intf(stream)
+      stream << %$
+        #define FINITA_SEQ
+      $
     end
-    def seq?; true end
-    def mpi?; false end
-    def omp?; false end
+  end.new(:FinitaSEQ, true, false, false)
+  def code(problem_code)
+    StaticCode
   end
 end # Sequential
 
 
-class Environment::MPI < Environment
-  Tag = :mpi
-  def code(problem_code)
-    problem_code.defines << :FINITA_MPI
-    problem_code.initializer_codes << Code.instance
-    problem_code.finalizer_codes << Code.instance
-    Code.instance
-  end
-  class Code < AutoC::Code
-    include Singleton
-    def priority
-      AutoC::Priority::DEFAULT + 1
-    end
-    def seq?; false end
-    def mpi?; true end
-    def omp?; false end
-    def initialize
-      super("FinitaMPI")
-    end
+class Environment::OpenMP < Environment
+  StaticCode = Class.new(Environment::Code) do
     def write_intf(stream)
-      stream << %$extern int FinitaProcessCount, FinitaProcessIndex;$
+      stream << %$
+        #define FINITA_OMP
+      $
+    end
+  end.new(:FinitaOMP, false, false, true)
+  def code(problem_code)
+    StaticCode
+  end
+end # OpenMP
+
+
+class Environment::MPI < Environment
+  StaticCode = Class.new(Environment::Code) do
+    def write_intf(stream)
+      stream << %$
+        #define FINITA_MPI
+        extern int FinitaProcessCount, FinitaProcessIndex;
+      $
     end
     def write_defs(stream)
       stream << %$int FinitaProcessCount, FinitaProcessIndex;$
@@ -80,26 +88,13 @@ class Environment::MPI < Environment
         FINITA_LEAVE;
       }$
     end
+  end.new(:FinitaMPI, false, true, false)
+  def code(problem_code)
+    problem_code.initializer_codes << StaticCode
+    problem_code.finalizer_codes << StaticCode
+    StaticCode
   end
 end # MPI
-
-
-class Environment::OpenMP < Environment
-  Tag = :omp
-  def code(problem_code)
-    problem_code.defines << :FINITA_OMP
-    Code.instance
-  end
-  class Code < AutoC::Code
-    include Singleton
-    def priority
-      AutoC::Priority::DEFAULT + 1
-    end
-    def seq?; false end
-    def mpi?; false end
-    def omp?; true end
-  end
-end # OpenMP
 
 
 end # Finita

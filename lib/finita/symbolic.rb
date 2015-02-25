@@ -141,14 +141,14 @@ class Constant < Numeric
       end
     end
     attr_reader :constant, :symbol
-    def priority
-      AutoC::Priority::DEFAULT + 3
+    def priority; super - 10000 end
+    def entities
+      @entities.nil? ? @entities = super.concat((@constant.type == Complex) ? [Finita::ComplexCode] : []) : @entities
     end
     def initialize(constant, problem_code)
       @constant = constant
       @symbol = constant.name
       @problem_code = problem_code
-      @problem_code.defines << :FINITA_COMPLEX if constant.type == Complex
     end
     def hash
       constant.hash
@@ -199,14 +199,14 @@ class Variable < Symbolic::Expression
       end
     end
     attr_reader :variable, :symbol
-    def priority
-      AutoC::Priority::DEFAULT + 2
+    def priority; super - 20000 end
+    def entities
+      @entities.nil? ? @entities = super.concat((@variable.type == Complex) ? [Finita::ComplexCode] : []) : @entities
     end
     def initialize(variable, problem_code)
       @variable = variable
       @symbol = variable.name
       @problem_code = problem_code
-      @problem_code.defines << :FINITA_COMPLEX if variable.type == Complex
     end
     def hash
       variable.hash
@@ -258,19 +258,19 @@ class Field < Symbolic::Expression
         problem_code.bound!(owner) {__new__(owner, problem_code)}
       end
     end
-    def entities
-      @entities.nil? ? @entities = super << @domain_code : @entities
-    end
     attr_reader :field, :symbol, :instance
+    def priority; super - 30000 end
+    def entities
+      @entities.nil? ? @entities = super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code]) : @entities
+    end
     def initialize(field, problem_code)
       @field = field
       super("#{problem_code.type}#{field.name}")
       @instance = type
       @symbol = field.name
-      @domain_code = field.domain.code(problem_code)
       @ctype = Finita::CType[field.type]
+      @domain_code = field.domain.code(problem_code)
       problem_code.initializer_codes << self
-      problem_code.defines << :FINITA_COMPLEX if field.type == Complex
     end
     def hash
       field.hash

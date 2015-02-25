@@ -63,7 +63,7 @@ class Solver::PETSc < Solver::Matrix
     def write_finalizer(stream)
       stream << %$#{StaticCode.cleanup}();$
     end
-  end.new("PETSc") # StaticCode
+  end.new(:FinitaPETSc) # StaticCode
   def initialize(*args)
     super
     raise "unsupported environment" unless environment.seq? or environment.mpi?
