@@ -53,13 +53,11 @@ class Problem
       @problem = problem
       @initializer_codes = Set.new
       @finalizer_codes = Set.new
-      @defines = Set.new
       @bound_codes = {}
       super(problem.name)
       @system_codes = @problem.systems.collect {|s| s.code(self)}
       @instance_codes = @problem.instances.collect {|i| i.code(self)}
     end
-    attr_reader :defines
     attr_reader :initializer_codes
     attr_reader :finalizer_codes
     def entities

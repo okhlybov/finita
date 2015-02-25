@@ -1,5 +1,6 @@
 require "autoc"
 require "finita/common"
+require "finita/generator"
 
 
 module Finita
@@ -39,17 +40,17 @@ class Evaluator
     end
     @@count = 0
     attr_reader :hash, :instance
+    def priority; super - 100000 end
     def entities
-      @entities.nil? ? @entities = super.concat(Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)}) : @entities
+      @entities.nil? ? @entities = super.concat(Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)}).concat(@evaluator.complex? ? [Finita::ComplexCode] : []) : @entities
     end
     def initialize(evaluator, problem_code)
       @evaluator = evaluator
       @problem_code = problem_code
       @instance = "#{@problem_code.type}#{@@count += 1}"
       @cresult = CType[evaluator.result]
-      @problem_code.defines << :FINITA_COMPLEX if evaluator.complex?
       @hash = @evaluator.hash
-      super("FinitaEvaluator")
+      super(:FinitaEvaluator)
     end
     def ==(other)
       equal?(other) || self.class == other.class && @evaluator == other.instance_variable_get(:@evaluator)
@@ -58,7 +59,7 @@ class Evaluator
     def expression
       @evaluator.expression
     end
-    def write_intf(stream)
+    def write_decls(stream)
       stream << %$#{extern} #{@cresult} #{instance}(int, int, int);$
     end
     def write_defs(stream)

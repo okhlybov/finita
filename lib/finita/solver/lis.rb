@@ -21,7 +21,7 @@ class Solver::LIS < Solver::Matrix
         ierr = lis_finalize(); CHKERR(ierr);
       }$
     end
-  end.new("LIS") # StaticCode
+  end.new(:FinitaLIS) # StaticCode
   def code(system_code)
     system_code.problem_code.initializer_codes << StaticCode
     system_code.problem_code.finalizer_codes << StaticCode

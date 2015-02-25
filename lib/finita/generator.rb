@@ -163,4 +163,15 @@ class Code < AutoC::Code
 end # Code
 
 
+ComplexCode = Class.new(Code) do
+  def priority; AutoC::Priority::MAX end
+  def write_intf(stream)
+    stream << %$
+      #define FINITA_COMPLEX
+      #include <complex.h>
+    $
+  end
+end.new(:FinitaComplex)
+
+
 end # Finita
