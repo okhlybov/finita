@@ -44,8 +44,8 @@ Problem.new(:Bratu) do |p|
   System.new(:System) do |s|
     # Employ the finite difference discretizer for the spacial derivatives
     s.discretizer = Discretizer::FiniteDifference.new
-    # Employ the PETSc sequential solver with numeric Jacobian approximation
-    s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    # Employ the LIS sequential solver with numeric Jacobian approximation
+    s.solver = Solver::LIS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
     # The boundary conditions are obtained implicitly in form F=f, where f=0 due to zeroed field
     # Define the equation of Bratu to be solved with respect to F field on the interior nodes of the domain Whole
     Equation.new(laplace(F) + Lambda*Exp.new(F), F, Whole.interior)

@@ -51,7 +51,7 @@ Problem.new(:RMF) do |p|
   # Lorenz body force calculation
   System.new(:Force) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
-    s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    s.solver = Solver::LIS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
     Equation.new(dr(P), P, Cylinder.right)
     Equation.new(dz(P) - R, P, Cylinder.top)
     Equation.new(dz(P) - R, P, Cylinder.bottom)
@@ -61,7 +61,7 @@ Problem.new(:RMF) do |p|
   # Flow field calculation
   System.new(:Flow) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
-    s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    s.solver = Solver::LIS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
     Equation.new(R*Phi - 2*Psi[:x-1]/(R-R[:x-1])**2, Phi, Cylinder.right)
     Equation.new(R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
     Equation.new(R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)

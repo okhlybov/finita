@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "Cavity.auto.h"
+#include "cavity_auto.h"
 
 #define WRITE_FIELD(file_name, f) \
 FINITA_HEAD { \
