@@ -35,6 +35,8 @@ class Code < AutoC::Code
 
         #if defined(_MSC_VER)
           #define FINITA_ARGSUSED __pragma(warning(disable:4100))
+        #elif defined(__GNUC__)
+          #define FINITA_ARGSUSED __attribute__((__unused__))
         #elif __STDC_VERSION__ >= 199901L && !defined(__DMC__)
           #define FINITA_ARGSUSED _Pragma("argsused")
         #else
