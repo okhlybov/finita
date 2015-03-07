@@ -28,7 +28,7 @@ class Mapper
       @numeric_array_code = NumericArrayCode[solver_code.system_code.result] if solver_code.mpi?
     end
     def entities
-      @entities.nil? ? @entities = super.concat([NodeCode, @numeric_array_code].compact) : @entities
+      super.concat([NodeCode, @numeric_array_code].compact)
     end
     attr_reader :solver_code
     def write_intf(stream)
@@ -43,9 +43,24 @@ class Mapper
         #{extern} void #{nodeSet}(#{NodeCode.type}, #{sc.cresult});
         #{extern} #{sc.cresult} #{nodeGet}(#{NodeCode.type});
       $
+      debug_code(stream) do
+        stream << %$#{extern} void #{dump}(FILE*);$
+      end
     end
     def write_defs(stream)
       sc = solver_code.system_code
+      debug_code(stream) do
+        stream << %$
+          void #{dump}(FILE* file) {
+            size_t i, size = #{size}();
+            for(i = 0; i < size; ++i) {
+              fprintf(file, "%d -> ", i);
+              #{NodeCode.dump}(#{node}(i), file);
+              fputs(", ", file);
+            }
+          }
+        $
+      end
       stream << %$
         void #{nodeSet}(#{NodeCode.type} node, #{sc.cresult} value) {
           switch(node.field) {
@@ -152,7 +167,7 @@ class Mapper::Naive < Mapper
       end
     end
     def entities
-      @entities.nil? ? @entities = super.concat([NodeArrayCode, NodeIndexMapCode] + @domain_codes) : @entities
+      super.concat([NodeArrayCode, NodeIndexMapCode] + @domain_codes)
     end
     def write_intf(stream)
       super

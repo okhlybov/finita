@@ -18,7 +18,7 @@ class Solver::Explicit < Solver
   attr_reader :unknowns
   class Code < Solver::Code
     def entities
-      @entities.nil? ? @entities = super.concat([@array_code, @function_code, @function_list_code] + @evaluator_codes + @unknown_codes + @domain_codes) : @entities
+      super.concat([@array_code, @function_code, @function_list_code] + @evaluator_codes + @unknown_codes + @domain_codes)
     end
     def initialize(*args)
       super

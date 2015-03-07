@@ -143,7 +143,7 @@ class Constant < Numeric
     attr_reader :constant, :symbol
     def priority; super - 10000 end
     def entities
-      @entities.nil? ? @entities = super.concat((@constant.type == Complex) ? [Finita::ComplexCode] : []) : @entities
+      super.concat((@constant.type == Complex) ? [Finita::ComplexCode] : [])
     end
     def initialize(constant, problem_code)
       @constant = constant
@@ -201,7 +201,7 @@ class Variable < Symbolic::Expression
     attr_reader :variable, :symbol
     def priority; super - 20000 end
     def entities
-      @entities.nil? ? @entities = super.concat((@variable.type == Complex) ? [Finita::ComplexCode] : []) : @entities
+      super.concat((@variable.type == Complex) ? [Finita::ComplexCode] : [])
     end
     def initialize(variable, problem_code)
       @variable = variable
@@ -261,7 +261,7 @@ class Field < Symbolic::Expression
     attr_reader :field, :symbol, :instance
     def priority; super - 30000 end
     def entities
-      @entities.nil? ? @entities = super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code]) : @entities
+      super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code])
     end
     def initialize(field, problem_code)
       @field = field

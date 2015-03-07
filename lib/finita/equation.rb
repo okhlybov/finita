@@ -64,7 +64,7 @@ class Binding
     end
     class Code < Finita::Code
       def entities
-        @entities.nil? ? @entities = super.concat([unknown_code, domain_code]) : @entities
+        super.concat([unknown_code, domain_code])
       end
       def initialize(binding, problem_code)
         @binding = Finita.check_type(binding, Binding)

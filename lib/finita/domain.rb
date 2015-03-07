@@ -223,7 +223,7 @@ class Area
     @@count = 0
     attr_reader :hash, :instance
     def entities
-      @entities.nil? ? @entities = super.concat([StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)}) : @entities
+      super.concat([StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)})
     end
     def initialize(area, problem_code)
       @area = area
