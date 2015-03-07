@@ -37,7 +37,7 @@ class Solver::LIS < Solver::Matrix
       @comm = mpi? ? :MPI_COMM_WORLD : 0
     end
     def entities
-      @entities.nil? ? @entities = super.concat([@numeric_array_code].compact) : @entities
+      super.concat([@numeric_array_code].compact)
     end
     def write_setup_body(stream)
       super

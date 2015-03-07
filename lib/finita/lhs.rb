@@ -26,7 +26,7 @@ class LHS
       sc.initializer_codes << self
     end
     def entities
-      @entities.nil? ? @entities = super.concat([NodeCode, @matrix_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes) : @entities
+      super.concat([NodeCode, @matrix_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes)
     end
     attr_reader :solver_code
     def hash

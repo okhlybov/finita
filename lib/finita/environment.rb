@@ -44,6 +44,7 @@ class Environment::OpenMP < Environment
     def write_intf(stream)
       stream << %$
         #define FINITA_OMP
+        #include <omp.h>
       $
     end
   end.new(:FinitaOMP, false, false, true)
@@ -59,6 +60,7 @@ class Environment::MPI < Environment
       stream << %$
         #define FINITA_MPI
         extern int FinitaProcessCount, FinitaProcessIndex;
+        #include <mpi.h>
       $
     end
     def write_defs(stream)

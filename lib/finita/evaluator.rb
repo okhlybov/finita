@@ -42,7 +42,7 @@ class Evaluator
     attr_reader :hash, :instance
     def priority; super - 100000 end
     def entities
-      @entities.nil? ? @entities = super.concat(Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)}).concat(@evaluator.complex? ? [Finita::ComplexCode] : []) : @entities
+      super.concat(Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)}).concat(@evaluator.complex? ? [Finita::ComplexCode] : [])
     end
     def initialize(evaluator, problem_code)
       @evaluator = evaluator
@@ -95,21 +95,25 @@ NumericArrayCode = numeric_instances_hash do |type|
     end
     def write_intf(stream)
       super
-      stream << %$#{extern} void #{dump}(#{type}*, FILE*);$
+      debug_code(stream) do
+        stream << %$#{extern} void #{dump}(#{type}*, FILE*);$
+      end
     end
     def write_defs(stream)
       super
-      stream << %$
-        void #{dump}(#{type}* self, FILE* file) {
-          size_t index;
-          #{assert}(self);
-          #{assert}(file);
-          for(index = 0; index < #{size}(self); ++index) {
-            #{CType[@result]} value = #{get}(self, index);
-            #{@@fprintf_stmt[@result]};
+      debug_code(stream) do
+        stream << %$
+          void #{dump}(#{type}* self, FILE* file) {
+            size_t index;
+            #{assert}(self);
+            #{assert}(file);
+            for(index = 0; index < #{size}(self); ++index) {
+              #{CType[@result]} value = #{get}(self, index);
+              #{@@fprintf_stmt[@result]};
+            }
           }
-        }
-      $
+        $
+      end
     end
   end.new(type)
 end
@@ -128,6 +132,9 @@ NodeCode = Class.new(AutoC::UserDefinedType) do
       #define #{identify}(obj) ((obj).hash)
       #define #{ctor}(obj) ((obj) = #{new}(0,0,0,0))
     $
+    debug_code(stream) do
+      stream << %$#{extern} void #{dump}(#{type}, FILE*);$
+    end
   end
   def write_defs(stream)
     stream << %$
@@ -146,6 +153,13 @@ NodeCode = Class.new(AutoC::UserDefinedType) do
       }
       #undef SIGN2LSB
     $
+    debug_code(stream) do
+      stream << %$
+        void #{dump}(#{type} self, FILE* file) {
+          fprintf(file, "[%d](%d,%d,%d)", self.field, self.x, self.y, self.z);
+        }
+      $
+    end
   end
 end.new # NodeCode
 
@@ -201,6 +215,33 @@ end.new # NodeCoordCode
 SparsityPatternCode = Class.new(AutoC::HashSet) do |type|
   def entities; super << NodeCoordCode end
   def initialize(type) super(type, NodeCoordCode) end
+  def write_intf(stream)
+    super
+    debug_code(stream) do
+      stream << %$
+        #{extern} void #{dump}(#{type_ref}, FILE*);
+      $
+    end
+  end
+  def write_defs(stream)
+    super
+    debug_code(stream) do
+      stream << %$
+         void #{dump}(#{type_ref} self, FILE* file) {
+          #{it} it;
+          #{itCtor}(&it, self);
+          while(#{itMove}(&it)) {
+            #{element.type} c = #{itGet}(&it);
+            #{NodeCode.dump}(c.row, file);
+            fputs(" : ", file);
+            #{NodeCode.dump}(c.column, file);
+            fputs(", ", file);
+          }
+          fputs("\\n", file);
+         }
+      $
+    end
+  end
 end.new(:FinitaSparsityPattern)
 
 
@@ -363,12 +404,12 @@ CallStackCode = Class.new(AutoC::List) do
     $})
   end
   def write_intf(stream)
-    debug_code(stream) {
+    debug_code(stream) do
       super
-    }
+    end
   end
   def write_defs(stream)
-    debug_code(stream) {
+    debug_code(stream) do
       stream << %$
         int FinitaCallStackEntryEqual(#{element.type} lt, #{element.type} rt) {
           return 0;
@@ -378,7 +419,7 @@ CallStackCode = Class.new(AutoC::List) do
         }
       $
       super
-    }
+    end
   end
 end.new
 

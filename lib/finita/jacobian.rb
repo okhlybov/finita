@@ -21,7 +21,7 @@ class Jacobian
       super("#{solver_code.system_code.type}Jacobian")
     end
     def entities
-      @entities.nil? ? @entities = super.concat([NodeCode, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes) : @entities
+      super.concat([NodeCode, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes)
     end
     attr_reader :solver_code
     def hash
@@ -45,7 +45,7 @@ class Jacobian::Numeric < Jacobian
   attr_reader :rtol
   class Code < Jacobian::Code
     def entities
-      @entities.nil? ? @entities = super.concat([@matrix_code, @function_code, @function_list_code]) : @entities
+      super.concat([@matrix_code, @function_code, @function_list_code])
     end
     def initialize(*args)
       super

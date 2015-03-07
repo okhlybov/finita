@@ -25,7 +25,7 @@ class Decomposer
       solver_code.system_code.initializer_codes << self
     end
     def entities
-      @entities.nil? ? @entities = super.concat([@mapper_code, @numeric_array_code].compact) : @entities
+      super.concat([@mapper_code, @numeric_array_code].compact)
     end
     def write_intf(stream)
       stream << %$

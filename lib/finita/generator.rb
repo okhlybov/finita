@@ -4,6 +4,17 @@ require "autoc"
 module Finita
 
 
+class AutoC::Code
+    def debug_code(stream, &block)
+      if block_given?
+        stream << %$\n#ifndef NDEBUG\n$
+        yield
+        stream << %$\n#endif\n$
+      end
+    end
+end # Code
+
+
 class Code < AutoC::Code
   
   # @private
@@ -66,7 +77,6 @@ class Code < AutoC::Code
         #endif
 
         #ifdef FINITA_MPI
-          #include <mpi.h>
           #define FINITA_HEAD if(FinitaProcessIndex == 0)
           #define FINITA_NHEAD if(FinitaProcessIndex != 0)
         #else
@@ -82,7 +92,6 @@ class Code < AutoC::Code
       # TODO portable version of snprintf
       stream << %$
         #include <math.h>
-        #include <stdio.h>
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
           #ifdef FINITA_MPI
             fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
@@ -142,6 +151,10 @@ class Code < AutoC::Code
   include CommonMethods
   
   def entities; super << CommonCode end
+  
+  def priority
+    @priority.nil? ? @priority = super : @priority # WARNING : caching might be dangerous
+  end
   
   def type; @prefix end
   
