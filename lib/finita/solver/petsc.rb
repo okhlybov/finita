@@ -121,7 +121,7 @@ class Solver::PETSc < Solver::Matrix
           first = #{decomposer_code.firstIndex}();
           last = #{decomposer_code.lastIndex}();
           ierr = MatCreate(PETSC_COMM_WORLD, &#{matrix}); CHKERRQ(ierr);
-          ierr = MatSetSizes(#{matrix}, size, PETSC_DECIDE, PETSC_DETERMINE, #{mapper_code.size}()); CHKERRQ(ierr);
+          ierr = MatSetSizes(#{matrix}, size, size, PETSC_DECIDE, PETSC_DECIDE); CHKERRQ(ierr);
           ierr = MatSetFromOptions(#{matrix}); CHKERRQ(ierr);
           ierr = MatGetType(#{matrix}, &mat_type); CHKERRQ(ierr);
           if(strcmp(mat_type, MATSEQAIJ) == 0) {
@@ -169,10 +169,13 @@ class Solver::PETSc < Solver::Matrix
           }
           #ifndef NDEBUG
           {
-            PetscInt petsc_first, petsc_last;
-            MatGetOwnershipRange(#{matrix}, &petsc_first, &petsc_last);
+            PetscInt petsc_first, petsc_last, petsc_cols, petsc_rows;
+            ierr = MatGetOwnershipRange(#{matrix}, &petsc_first, &petsc_last); CHKERRQ(ierr);
             #{assert}(first == petsc_first);
             #{assert}(last == petsc_last-1);
+            ierr = MatGetSize(#{matrix}, &petsc_rows, &petsc_cols); CHKERRQ(ierr);
+            #{assert}(petsc_rows == petsc_cols);
+            #{assert}(petsc_rows == #{mapper_code.size}());
           }
           #endif
           ierr = VecCreate(PETSC_COMM_WORLD, &#{vector}); CHKERRQ(ierr);

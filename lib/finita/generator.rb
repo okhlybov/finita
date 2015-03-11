@@ -12,7 +12,15 @@ class AutoC::Code
         stream << %$\n#endif\n$
       end
     end
-end # Code
+end # AutoC::Code
+
+
+class AutoC::Type
+  alias :autoc_entities :entities
+  def entities
+    autoc_entities << Code::CommonCode
+  end
+end # AutoC::Type
 
 
 class Code < AutoC::Code

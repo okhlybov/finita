@@ -302,7 +302,7 @@ class Decomposer::Naive < Decomposer
       end
     end
   end # Code
-end # Naive
+end # Naive    
 
 
-end # finita
+end # Finita
