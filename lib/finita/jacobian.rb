@@ -93,11 +93,11 @@ class Jacobian::Numeric < Jacobian
       stream << %$
         #{cresult} #{evaluate}(#{NodeCode.type} row, #{NodeCode.type} column) {
           #{@function_list_code.type}* fps;
-          #{cresult} result, original;
+          #{cresult} result, original, delta;
           FINITA_ENTER;
           result = 0;
           original = #{mc.nodeGet}(column);
-          #{cresult} delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
+          delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
           fps = #{@matrix_code.get}(&#{evaluators}, #{NodeCoordCode.new}(row, column));
           #{mc.nodeSet}(column, original + delta);
           result += #{@function_list_code.summate}(fps, row.x, row.y, row.z);

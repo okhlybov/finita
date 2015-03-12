@@ -126,7 +126,7 @@ class Code < AutoC::Code
         #endif
         /*
           Thomas Wang's mixing algorithm, 32-bit version
-          http://www.concentric.net/~ttwang/tech/inthash.htm
+          http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttwang/tech/inthash.htm
         */
         size_t FinitaHashMix(size_t hash) {
           FINITA_ENTER;
@@ -141,15 +141,17 @@ class Code < AutoC::Code
           Bruce Dawson's floating-point comparison algorithm
           http://www.cygnus-software.com/papers/comparingfloats/comparingfloats.htm
         */
+        #include <inttypes.h>
         int FinitaFloatsAlmostEqual(float a, float b) {
-          int ai, bi, result;
+          union {float f; int32_t i;} au, bu; /* workaround for the strict aliasing rule warning */
+          int result;
           FINITA_ENTER;
-          #{assert}(sizeof(int) == 4);
-          ai = *(int*)&a;
-          if(ai < 0) ai = 0x80000000 - ai;
-          bi = *(int*)&b;
-          if (bi < 0) bi = 0x80000000 - bi;
-          result =  abs(ai - bi) <= 1 ? 1 : 0;
+          #{assert}(sizeof(int32_t) == sizeof(float));
+          au.f = a;
+          bu.f = b;
+          if(au.i < 0) au.i = 0x80000000 - au.i;
+          if(bu.i < 0) bu.i = 0x80000000 - bu.i;
+          result =  abs(au.i - bu.i) <= 1 ? 1 : 0;
           FINITA_RETURN(result);
         }
       $

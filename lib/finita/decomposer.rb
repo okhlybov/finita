@@ -179,8 +179,9 @@ class Decomposer
         void #{scatterArray}(#{@numeric_array_code.type}* array) {
           int ierr, count, index, process;
           #{ctype} *output, *real, *imaginary;
+          size_t size;
           FINITA_ENTER;
-          size_t size = #{@mapper_code.size}();
+          size = #{@mapper_code.size}();
           output = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(output);
           real = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(real);
       $
@@ -224,8 +225,9 @@ class Decomposer
         void #{broadcastArray}(#{@numeric_array_code.type}* array) {
           int ierr, count, index, process;
           #{ctype} *real, *imaginary;
+          size_t size;
           FINITA_ENTER;
-          size_t size = #{@mapper_code.size}();
+          size = #{@mapper_code.size}();
           real = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(real);
       $
       if sc.complex?
@@ -279,8 +281,9 @@ class Decomposer::Naive < Decomposer
       if solver_code.mpi?
         stream << %$
           void #{setup}(void) {
+            size_t index, base_index, process, size;
             FINITA_ENTER;
-            size_t index, base_index, process, size = #{@mapper_code.size}();
+            size = #{@mapper_code.size}();
             FINITA_ASSERT(FinitaProcessCount <= size);
             #{counts} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{counts});
             #{offsets} = (int*)#{malloc}(FinitaProcessCount*sizeof(int)); #{assert}(#{offsets});
@@ -302,7 +305,7 @@ class Decomposer::Naive < Decomposer
       end
     end
   end # Code
-end # Naive    
+end # Naive
 
 
 end # Finita

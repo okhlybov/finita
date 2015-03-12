@@ -31,15 +31,16 @@ class Solver::MUMPS < Solver::Matrix
         #{ctx}.comm_fortran = -987654; /* MPI_COMM_WORLD */
         #{invoke}(-1);
         #ifdef NDEBUG
-          #{ctx}.ICNTL(3) = -1; /* disable debugging output */
+          #{ctx}.ICNTL(4) = 1; /* print errors only */
         #else
-          #{ctx}.ICNTL(4) = 0; /* terse debugging output */
+          #{ctx}.ICNTL(4) = 2; /* terse debugging output */
         #endif
         #{ctx}.ICNTL(5) = 0; /* assembled matrix format */
         #{ctx}.ICNTL(6) = 1; /* permutation that does not require the values of the matrix to be specified */
         #{ctx}.ICNTL(18) = 3; /* distributed matrix format */
         #{ctx}.ICNTL(20) = 0; /* centralized vector format */
         #{ctx}.ICNTL(21) = 0; /* centralized solution format */
+        #{ctx}.ICNTL(24) = 1; /* null pivot workaround */
         #{ctx}.n = #{mapper_code.size}();
         #{ctx}.nz_loc = #{SparsityPatternCode.size}(&#{sparsity});
         #{ctx}.irn_loc = (int*) #{malloc}(#{ctx}.nz_loc*sizeof(int)); #{assert}(#{ctx}.irn_loc);
