@@ -228,7 +228,7 @@ class Solver::LIS < Solver::Matrix
       stream << %$#{cleanup}();$
     end
   end # Code
-end # MUMPS
+end # LIS
 
 
 end # Finita
