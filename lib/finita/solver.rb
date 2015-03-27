@@ -233,6 +233,7 @@ end # Finita
 
 
 require "finita/solver/explicit"
+require "finita/solver/viennacl"
 require "finita/solver/mumps"
 require "finita/solver/petsc"
 require "finita/solver/lis"
