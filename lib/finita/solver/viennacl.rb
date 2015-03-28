@@ -35,6 +35,7 @@ class Solver::ViennaCL < Solver::Matrix
       abs = CAbs[system_code.result]
       stream << %$
         void #{system_code.solve}(void) {
+          size_t index;
           #{SparsityPatternCode.it} it;
           FINITA_ENTER;
           const size_t neq = #{mapper_code.size}(), nnz = #{SparsityPatternCode.size}(&#{sparsity});
@@ -53,7 +54,7 @@ class Solver::ViennaCL < Solver::Matrix
             v[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
           }
           copy(v, B);
-          vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
+          vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(#{@solver.rtol}), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
           copy(X, v);
           for(index = 0; index < neq; ++index) {
             #{mapper_code.indexSet}(index, v[index]);
@@ -89,7 +90,7 @@ class Solver::ViennaCL < Solver::Matrix
               v[index] = -#{residual_code.evaluate}(#{mapper_code.node}(index));
             }
             copy(v, B);
-            vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
+            vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(#{@solver.rtol}), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
             copy(X, v);
             for(index = 0; index < neq; ++index) {
               const #{system_code.cresult} value = #{mapper_code.indexGet}(index), dvalue = v[index];
