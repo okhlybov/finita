@@ -7,12 +7,12 @@ class Solver::ViennaCL < Solver::Matrix
       super
       stream << %$
         #ifndef __cplusplus
-          #error ViennaCL solver requires this source to be compiled by C++ compiler
+          #error ViennaCL backend requires this source to be compiled by C++ compiler
         #endif
-        #include <viennacl/compressed_matrix.hpp>
-        #include <viennacl/linalg/gmres.hpp>
-        #include <viennacl/linalg/ilu.hpp>
-        #include <viennacl/vector.hpp>
+        #include "viennacl/compressed_matrix.hpp"
+        #include "viennacl/linalg/gmres.hpp"
+        #include "viennacl/linalg/ilu.hpp"
+        #include "viennacl/vector.hpp"
         #include <vector>
         #include <map>
         using namespace viennacl;
@@ -31,7 +31,38 @@ class Solver::ViennaCL < Solver::Matrix
       super
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
     end
-    # def write_solve_linear(stream)
+    def write_solve_linear(stream)
+      abs = CAbs[system_code.result]
+      stream << %$
+        void #{system_code.solve}(void) {
+          #{SparsityPatternCode.it} it;
+          FINITA_ENTER;
+          const size_t neq = #{mapper_code.size}(), nnz = #{SparsityPatternCode.size}(&#{sparsity});
+          std::vector< std::map<unsigned int, #{system_code.cresult}> > m(neq);
+          compressed_matrix<#{system_code.cresult}> A(neq, neq);
+          A.reserve(nnz);
+          #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
+          while(#{SparsityPatternCode.itMove}(&it)) {
+            #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
+            m[#{mapper_code.index}(coord.row)][#{mapper_code.index}(coord.column)] = #{lhs_code.evaluate}(coord.row, coord.column);
+          }
+          copy(m, A);
+          std::vector<#{system_code.cresult}> v(neq);
+          vector<#{system_code.cresult}> B(neq);
+          for(index = 0; index < neq; ++index) {
+            v[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
+          }
+          copy(v, B);
+          vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
+          copy(X, v);
+          for(index = 0; index < neq; ++index) {
+            #{mapper_code.indexSet}(index, v[index]);
+          }
+          #{decomposer_code.synchronizeUnknowns}();
+          FINITA_LEAVE;
+        }
+      $
+    end
     def write_solve_nonlinear(stream)
       abs = CAbs[system_code.result]
       stream << %$
@@ -41,8 +72,8 @@ class Solver::ViennaCL < Solver::Matrix
           #{SparsityPatternCode.it} it;
           FINITA_ENTER;
           const size_t neq = #{mapper_code.size}(), nnz = #{SparsityPatternCode.size}(&#{sparsity});
-          std::vector< std::map<size_t, #{system_code.cresult}> > m(neq);
-          compressed_matrix<#{system_code.cresult}> A(neq, neq);
+          std::vector< std::map<unsigned int, #{system_code.cresult}> > m(neq);
+          viennacl::compressed_matrix<#{system_code.cresult}> A(neq, neq);
           A.reserve(nnz);
           std::vector<#{system_code.cresult}> v(neq);
           vector<#{system_code.cresult}> B(neq);
@@ -66,6 +97,7 @@ class Solver::ViennaCL < Solver::Matrix
               delta += #{abs}(dvalue);
               #{mapper_code.indexSet}(index, value + dvalue);
             }
+            #{decomposer_code.synchronizeUnknowns}();
             norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
             stop = norm < #{@solver.rtol};
             #ifndef NDEBUG
