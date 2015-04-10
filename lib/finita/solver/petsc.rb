@@ -3,7 +3,7 @@ module Finita
 
 class Solver::PETSc < Solver::Matrix
   StaticCode = Class.new(Finita::Code) do
-    def write_defs(stream)
+    def write_decls(stream)
       super
       stream << %$
         #include "petsc.h"

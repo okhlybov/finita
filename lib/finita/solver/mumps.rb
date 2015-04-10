@@ -76,10 +76,16 @@ class Solver::MUMPS < Solver::Matrix
       stream << "#{@numeric_array_code.dtor}(&#{array});" if mpi?
       stream << "FINITA_LEAVE;}"
     end
-    def write_defs(stream)
-      stream << %$static #{@numeric_array_code.type} #{array};$ if mpi?
+    def write_decls(stream)
+      super
       stream << %$
         #include <#{@mumps_c}.h>
+      $
+    end
+    def write_defs(stream)
+      super
+      stream << %$static #{@numeric_array_code.type} #{array};$ if mpi?
+      stream << %$
         #define ICNTL(x) icntl[(x)-1]
         #define INFO(x) info[(x)-1]
         #define INFOG(x) infog[(x)-1]
