@@ -224,7 +224,7 @@ class Solver::Matrix < Solver
         fclose(file);
       FINITA_LEAVE;}$ if $debug
     end
-    def write_clenup_body(stream); end
+    def write_clenup_body(stream) end
   end # Code
 end # Matrix
 
@@ -233,6 +233,7 @@ end # Finita
 
 
 require "finita/solver/explicit"
+require "finita/solver/paralution"
 require "finita/solver/viennacl"
 require "finita/solver/mumps"
 require "finita/solver/petsc"
