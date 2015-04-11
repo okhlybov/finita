@@ -48,7 +48,7 @@ class Solver::Paralution < Solver::Matrix
         static LocalMatrix<#{system_code.cresult}> *#{matrix};
         static LocalVector<#{system_code.cresult}> *#{vector};
         static LocalVector<#{system_code.cresult}> *#{result};
-        typedef CG<LocalMatrix<#{system_code.cresult}>,LocalVector<#{system_code.cresult}>,#{system_code.cresult}> #{solverType};
+        typedef GMRES<LocalMatrix<#{system_code.cresult}>,LocalVector<#{system_code.cresult}>,#{system_code.cresult}> #{solverType};
         typedef ILU<LocalMatrix<#{system_code.cresult}>,LocalVector<#{system_code.cresult}>,#{system_code.cresult}> #{pcType};
         static #{solverType} *#{solver};
         static #{pcType} *#{pc};
@@ -83,12 +83,13 @@ class Solver::Paralution < Solver::Matrix
         #{vector}->MoveToAccelerator();
         #{result} = new LocalVector<#{system_code.cresult}>;
         #{solver} = new #{solverType};
+        #{solver}->Init(1e-10, 1e-8, 1e+10, 1000);
         #{solver}->SetOperator(*#{matrix});
         #{pc} = new #{pcType};
         #{pc}->Set(1);
         #{solver}->SetPreconditioner(*#{pc});
         #{solver}->Build();
-        #{solver}->MoveToHost();
+        #{solver}->MoveToAccelerator();
       }$
     end
     def write_cleanup_body(stream)
@@ -109,6 +110,14 @@ class Solver::Paralution < Solver::Matrix
     end
     def write_defs(stream)
       super
+      stream << %$
+        static void #{examineStatus}(void) {
+          FINITA_ENTER;
+          int status = #{solver}->GetSolverStatus();
+          if(status != 1 && status != 2) FINITA_FAILURE("Paralution solver failed to converge");
+          FINITA_LEAVE;
+        }
+      $
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
     end
     def write_solve_linear(stream)
@@ -131,7 +140,7 @@ class Solver::Paralution < Solver::Matrix
           #{result}->SetDataPtr(&#{rvals}, "x", neq);
           #{result}->MoveToAccelerator();
           #{solver}->ResetOperator(*#{matrix});
-          #{solver}->Solve(*#{vector}, #{result});
+          #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
           #{result}->MoveToHost();
           #{result}->LeaveDataPtr(&#{rvals});
           for(index = 0; index < neq; ++index) {
@@ -166,7 +175,7 @@ class Solver::Paralution < Solver::Matrix
             #{result}->SetDataPtr(&#{rvals}, "x", neq);
             #{result}->MoveToAccelerator();
             #{solver}->ResetOperator(*#{matrix});
-            #{solver}->Solve(*#{vector}, #{result});
+            #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
             #{result}->MoveToHost();
             #{result}->LeaveDataPtr(&#{rvals});
             for(index = 0; index < neq; ++index) {
