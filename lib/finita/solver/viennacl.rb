@@ -32,7 +32,6 @@ class Solver::ViennaCL < Solver::Matrix
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
     end
     def write_solve_linear(stream)
-      abs = CAbs[system_code.result]
       stream << %$
         void #{system_code.solve}(void) {
           size_t index;
