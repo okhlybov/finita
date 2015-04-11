@@ -23,7 +23,7 @@ class Solver::MUMPS < Solver::Matrix
     def write_setup_body(stream)
       super
       stream << %${
-        size_t index = 0;
+        int index = 0;
         #{SparsityPatternCode.it} it;
         FINITA_ENTER;
         #{ctx}.par = 1; /* computing host */
@@ -101,7 +101,7 @@ class Solver::MUMPS < Solver::Matrix
       if @solver.linear?
         stream << %$
           void #{system_code.solve}(void) {
-            size_t index;
+            int index;
             FINITA_ENTER;
             for(index = 0; index < #{ctx}.nz_loc; ++index) {
               #{ctx}.a_loc[index] = #{lhs_code.evaluate}(#{mapper_code.node}(#{ctx}.irn_loc[index] - 1), #{mapper_code.node}(#{ctx}.jcn_loc[index] - 1));
@@ -109,7 +109,7 @@ class Solver::MUMPS < Solver::Matrix
         $
         if mpi?
           stream << %${
-            size_t first = #{decomposer_code.firstIndex}(), last = #{decomposer_code.lastIndex}();
+            int first = #{decomposer_code.firstIndex}(), last = #{decomposer_code.lastIndex}();
             for(index = first; index <= last; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, -#{rhs_code.evaluate}(#{mapper_code.node}(index)));
             }
@@ -148,7 +148,7 @@ class Solver::MUMPS < Solver::Matrix
         stream << %$
           void #{system_code.solve}(void) {
             #{system_code.cresult} norm;
-            size_t index, step = 0;
+            int index, step = 0;
             int stop, first = 1;
             FINITA_ENTER;
             do {
@@ -160,7 +160,7 @@ class Solver::MUMPS < Solver::Matrix
         if mpi?
           stream << %${
             int ierr;
-            size_t first = #{decomposer_code.firstIndex}(), last = #{decomposer_code.lastIndex}();
+            int first = #{decomposer_code.firstIndex}(), last = #{decomposer_code.lastIndex}();
             for(index = first; index <= last; ++index) {
               #{@numeric_array_code.set}(&#{array}, index, #{residual_code.evaluate}(#{mapper_code.node}(index)));
             }
