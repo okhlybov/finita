@@ -68,28 +68,41 @@ class Solver::Paralution < Solver::Matrix
           #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
           #{mcols}[index] = #{mapper_code.index}(coord.column);
           #{mrows}[index] = #{mapper_code.index}(coord.row);
+          #{mvals}[index] = 1; /* Dummy values */
           ++index;
         }
         #{matrix} = new LocalMatrix<#{system_code.cresult}>;
         #{matrix}->Assemble(#{mrows}, #{mcols}, #{mvals}, nnz, "A");
         #{matrix}->MoveToAccelerator();
+        #ifndef NDEBUG
+          #{matrix}->Check();
+        #endif
         const int neq = #{mapper_code.size}();
         #{vrows} = new int[nnz];
         for(index = 0; index < neq; ++index) #{vrows}[index] = index;
         #{vvals} = new #{system_code.cresult}[neq];
-        #{rvals} = new #{system_code.cresult}[neq];
+        for(index = 0; index < neq; ++index) {
+          #{vvals}[index] = 1; /* Dummy values */
+        }
         #{vector} = new LocalVector<#{system_code.cresult}>;
-        #{vector}->Allocate("b", neq);
+        #{vector}->Assemble(#{vrows}, #{vvals}, neq, "b");
         #{vector}->MoveToAccelerator();
+        #ifndef NDEBUG
+          #{vector}->Check();
+        #endif
         #{result} = new LocalVector<#{system_code.cresult}>;
+        #{result}->Allocate("x", neq);
         #{solver} = new #{solverType};
-        #{solver}->Init(1e-10, 1e-8, 1e+10, 1000);
         #{solver}->SetOperator(*#{matrix});
         #{pc} = new #{pcType};
-        #{pc}->Set(1);
         #{solver}->SetPreconditioner(*#{pc});
         #{solver}->Build();
         #{solver}->MoveToAccelerator();
+        #{solver}->Verbose(2);
+        #ifndef NDEBUG
+          #{matrix}->info();
+          #{vector}->info();
+        #endif
       }$
     end
     def write_cleanup_body(stream)
@@ -104,7 +117,6 @@ class Solver::Paralution < Solver::Matrix
         delete [] #{vrows};
         delete [] #{mvals};
         delete [] #{vvals};
-        delete [] #{rvals};
       $
       super
     end
@@ -132,20 +144,26 @@ class Solver::Paralution < Solver::Matrix
             #{mvals}[index++] = #{lhs_code.evaluate}(coord.row, coord.column);
           }
           #{matrix}->AssembleUpdate(#{mvals});
+          #ifndef NDEBUG
+            #{matrix}->Check();
+          #endif
           const int neq = #{mapper_code.size}();
           for(index = 0; index < neq; ++index) {
             #{vvals}[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
           }
           #{vector}->Assemble(#{vrows}, #{vvals}, neq, "b");
-          #{result}->SetDataPtr(&#{rvals}, "x", neq);
-          #{result}->MoveToAccelerator();
+          #ifndef NDEBUG
+            #{vector}->Check();
+          #endif
           #{solver}->ResetOperator(*#{matrix});
+          #{result}->MoveToAccelerator();
           #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
           #{result}->MoveToHost();
           #{result}->LeaveDataPtr(&#{rvals});
           for(index = 0; index < neq; ++index) {
             #{mapper_code.indexSet}(index, #{rvals}[index]);
           }
+          #{result}->SetDataPtr(&#{rvals}, "x", neq);
           #{decomposer_code.synchronizeUnknowns}();
           FINITA_LEAVE;
         }
@@ -167,13 +185,24 @@ class Solver::Paralution < Solver::Matrix
               #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
               #{mvals}[index++] = #{jacobian_code.evaluate}(coord.row, coord.column);
             }
+            #{matrix}->Zeros();
             #{matrix}->AssembleUpdate(#{mvals});
+            #ifndef NDEBUG
+              #{matrix}->Check();
+            #endif
             for(index = 0; index < neq; ++index) {
               #{vvals}[index] = -#{residual_code.evaluate}(#{mapper_code.node}(index));
             }
+            #{vector}->Zeros();
             #{vector}->Assemble(#{vrows}, #{vvals}, neq, "b");
-            #{result}->SetDataPtr(&#{rvals}, "x", neq);
+            #ifndef NDEBUG
+              #{vector}->Check();
+            #endif
             #{result}->MoveToAccelerator();
+            #ifndef NDEBUG
+              #{result}->Check();
+            #endif
+            #{solver}->Verbose(2);
             #{solver}->ResetOperator(*#{matrix});
             #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
             #{result}->MoveToHost();
@@ -184,6 +213,7 @@ class Solver::Paralution < Solver::Matrix
               delta += #{abs}(dvalue);
               #{mapper_code.indexSet}(index, value + dvalue);
             }
+            #{result}->SetDataPtr(&#{rvals}, "x", neq);
             #{decomposer_code.synchronizeUnknowns}();
             norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
             stop = norm < #{@solver.rtol};

@@ -19,7 +19,8 @@ PROG ?= test
 # <.c> for C language,
 # <.cpp .cxx .cc> for C++ language,
 # <.f .F .for .f90> for FORTRAN language.
-SRC ?= test.c test_auto.c
+MOD = poisson
+SRC ?= sample/$(MOD).c $(MOD)_auto.c
 
 
 ### [optional] user-definable variables which are normally set.
@@ -27,16 +28,16 @@ SRC ?= test.c test_auto.c
 # Space-separated list of WHPC packages to be used, ex. <mpi blas lapack>.
 # This list will be passed to the PkgConfig utility to determine proper
 # compile and link command line options.
-PKG ?=
+PKG ?= paralution_dto
 
 # Options passed to the C preprocessor, ex. <-DNDEBUG>.
 # The same options will used to preprocess all kinds of sources
 # (FORTRAN included).
-CPPFLAGS ?=
+CPPFLAGS ?= -I.
 
 # Language-neutral options passed to all compilers, ex. <-O3>.
 # This variable is mainly intended to control the compilers optimizations.
-OPTFLAGS ?= -ansi -Wall -pedantic -g
+OPTFLAGS ?= -x c++ -ansi -Wall -pedantic -g 
 
 
 ### [extra] user-definable variables that might be of use.
@@ -105,7 +106,7 @@ FFLAGS += $(OPTFLAGS) $(PKGCFLAGS)
 LDLIBS += $(PKGLIBS)
 
 # Determine extra required runtimes based upon the sources used
-STDLIBS = -lgcc
+STDLIBS = -lgcc -lstdc++
 ifneq ($(filter $(FOREXT),$(suffix $(SRC))),)
 STDLIBS += -lgfortran
 endif
