@@ -40,7 +40,6 @@ class Evaluator
     end
     @@count = 0
     attr_reader :hash, :instance
-    def priority; super - 100000 end
     def entities
       super.concat(Collector.new.apply!(@evaluator.expression).instances.collect {|o| o.code(@problem_code)}).concat(@evaluator.complex? ? [Finita::ComplexCode] : [])
     end

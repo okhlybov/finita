@@ -103,10 +103,11 @@ class Code < AutoC::Code
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
           #ifdef FINITA_MPI
             fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
+            MPI_Abort(MPI_COMM_WORLD, 1);
           #else
             fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
+            #{abort}();
           #endif
-          #{abort}();
         }
         #ifndef NDEBUG
           #if defined(_MSC_VER) || defined(__PGI)

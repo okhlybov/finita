@@ -9,14 +9,6 @@ class Solver::ViennaCL < Solver::Matrix
         #ifndef __cplusplus
           #error ViennaCL backend requires this source to be compiled by C++ compiler
         #endif
-        #include "viennacl/compressed_matrix.hpp"
-        #include "viennacl/linalg/gmres.hpp"
-        #include "viennacl/linalg/ilu.hpp"
-        #include "viennacl/vector.hpp"
-        #include <vector>
-        #include <map>
-        using namespace viennacl;
-        using namespace viennacl::linalg;
       $
     end
   end.new(:FinitaViennaCL) # StaticCode
@@ -29,7 +21,29 @@ class Solver::ViennaCL < Solver::Matrix
     def entities; super << StaticCode end
     def write_defs(stream)
       super
+      # push/pop macro pragmas are supported by at least MSVC and GCC compilers
+      Finita::Field.defined_fields.each do |field|
+        stream << %$
+          #pragma push_macro("#{field}")
+          #undef #{field}
+        $
+      end
+      stream << %$
+        #include "viennacl/compressed_matrix.hpp"
+        #include "viennacl/linalg/gmres.hpp"
+        #include "viennacl/linalg/ilu.hpp"
+        #include "viennacl/vector.hpp"
+        #include <vector>
+        #include <map>
+        using namespace viennacl;
+        using namespace viennacl::linalg;
+      $
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
+      Finita::Field.defined_fields.each do |field|
+        stream << %$
+          #pragma pop_macro("#{field}")
+        $
+      end
     end
     def write_solve_linear(stream)
       stream << %$

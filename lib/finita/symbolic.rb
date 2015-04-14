@@ -141,7 +141,6 @@ class Constant < Numeric
       end
     end
     attr_reader :constant, :symbol
-    def priority; super - 10000 end
     def entities
       super.concat((@constant.type == Complex) ? [Finita::ComplexCode] : [])
     end
@@ -199,7 +198,6 @@ class Variable < Symbolic::Expression
       end
     end
     attr_reader :variable, :symbol
-    def priority; super - 20000 end
     def entities
       super.concat((@variable.type == Complex) ? [Finita::ComplexCode] : [])
     end
@@ -229,10 +227,15 @@ end # Variable
 
 
 class Field < Symbolic::Expression
+  # FIXME : this is a kind of hack needed by the ViennaCL backend to prevent function-like macro name clash with the ViennaCL's template type names.
+  @@defined_fields = Set.new
+  def self.defined_fields
+    @@defined_fields
+  end
   attr_reader :hash, :name, :type, :domain
   def initialize(name, type, domain)
     raise "numeric type expected" unless CType.key?(type)
-    @name = name.to_s # TODO validate
+    @@defined_fields << @name = name.to_s # TODO validate
     @type = type # TODO validate
     @domain = domain
     @hash =  self.class.hash ^ name.hash ^ domain.hash # TODO
@@ -259,7 +262,6 @@ class Field < Symbolic::Expression
       end
     end
     attr_reader :field, :symbol, :instance
-    def priority; super - 30000 end
     def entities
       super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code])
     end
