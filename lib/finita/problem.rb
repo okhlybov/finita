@@ -87,7 +87,7 @@ class Problem
           #endif
           exit(code);
         }
-      $
+      $ # FIXME : make this global
       stream << %$
         FINITA_ARGSUSED
         void #{setup}(int argc, char** argv) {FINITA_ENTER;$
