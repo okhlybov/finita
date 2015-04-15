@@ -39,10 +39,10 @@ end # Jacobian
 
 
 class Jacobian::Numeric < Jacobian
+  attr_reader :relative_tolerance
   def initialize(rtol = 1e-9)
-    @rtol = rtol
+    @relative_tolerance = rtol
   end
-  attr_reader :rtol
   class Code < Jacobian::Code
     def entities
       super.concat([@matrix_code, @function_code, @function_list_code])
@@ -88,7 +88,7 @@ class Jacobian::Numeric < Jacobian
       end
       stream << "}FINITA_LEAVE;}"
       cresult = sc.cresult
-      rt = @jacobian.rtol
+      rt = @jacobian.relative_tolerance
       abs = CAbs[sc.result]
       stream << %$
         #{cresult} #{evaluate}(#{NodeCode.type} row, #{NodeCode.type} column) {

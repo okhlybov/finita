@@ -86,6 +86,7 @@ class Solver::PETSc < Solver::Matrix
         stream << %$static KSP #{ksp};$
         solver_setup_stmt = %$
           ierr = KSPCreate(PETSC_COMM_WORLD, &#{ksp}); CHKERRQ(ierr);
+          ierr = KSPSetTolerances(#{ksp}, #{@solver.relative_tolerance}, #{@solver.absolute_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}); CHKERRQ(ierr);
           ierr = KSPSetFromOptions(#{ksp}); CHKERRQ(ierr);
           ierr = KSPSetOperators(#{ksp}, #{matrix}, #{matrix}); CHKERRQ(ierr);
         $
@@ -99,6 +100,7 @@ class Solver::PETSc < Solver::Matrix
         solver_setup_stmt = %$
           ierr = VecDuplicate(#{vector}, &#{functionVector}); CHKERRQ(ierr);
           ierr = SNESCreate(PETSC_COMM_WORLD, &#{snes}); CHKERRQ(ierr);
+          ierr = SNESSetTolerances(#{snes}, #{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}, PETSC_DEFAULT); CHKERRQ(ierr);
           ierr = SNESSetFromOptions(#{snes}); CHKERRQ(ierr);
           ierr = SNESSetJacobian(#{snes}, #{matrix}, #{matrix}, #{jacobianEvaluator}, PETSC_NULL); CHKERRQ(ierr);
           ierr = SNESSetFunction(#{snes}, #{functionVector}, #{residualEvaluator}, PETSC_NULL); CHKERRQ(ierr);

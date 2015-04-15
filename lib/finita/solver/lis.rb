@@ -63,6 +63,14 @@ class Solver::LIS < Solver::Matrix
           }
           FINITA_LEAVE;
         }
+        static void #{setSolverOptions}(LIS_SOLVER* solver) {
+          int ierr;
+          char buffer[1024];
+          FINITA_ENTER;
+          sprintf(buffer, "-maxiter %d -tol %e", #{@solver.max_steps}, #{@solver.relative_tolerance}); /* FIXME : not safe */
+          ierr = lis_solver_set_option(buffer, *solver); CHKERR(ierr);
+          FINITA_LEAVE;
+        }
       $
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
     end
@@ -78,6 +86,7 @@ class Solver::LIS < Solver::Matrix
           LIS_INT* nnz;
           FINITA_ENTER;
           ierr = lis_solver_create(&solver); CHKERR(ierr);
+          #{setSolverOptions}(&solver);
           ierr = lis_solver_set_option("-initx_zeros false", solver); CHKERR(ierr);
           #ifndef NDEBUG
             ierr = lis_solver_set_option("-print mem", solver); CHKERR(ierr);
@@ -147,6 +156,7 @@ class Solver::LIS < Solver::Matrix
           do {
             double norm, base = 0, delta = 0; /* TODO : complex */
             ierr = lis_solver_create(&solver); CHKERR(ierr);
+            #{setSolverOptions}(&solver);
             #ifndef NDEBUG
               ierr = lis_solver_set_option("-print mem", solver); CHKERR(ierr);
             #endif
@@ -205,7 +215,7 @@ class Solver::LIS < Solver::Matrix
         stream << %$norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;$
       end
       stream << %$
-        stop = norm < #{@solver.rtol};
+        stop = norm < #{@solver.relative_tolerance};
         #ifndef NDEBUG
           FINITA_HEAD {
             printf("norm=%e\\n", norm);

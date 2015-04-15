@@ -67,7 +67,7 @@ class Solver::ViennaCL < Solver::Matrix
             v[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
           }
           copy(v, B);
-          vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(#{@solver.rtol}), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
+          vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(#{@solver.relative_tolerance}, #{@solver.max_steps}), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
           copy(X, v);
           for(index = 0; index < neq; ++index) {
             #{mapper_code.indexSet}(index, v[index]);
@@ -103,7 +103,7 @@ class Solver::ViennaCL < Solver::Matrix
               v[index] = -#{residual_code.evaluate}(#{mapper_code.node}(index));
             }
             copy(v, B);
-            vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(#{@solver.rtol}), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
+            vector<#{system_code.cresult}> X = solve(A, B, gmres_tag(#{@solver.relative_tolerance}, #{@solver.max_steps}), block_ilu_precond<compressed_matrix<#{system_code.cresult}>, ilu0_tag>(A, ilu0_tag()));
             copy(X, v);
             for(index = 0; index < neq; ++index) {
               const #{system_code.cresult} value = #{mapper_code.indexGet}(index), dvalue = v[index];
@@ -113,7 +113,7 @@ class Solver::ViennaCL < Solver::Matrix
             }
             #{decomposer_code.synchronizeUnknowns}();
             norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
-            stop = norm < #{@solver.rtol};
+            stop = norm < #{@solver.relative_tolerance};
             #ifndef NDEBUG
               FINITA_HEAD {
                 printf("norm=%e\\n", norm);

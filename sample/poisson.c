@@ -19,4 +19,5 @@ int main(int argc, char** argv) {
     PoissonSystemSolve();
     WRITE_FIELD("F.dat", F);
     PoissonCleanup();
+    return 0;
 }

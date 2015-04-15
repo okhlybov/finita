@@ -61,15 +61,17 @@ end # Solver
 
 
 class Solver::Matrix < Solver
-  def initialize(mapper, decomposer, environment, jacobian, rtol = 1e-9)
+  attr_accessor :relative_tolerance, :absolute_tolerance, :max_steps
+  def initialize(mapper, decomposer, environment, jacobian)
     super(mapper, decomposer, environment)
     @jacobian = Finita.check_type(jacobian, Jacobian)
     @residual = Residual.new
     @lhs = LHS.new
     @rhs = RHS.new
-    @rtol = rtol
+    @relative_tolerance = 1e-9
+    @absolute_tolerance = 1e-10
+    @max_steps = 10000
   end
-  attr_reader :rtol
   def process!(system)
     super
     @unknowns = system.unknowns.to_a
