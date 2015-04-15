@@ -64,8 +64,29 @@ class Solver::PETSc < Solver::Matrix
       stream << %$#{StaticCode.cleanup}();$
     end
   end.new(:FinitaPETSc) # StaticCode
+  # TODO : only the most common are listed; add more types
+  Solvers = {
+    :Richardson => :KSPRICHARDSON, :Chebyshev => :KSPCHEBYSHEV, :CG => :KSPCG, :GMRES => :KSPGMRES, :FGMRES => :KSPFGMRES,
+    :TCQMR => :KSPTCQMR, :TFQMR => :KSPTFQMR, :CGS => :KSPCGS, :CR => :KSPCR, :QCG => :KSPQCG, :BiCG => :KSPBICG,
+    :MINRES => :KSPMINRES, :GCR => :KSPGCR
+  }
+  def solver=(s)
+    raise "unsupported solver type #{s}" if Solvers[s].nil?
+    super
+  end
+  # TODO : only the most common are listed; add more types
+  Preconditioners = {
+    nil => :PCNONE, :Jacobi => :PCJACOBI, :SOR => :PCSOR, :LU => :PCLU, :ILU => :PCILU, :Cholesky => :PCCHOLESKY,
+    :BJacobi => :PCBJACOBI, :PBJacobi => :PCPBJACOBI
+  }
+  def preconditioner=(p)
+    raise "unsupported preconditioner type #{p}" if Preconditioners[p].nil?
+    super
+  end
   def initialize(*args)
     super
+    self.solver = :GMRES
+    self.preconditioner = :ILU
     raise "unsupported environment" unless environment.seq? or environment.mpi?
   end
   def code(system_code)
@@ -86,6 +107,12 @@ class Solver::PETSc < Solver::Matrix
         stream << %$static KSP #{ksp};$
         solver_setup_stmt = %$
           ierr = KSPCreate(PETSC_COMM_WORLD, &#{ksp}); CHKERRQ(ierr);
+          ierr = KSPSetType(#{ksp}, #{Solvers[@solver.solver]}); CHKERRQ(ierr);
+          {
+            PC pc;
+            ierr = KSPGetPC(#{ksp}, &pc); CHKERRQ(ierr);
+            ierr = PCSetType(pc, #{Preconditioners[@solver.preconditioner]}); CHKERRQ(ierr);
+          }
           ierr = KSPSetTolerances(#{ksp}, #{@solver.relative_tolerance}, #{@solver.absolute_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}); CHKERRQ(ierr);
           ierr = KSPSetFromOptions(#{ksp}); CHKERRQ(ierr);
           ierr = KSPSetOperators(#{ksp}, #{matrix}, #{matrix}); CHKERRQ(ierr);
@@ -100,6 +127,14 @@ class Solver::PETSc < Solver::Matrix
         solver_setup_stmt = %$
           ierr = VecDuplicate(#{vector}, &#{functionVector}); CHKERRQ(ierr);
           ierr = SNESCreate(PETSC_COMM_WORLD, &#{snes}); CHKERRQ(ierr);
+          {
+            PC pc;
+            KSP ksp;
+            ierr = SNESGetKSP(#{snes}, &ksp); CHKERRQ(ierr);
+            ierr = KSPSetType(ksp, #{Solvers[@solver.solver]}); CHKERRQ(ierr);
+            ierr = KSPGetPC(ksp, &pc); CHKERRQ(ierr);
+            ierr = PCSetType(pc, #{Preconditioners[@solver.preconditioner]}); CHKERRQ(ierr);
+          }
           ierr = SNESSetTolerances(#{snes}, #{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}, PETSC_DEFAULT); CHKERRQ(ierr);
           ierr = SNESSetFromOptions(#{snes}); CHKERRQ(ierr);
           ierr = SNESSetJacobian(#{snes}, #{matrix}, #{matrix}, #{jacobianEvaluator}, PETSC_NULL); CHKERRQ(ierr);
