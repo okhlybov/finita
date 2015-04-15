@@ -61,7 +61,7 @@ end # Solver
 
 
 class Solver::Matrix < Solver
-  attr_accessor :relative_tolerance, :absolute_tolerance, :max_steps
+  attr_accessor :relative_tolerance, :absolute_tolerance, :max_steps, :solver, :preconditioner
   def initialize(mapper, decomposer, environment, jacobian)
     super(mapper, decomposer, environment)
     @jacobian = Finita.check_type(jacobian, Jacobian)
@@ -70,7 +70,10 @@ class Solver::Matrix < Solver
     @rhs = RHS.new
     @relative_tolerance = 1e-9
     @absolute_tolerance = 1e-10
-    @max_steps = 10000
+    @max_steps = 1000
+    # Should be set in descendant classes
+    # @solver = # must not be nil
+    # @preconditioner = # may be nil, which means no preconditioning
   end
   def process!(system)
     super

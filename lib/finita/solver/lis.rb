@@ -22,6 +22,29 @@ class Solver::LIS < Solver::Matrix
       }$
     end
   end.new(:FinitaLIS) # StaticCode
+  Solvers = {
+    :CG => :cg, :BiCG => :bicg, :CGS => :cgs, :BiCGStab => :bicgstab, :BiCGStabl => :bicgstabl, :GPBiCG => :gpbicg, :TFQMR => :tfqmr,
+    :ORTHOMIN => :orthomin, :GMRES => :gmres, :Jacobi => :jacobi, :Gauss => :gs, :SOR => :sor, :BiCGSafe => :bicgsafe, :CR => :cr,
+    :BiCR => :bicr, :CRS => :crs, :BiCRStab => :bicrstab, :GPBiCR => :gpbicr, :BiCRSafe => :bicrsafe, :FGMRES => :fgmres, :IDRs => :idrs,
+    :MINRES => :minres
+  }
+  def solver=(s)
+    raise "unsupported solver type #{s}" if Solvers[s].nil?
+    super
+  end
+  Preconditioners = {
+    nil => :none, :Jacobi => :jacobi, :ILU => :ilu, :SSOR => :ssor, :Hybrid => :hybrid, :IS => :is, :SAINV => :sainv, :SAAMG => :saamg,
+    :ILUC => :iluc, :ILUT => :ilut 
+  }
+  def preconditioner=(p)
+    raise "unsupported preconditioner type #{p}" if Preconditioners[p].nil?
+    super
+  end
+  def initialize(*args)
+    super
+    self.solver = :GMRES
+    self.preconditioner = :ILU
+  end
   def code(system_code)
     system_code.problem_code.initializer_codes << StaticCode
     system_code.problem_code.finalizer_codes << StaticCode
@@ -67,7 +90,7 @@ class Solver::LIS < Solver::Matrix
           int ierr;
           char buffer[1024];
           FINITA_ENTER;
-          sprintf(buffer, "-maxiter %d -tol %e", #{@solver.max_steps}, #{@solver.relative_tolerance}); /* FIXME : not safe */
+          sprintf(buffer, "-i %s -p %s -maxiter %d -tol %e", "#{Solvers[@solver.solver]}", "#{Preconditioners[@solver.preconditioner]}", #{@solver.max_steps}, #{@solver.relative_tolerance}); /* FIXME : not safe */
           ierr = lis_solver_set_option(buffer, *solver); CHKERR(ierr);
           FINITA_LEAVE;
         }
