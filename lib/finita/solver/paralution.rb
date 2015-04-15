@@ -93,6 +93,7 @@ class Solver::Paralution < Solver::Matrix
         #{result} = new LocalVector<#{system_code.cresult}>;
         #{result}->Allocate("x", neq);
         #{solver} = new #{solverType};
+        #{solver}->Init(#{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, 1e+8 /* as in manual */, #{@solver.max_steps});
         #{solver}->SetOperator(*#{matrix});
         #{pc} = new #{pcType};
         #{solver}->SetPreconditioner(*#{pc});
@@ -202,7 +203,6 @@ class Solver::Paralution < Solver::Matrix
             #ifndef NDEBUG
               #{result}->Check();
             #endif
-            #{solver}->Verbose(2);
             #{solver}->ResetOperator(*#{matrix});
             #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
             #{result}->MoveToHost();
@@ -216,7 +216,7 @@ class Solver::Paralution < Solver::Matrix
             #{result}->SetDataPtr(&#{rvals}, "x", neq);
             #{decomposer_code.synchronizeUnknowns}();
             norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
-            stop = norm < #{@solver.rtol};
+            stop = norm < #{@solver.relative_tolerance};
             #ifndef NDEBUG
               FINITA_HEAD {
                 printf("norm=%e\\n", norm);

@@ -24,7 +24,7 @@ end
 Problem.new(:Poisson) do |p|
   System.new(:System) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
-    s.solver = Solver::Paralution.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    s.solver = Solver::ViennaCL.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
     Equation.new(laplace(F) - Rho, F, Whole.interior)
   end
 end

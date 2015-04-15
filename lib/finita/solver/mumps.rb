@@ -194,7 +194,7 @@ class Solver::MUMPS < Solver::Matrix
             FINITA_HEAD {
               norm = first || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
               first = 0;
-              stop = norm < #{@solver.rtol}; /* FIXME : wont work for complex numbers */
+              stop = norm < #{@solver.relative_tolerance}; /* FIXME : wont work for complex numbers */
             }
             ierr = MPI_Bcast(&stop, 1, MPI_INT, 0, MPI_COMM_WORLD); #{assert}(ierr == MPI_SUCCESS);
           }$
@@ -208,7 +208,7 @@ class Solver::MUMPS < Solver::Matrix
             }
             norm = first || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
             first = 0;
-            stop = norm < #{@solver.rtol};
+            stop = norm < #{@solver.relative_tolerance};
           $
         end
         stream << %$
