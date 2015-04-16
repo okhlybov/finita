@@ -12,14 +12,14 @@
 # On Windows the executable <runme.exe> will be produced.
 PROG ?= test
 
-# Space-separated list of source files which consitute the program.
+# Space-separated list of source files which constitute the program.
 # C, C++ and FORTRAN source files may be specified simultaneously.
 # Ex. <main.c lib.cpp solver.f intf.f90>.
 # The following file extensions are recognized:
 # <.c> for C language,
 # <.cpp .cxx .cc> for C++ language,
 # <.f .F .for .f90> for FORTRAN language.
-MOD = poisson
+MOD = cavity
 SRC ?= sample/$(MOD).c $(MOD)_auto.c
 
 
@@ -33,11 +33,11 @@ PKG ?= paralution_dto
 # Options passed to the C preprocessor, ex. <-DNDEBUG>.
 # The same options will used to preprocess all kinds of sources
 # (FORTRAN included).
-CPPFLAGS ?= -I.
+CPPFLAGS ?= -I. -DNDEBUG
 
 # Language-neutral options passed to all compilers, ex. <-O3>.
 # This variable is mainly intended to control the compilers optimizations.
-OPTFLAGS ?= -x c++ -ansi -Wall -pedantic -g 
+OPTFLAGS ?= -ansi -Wall -pedantic -g -std=c99 -O3 -x c++
 
 
 ### [extra] user-definable variables that might be of use.
