@@ -41,15 +41,13 @@ class Solver::Paralution < Solver::Matrix
       stream << %$
         static int* #{mcols};
         static int* #{mrows};
-        static int* #{vrows};
         static #{system_code.cresult}* #{mvals};
         static #{system_code.cresult}* #{vvals};
-        static #{system_code.cresult}* #{rvals};
         static LocalMatrix<#{system_code.cresult}> *#{matrix};
         static LocalVector<#{system_code.cresult}> *#{vector};
         static LocalVector<#{system_code.cresult}> *#{result};
-        typedef GMRES<LocalMatrix<#{system_code.cresult}>,LocalVector<#{system_code.cresult}>,#{system_code.cresult}> #{solverType};
-        typedef ILU<LocalMatrix<#{system_code.cresult}>,LocalVector<#{system_code.cresult}>,#{system_code.cresult}> #{pcType};
+        typedef CG<LocalMatrix<#{system_code.cresult}>,LocalVector<#{system_code.cresult}>,#{system_code.cresult}> #{solverType};
+        typedef Jacobi<LocalMatrix<#{system_code.cresult}>,LocalVector<#{system_code.cresult}>,#{system_code.cresult}> #{pcType};
         static #{solverType} *#{solver};
         static #{pcType} *#{pc};
       $
@@ -57,18 +55,20 @@ class Solver::Paralution < Solver::Matrix
     def write_setup_body(stream)
       super
       stream << %${
-        const int nnz = #{SparsityPatternCode.size}(&#{sparsity});
+        double tic = paralution_time();
+        const int neq = #{mapper_code.size}(), nnz = #{SparsityPatternCode.size}(&#{sparsity});
         #{mcols} = new int[nnz];
         #{mrows} = new int[nnz];
         #{mvals} = new #{system_code.cresult}[nnz];
         #{SparsityPatternCode.it} it;
-        #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
+        // matrix
         int index = 0;
+        #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
         while(#{SparsityPatternCode.itMove}(&it)) {
           #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
           #{mcols}[index] = #{mapper_code.index}(coord.column);
           #{mrows}[index] = #{mapper_code.index}(coord.row);
-          #{mvals}[index] = 1; /* Dummy values */
+          #{mvals}[index] = 1; // Dummy values
           ++index;
         }
         #{matrix} = new LocalMatrix<#{system_code.cresult}>;
@@ -77,21 +77,20 @@ class Solver::Paralution < Solver::Matrix
         #ifndef NDEBUG
           #{matrix}->Check();
         #endif
-        const int neq = #{mapper_code.size}();
-        #{vrows} = new int[nnz];
-        for(index = 0; index < neq; ++index) #{vrows}[index] = index;
-        #{vvals} = new #{system_code.cresult}[neq];
-        for(index = 0; index < neq; ++index) {
-          #{vvals}[index] = 1; /* Dummy values */
-        }
+        // vector
         #{vector} = new LocalVector<#{system_code.cresult}>;
-        #{vector}->Assemble(#{vrows}, #{vvals}, neq, "b");
+        #{vector}->Allocate("b", neq);
+        #{vector}->LeaveDataPtr(&#{vvals});
+        for(index = 0; index < neq; ++index) #{vvals}[index] = 1; // Dummy values
+        #{vector}->SetDataPtr(&#{vvals}, "b", neq);
         #{vector}->MoveToAccelerator();
         #ifndef NDEBUG
           #{vector}->Check();
         #endif
+        // result
         #{result} = new LocalVector<#{system_code.cresult}>;
         #{result}->Allocate("x", neq);
+        // solver
         #{solver} = new #{solverType};
         #{solver}->Init(#{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, 1e+8 /* as in manual */, #{@solver.max_steps});
         #{solver}->SetOperator(*#{matrix});
@@ -99,11 +98,12 @@ class Solver::Paralution < Solver::Matrix
         #{solver}->SetPreconditioner(*#{pc});
         #{solver}->Build();
         #{solver}->MoveToAccelerator();
-        #{solver}->Verbose(2);
         #ifndef NDEBUG
           #{matrix}->info();
           #{vector}->info();
         #endif
+        double tac = paralution_time();
+        std::cout << "System setup time " << (tac-tic)/1000000 << " seconds" << std::endl;
       }$
     end
     def write_cleanup_body(stream)
@@ -115,9 +115,7 @@ class Solver::Paralution < Solver::Matrix
         delete #{result};
         delete [] #{mcols};
         delete [] #{mrows};
-        delete [] #{vrows};
         delete [] #{mvals};
-        delete [] #{vvals};
       $
       super
     end
@@ -137,35 +135,50 @@ class Solver::Paralution < Solver::Matrix
       stream << %$
         void #{system_code.solve}(void) {
           FINITA_ENTER;
+          double tic = paralution_time();
           #{SparsityPatternCode.it} it;
-          #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
+          // matrix
           int index = 0;
+          #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
           while(#{SparsityPatternCode.itMove}(&it)) {
-            #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
+            const #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
             #{mvals}[index++] = #{lhs_code.evaluate}(coord.row, coord.column);
           }
+          #{matrix}->MoveToHost();
+          #{matrix}->Zeros();
           #{matrix}->AssembleUpdate(#{mvals});
+          #{matrix}->MoveToAccelerator();
           #ifndef NDEBUG
             #{matrix}->Check();
           #endif
           const int neq = #{mapper_code.size}();
+          // vector
+          #{vector}->MoveToHost();
+          #{vector}->LeaveDataPtr(&#{vvals});
           for(index = 0; index < neq; ++index) {
             #{vvals}[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(index));
           }
-          #{vector}->Assemble(#{vrows}, #{vvals}, neq, "b");
+          #{vector}->SetDataPtr(&#{vvals}, "b", neq);
+          #{vector}->MoveToAccelerator();
           #ifndef NDEBUG
             #{vector}->Check();
           #endif
-          #{solver}->ResetOperator(*#{matrix});
+          // result
+          #{result}->Zeros();
           #{result}->MoveToAccelerator();
+          // solver
+          #{solver}->ResetOperator(*#{matrix});
           #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
+          // result
           #{result}->MoveToHost();
-          #{result}->LeaveDataPtr(&#{rvals});
+          #{result}->LeaveDataPtr(&#{vvals});
           for(index = 0; index < neq; ++index) {
-            #{mapper_code.indexSet}(index, #{rvals}[index]);
+            #{mapper_code.indexSet}(index, #{vvals}[index]);
           }
-          #{result}->SetDataPtr(&#{rvals}, "x", neq);
+          #{result}->SetDataPtr(&#{vvals}, "x", neq);
           #{decomposer_code.synchronizeUnknowns}();
+          double tac = paralution_time();
+          std::cout << "System solution time " << (tac-tic)/1000000 << " seconds" << std::endl;
           FINITA_LEAVE;
         }
       $
@@ -177,43 +190,51 @@ class Solver::Paralution < Solver::Matrix
           int stop, step = 0;
           #{SparsityPatternCode.it} it;
           FINITA_ENTER;
+          double tic = paralution_time();
           const int neq = #{mapper_code.size}();
           do {
             double norm, base = 0, delta = 0; /* TODO : complex */
+            // matrix
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
             int index = 0;
             while(#{SparsityPatternCode.itMove}(&it)) {
-              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
+              const #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
               #{mvals}[index++] = #{jacobian_code.evaluate}(coord.row, coord.column);
             }
+            #{matrix}->MoveToHost();
             #{matrix}->Zeros();
             #{matrix}->AssembleUpdate(#{mvals});
+            #{matrix}->MoveToAccelerator();
             #ifndef NDEBUG
               #{matrix}->Check();
             #endif
+            // vector
+            #{vector}->MoveToHost();
+            #{vector}->LeaveDataPtr(&#{vvals});
             for(index = 0; index < neq; ++index) {
               #{vvals}[index] = -#{residual_code.evaluate}(#{mapper_code.node}(index));
             }
-            #{vector}->Zeros();
-            #{vector}->Assemble(#{vrows}, #{vvals}, neq, "b");
+            #{vector}->SetDataPtr(&#{vvals}, "b", neq);
+            #{vector}->MoveToAccelerator();
             #ifndef NDEBUG
               #{vector}->Check();
             #endif
+            // result
+            #{result}->Zeros();
             #{result}->MoveToAccelerator();
-            #ifndef NDEBUG
-              #{result}->Check();
-            #endif
+            // solver
             #{solver}->ResetOperator(*#{matrix});
             #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
+            // result
             #{result}->MoveToHost();
-            #{result}->LeaveDataPtr(&#{rvals});
+            #{result}->LeaveDataPtr(&#{vvals});
             for(index = 0; index < neq; ++index) {
-              const #{system_code.cresult} value = #{mapper_code.indexGet}(index), dvalue = #{rvals}[index];
+              const #{system_code.cresult} value = #{mapper_code.indexGet}(index), dvalue = #{vvals}[index];
               base += #{abs}(value);
               delta += #{abs}(dvalue);
               #{mapper_code.indexSet}(index, value + dvalue);
             }
-            #{result}->SetDataPtr(&#{rvals}, "x", neq);
+            #{result}->SetDataPtr(&#{vvals}, "x", neq);
             #{decomposer_code.synchronizeUnknowns}();
             norm = !step || FinitaFloatsAlmostEqual(base, 0) ? 1 : delta / base;
             stop = norm < #{@solver.relative_tolerance};
@@ -225,6 +246,8 @@ class Solver::Paralution < Solver::Matrix
             #endif
             ++step;
           } while(!stop);
+          double tac = paralution_time();
+          std::cout << "System solution time " << (tac-tic)/1000000 << " seconds" << std::endl;
           FINITA_LEAVE;
         }
       $
