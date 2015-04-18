@@ -25,6 +25,11 @@ class Solver::Paralution < Solver::Matrix
       stream << %$stop_paralution();$
     end
   end.new(:FinitaParalution) # StaticCode
+  attr_accessor :pc_rebuild_step
+  def initialize(*args)
+    super
+    @pc_rebuild_step = 10
+  end
   def code(system_code)
     system_code.problem_code.initializer_codes << StaticCode
     system_code.problem_code.finalizer_codes << StaticCode
@@ -92,12 +97,8 @@ class Solver::Paralution < Solver::Matrix
         #{result}->Allocate("x", neq);
         // solver
         #{solver} = new #{solverType};
-        #{solver}->Init(#{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, 1e+8 /* as in manual */, #{@solver.max_steps});
-        #{solver}->SetOperator(*#{matrix});
+        // preconditioner
         #{pc} = new #{pcType};
-        #{solver}->SetPreconditioner(*#{pc});
-        #{solver}->Build();
-        #{solver}->MoveToAccelerator();
         #ifndef NDEBUG
           #{matrix}->info();
           #{vector}->info();
@@ -122,10 +123,23 @@ class Solver::Paralution < Solver::Matrix
     def write_defs(stream)
       super
       stream << %$
-        static void #{examineStatus}(void) {
+        static void #{examineSolverStatus}() {
           FINITA_ENTER;
           int status = #{solver}->GetSolverStatus();
           if(status != 1 && status != 2) FINITA_FAILURE("Paralution solver failed to converge");
+          FINITA_LEAVE;
+        }
+        static void #{rebuildSolver}() {
+          FINITA_ENTER;
+          double tic = paralution_time();
+          #{solver}->Clear();
+          #{solver}->Init(#{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, 1e+8 /* as in manual */, #{@solver.max_steps});
+          #{solver}->SetOperator(*#{matrix});
+          #{solver}->SetPreconditioner(*#{pc});
+          #{solver}->Build();
+          #{solver}->MoveToAccelerator();
+          double tac = paralution_time();
+          std::cout << "Solver rebuild time " << (tac-tic)/1000000 << " seconds" << std::endl;
           FINITA_LEAVE;
         }
       $
@@ -167,8 +181,8 @@ class Solver::Paralution < Solver::Matrix
           #{result}->Zeros();
           #{result}->MoveToAccelerator();
           // solver
-          #{solver}->ResetOperator(*#{matrix});
-          #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
+          #{rebuildSolver}();
+          #{solver}->Solve(*#{vector}, #{result}); #{examineSolverStatus}();
           // result
           #{result}->MoveToHost();
           #{result}->LeaveDataPtr(&#{vvals});
@@ -223,8 +237,14 @@ class Solver::Paralution < Solver::Matrix
             #{result}->Zeros();
             #{result}->MoveToAccelerator();
             // solver
-            #{solver}->ResetOperator(*#{matrix});
-            #{solver}->Solve(*#{vector}, #{result}); #{examineStatus}();
+            if(step % #{@solver.pc_rebuild_step} == 0) {
+              // periodically reset the preconditioner and entirely rebuild the solver
+              #{rebuildSolver}();
+            } else {
+              // reuse the preconditioner & solver
+              #{solver}->ResetOperator(*#{matrix});
+            }
+            #{solver}->Solve(*#{vector}, #{result}); #{examineSolverStatus}();
             // result
             #{result}->MoveToHost();
             #{result}->LeaveDataPtr(&#{vvals});
