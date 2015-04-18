@@ -70,7 +70,7 @@ class Solver::Matrix < Solver
     @rhs = RHS.new
     @relative_tolerance = 1e-9
     @absolute_tolerance = 1e-10
-    @max_steps = 1000
+    @max_steps = 10000
     # Should be set in descendant classes
     # @solver = # must not be nil
     # @preconditioner = # may be nil, which means no preconditioning
