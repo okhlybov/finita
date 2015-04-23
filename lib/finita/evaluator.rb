@@ -10,8 +10,7 @@ class Evaluator
   Symbolic.freezing_new(self)
   attr_reader :hash, :expression, :result
   def initialize(expression, result)
-    # TODO merge attribute is not needed
-    @expression = Symbolic.simplify(expression)
+    @expression = Finita.simplify(expression)
     @result = result
     @hash = expression.hash ^ result.hash # TODO
   end
@@ -67,7 +66,7 @@ class Evaluator
         #{@cresult} #{instance}(int x, int y, int z) {
           #{@cresult} value;
           FINITA_ENTER;
-          value = #{CEmitter.new.emit!(@evaluator.expression)};
+          value = #{CEmitter.new.emit!(expression)};
           FINITA_RETURN(value);
         }
       $

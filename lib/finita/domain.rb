@@ -34,8 +34,8 @@ class Range
   def open?; before? && after? end
   def unit?; @unit end
   def initialize(first, last, before_first = false, after_last = false)
-    @first = Symbolic.simplify(Symbolic.coerce(first))
-    @last = Symbolic.simplify(Symbolic.coerce(last))
+    @first = Finita.simplify(Symbolic.coerce(first))
+    @last = Finita.simplify(Symbolic.coerce(last))
     @before = before_first
     @after = after_last
     @unit = (first == last)

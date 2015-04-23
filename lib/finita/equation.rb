@@ -111,12 +111,9 @@ class Assignment < Binding
       expression - Ref.new(unknown)
     end
   end # Algebraic
-  def initialize(hash, domain)
+  def initialize(expression, unknown, domain)
     System.current.equations << self
-    # hash := {expression => unknown}
-    raise "expected {expression=>unknown} value" unless hash.is_a?(Hash) && hash.size == 1
-    expression = hash.keys[0]
-    unknown = hash[expression]
+    # unknown <- expression
     super(expression, unknown, domain, false)
   end
 end # Assignment
