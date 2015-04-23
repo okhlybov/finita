@@ -93,14 +93,17 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
       raise
     end
   end
-    Diffs = {
-      {:x=>1} => proc {|f, d| d1i(f, :x, d)},
-      {:y=>1} => proc {|f, d| d1i(f, :y, d)},
-      {:z=>1} => proc {|f, d| d1i(f, :z, d)},
-      {:x=>2} => proc {|f, d| d2i(f, :x, d)},
-      {:y=>2} => proc {|f, d| d2i(f, :y, d)},
-      {:z=>2} => proc {|f, d| d2i(f, :z, d)}
-    }
+  Diffs = {
+    {:x=>1} => proc {|f, d| d1i(f, :x, d)},
+    {:y=>1} => proc {|f, d| d1i(f, :y, d)},
+    {:z=>1} => proc {|f, d| d1i(f, :z, d)},
+    {:x=>2} => proc {|f, d| d2i(f, :x, d)},
+    {:y=>2} => proc {|f, d| d2i(f, :y, d)},
+    {:z=>2} => proc {|f, d| d2i(f, :z, d)},
+    {:x=>1,:y=>1} => proc {|f, d| d1i(d1i(f, :y, d), :x, d)},
+    {:x=>1,:z=>1} => proc {|f, d| d1i(d1i(f, :z, d), :x, d)},
+    {:z=>1,:y=>1} => proc {|f, d| d1i(d1i(f, :y, d), :z, d)},
+  }
 end
 
 

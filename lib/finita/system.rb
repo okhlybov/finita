@@ -60,6 +60,9 @@ class System
   def unknowns
     Set.new(equations.collect {|e| e.unknown})
   end
+  def nonlinear!
+    @force_nonlinear = true
+  end
   def linear?
     @linear
   end
@@ -67,11 +70,15 @@ class System
   def process!(problem)
     @problem = Finita.check_type(problem, Problem)
     @equations = discretizer.process!(equations)
-    @linear = true
-    equations.each do |e|
-      unless e.decomposition(unknowns).linear?
-        @linear = false
-        break
+    if @force_nonlinear
+      @linear = false
+    else
+      @linear = true
+      equations.each do |e|
+        unless e.decomposition(unknowns).linear?
+          @linear = false
+          break
+        end
       end
     end
     @solver = solver.process!(self)
