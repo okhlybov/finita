@@ -81,18 +81,25 @@ StaticCode = Class.new(Finita::Code) do
         int x, y, z;
       } #{node};
       struct #{type} {
+        char* name;
         int x1, x2, y1, y2, z1, z2;
         size_t size;
         #{node}* nodes;
       };
       typedef struct #{it} #{it};
-      #{extern} void #{ctor}(#{type}*, int, int, int, int, int, int);
+      #{extern} void #{ctor}(#{type}*, char*, int, int, int, int, int, int);
       #{extern} int #{within}(#{type}*, int, int, int);
       #{extern} size_t #{size}(#{type}*);
       #{inline} size_t #{index}(#{type}* self, int x, int y, int z) {
         size_t index, dx, dy;
         FINITA_ENTER;
-        #{assert}(#{within}(self, x, y, z));
+        #ifndef NDEBUG
+        if(!#{within}(self, x, y, z)) {
+          char msg[1024];
+          sprintf(msg, "node [%d,%d,%d] is not within rectangular domain <%s> [%d..%d,%d..%d,%d..%d]", x, y, z, self->name, self->x1, self->x2, self->y1, self->y2, self->z1, self->z2);
+          FINITA_FAILURE(msg);
+        }
+        #endif
         dx = self->x2 - self->x1 + 1;
         dy = self->y2 - self->y1 + 1;
         index = (x - self->x1) + dx*(y - self->y1) + dx*dy*(z - self->z1);
@@ -106,13 +113,14 @@ StaticCode = Class.new(Finita::Code) do
   end
   def write_defs(stream)
     stream << %$
-      void #{ctor}(#{type}* self, int x1, int x2, int y1, int y2, int z1, int z2) {
+      void #{ctor}(#{type}* self, char* name, int x1, int x2, int y1, int y2, int z1, int z2) {
         int i, x, y, z;
         FINITA_ENTER;
         #{assert}(self);
         #{assert}(x1 <= x2);
         #{assert}(y1 <= y2);
         #{assert}(z1 <= z2);
+        self->name = name;
         self->x1 = x1;
         self->x2 = x2;
         self->y1 = y1;
@@ -166,8 +174,8 @@ end.new(:FinitaCubicArea) # StaticCode
 
 
 class Area
-  Symbolic.freezing_new(self)
-  attr_reader :hash, :xrange, :yrange, :zrange, :planes
+  #Symbolic.freezing_new(self)
+  attr_reader :name, :hash, :xrange, :yrange, :zrange, :planes
   def initialize(xs = nil, ys = nil, zs = nil)
     @xrange = Range.coerce(xs, true)
     @yrange = Range.coerce(ys, true)
@@ -176,10 +184,16 @@ class Area
     @planes << :x unless xrange.nil?
     @planes << :y unless yrange.nil?
     @planes << :z unless zrange.nil?
-    @hash = self.class.hash ^ (xrange.hash << 1) ^ (yrange.hash << 2) ^ (zrange.hash << 3) # TODO
+  end
+  def named!(name)
+    @name = name # TODO check type & identifier
+    self
+  end
+  def hash
+    self.class.hash ^ name.hash ^ (xrange.hash << 1) ^ (yrange.hash << 2) ^ (zrange.hash << 3) # TODO
   end
   def ==(other)
-    equal?(other) || self.class == other.class && xrange == other.xrange && yrange == other.yrange && zrange == other.zrange
+    equal?(other) || self.class == other.class && name == other.name && xrange == other.xrange && yrange == other.yrange && zrange == other.zrange
   end
   alias :eql? :==
   def to_s
@@ -228,6 +242,7 @@ class Area
     def initialize(area, problem_code)
       @area = area
       @instance = "#{StaticCode.type}#{@@count += 1}"
+      @name = @area.name.nil? ? "##{@@count}" : @area.name
       @problem_code = problem_code
       super(StaticCode.type)
       @hash = @area.hash
@@ -238,6 +253,9 @@ class Area
     end
     alias :eql? :==
     def write_intf(stream)
+      stream << %$
+        #define #{@name} #{instance}
+      $ unless @area.name.nil?
       stream << %$#{extern} #{type} #{instance};$
     end
     def write_defs(stream)
@@ -245,7 +263,7 @@ class Area
     end
     def write_initializer(stream)
       args = (@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a).collect {|e| CEmitter.new.emit!(e)}.join(",")
-      stream << %$#{ctor}(&#{instance}, #{args});$
+      stream << %$#{ctor}(&#{instance}, "#{@name}", #{args});$
     end
   end # Code
 end # Area

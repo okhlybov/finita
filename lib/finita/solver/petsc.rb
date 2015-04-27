@@ -167,11 +167,10 @@ class Solver::PETSc < Solver::Matrix
             nnz = (PetscInt*)#{calloc}(size, sizeof(PetscInt)); #{assert}(nnz);
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
             while(#{SparsityPatternCode.itMove}(&it)) {
-              size_t row, column;
+              size_t row;
               #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
               row = #{mapper_code.index}(coord.row);
               #{assert}(first <= row && row <= last);
-              column = #{mapper_code.index}(coord.column);
               ++nnz[row - first];
             }
             ierr = MatSeqAIJSetPreallocation(#{matrix}, PETSC_DEFAULT, nnz); CHKERRQ(ierr);

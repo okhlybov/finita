@@ -2,6 +2,7 @@
 
 require "finita"
 require "optparse"
+require "benchmark"
 
 include Symbolic
 include Finita
@@ -22,4 +23,4 @@ end.parse!(argv)
 
 eval(IO.read(argv[0]), binding, argv[0], 1)
 
-Problem.problems.each {|p| p.process!}
+puts Benchmark.measure {Problem.problems.each {|p| p.process!}}
