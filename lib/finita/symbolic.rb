@@ -283,22 +283,15 @@ class Field < Symbolic::Expression
     alias :eql? :==
     def write_intf(stream)
       stream << %$
-        #define #{field.name}(x,y,z) (#{instance}.data[#{@domain_code.index}(#{instance}.area, x, y, z)])
-        struct #{type} {
-          #{@ctype}* data;
-          #{@domain_code.type}* area;
-        };
-        #{extern} struct #{type} #{instance};
+        #{extern} #{@ctype}* #{instance};
+        #define #{field.name}(x,y,z) (#{instance}[#{@domain_code.index}(&#{@domain_code.instance}, x, y, z)])
       $
     end
     def write_defs(stream)
-      stream << %$struct #{type} #{instance};$
+      stream << %$#{@ctype}* #{instance};$
     end
     def write_initializer(stream)
-      stream << %$
-        #{instance}.area = &#{@domain_code.instance};
-        #{instance}.data = (#{@ctype}*)#{calloc}(#{@domain_code.size}(#{instance}.area), sizeof(#{@ctype})); #{assert}(#{instance}.data);
-      $
+      stream << %$#{instance} = (#{@ctype}*)#{calloc}(#{@domain_code.size}(&#{@domain_code.instance}), sizeof(#{@ctype})); #{assert}(#{instance});$
     end
   end # Code
 end # Field
