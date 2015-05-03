@@ -6,8 +6,8 @@ module Symbolic
 
 # Standard mathematics functions.
 module Math
-  def self.exp(obj) Symbolic::Exp.new(obj) end
-  def self.log(obj) Symbolic::Log.new(obj) end
+  def self.exp(obj) Exp.new(obj) end
+  def self.log(obj) Log.new(obj) end
 end
 
 
@@ -31,19 +31,21 @@ end
 
 #
 def self.simplify(obj)
-  obj = obj.convert
+  obj = coerce(obj)
+  obj = obj.convert!
   obj = expand(obj)
   obj = collect(obj)
-  obj = obj.revert
+  obj = obj.revert!
 end
 
 
 #
 def self.expand(obj)
+  obj = coerce(obj)
   obj_ = nil
   until obj == obj_
     obj_ = obj
-    obj = obj.convert.expand
+    obj = obj.convert!.expand!
   end
   obj
 end
@@ -51,10 +53,11 @@ end
 
 #
 def self.collect(obj)
+  obj = coerce(obj)
   obj_ = nil
   until obj == obj_
     obj_ = obj
-    obj = obj.collect.convert
+    obj = obj.collect!.convert!
   end
   obj
 end
@@ -89,13 +92,28 @@ end
 
 # Predefined operators.
 module Operators
-  def +@() Symbolic::Plus.new(self) end
-  def -@() Symbolic::Minus.new(self) end
-  def +(other) Symbolic::Add.new(self, other) end
-  def -(other) Symbolic::Subtract.new(self, other) end
-  def *(other) Symbolic::Multiply.new(self, other) end
-  def /(other) Symbolic::Divide.new(self, other) end
-  def **(other) Symbolic::Power.new(self, other) end
+  def +@() Plus.new(self) end
+  def -@() Minus.new(self) end
+  def +(other) Add.new(self, other) end
+  def -(other) Subtract.new(self, other) end
+  def *(other) Multiply.new(self, other) end
+  def /(other) Divide.new(self, other) end
+  def **(other) Power.new(self, other) end
+end
+
+
+# Trivial no-op operations
+module TrivialOperations
+private
+  def expand; self end
+  def convert; self end
+  def collect; self end
+  def revert; self end
+  alias :expand! :expand
+  alias :convert! :convert
+  alias :collect! :collect
+  alias :revert! :revert
+  public :expand!, :convert!, :collect!, :revert!
 end
 
 
@@ -104,11 +122,8 @@ end
 # This is a standard Ruby class modified to mimic the Symbolic::Expression descendant behavior.
 class ::Symbol
   include Operators
+  include TrivialOperations
   def apply(obj) obj.symbol(self) end
-  def expand() self end
-  def convert() self end
-  def collect() self end
-  def revert() self end
 end
 
 
@@ -116,11 +131,8 @@ end
 #
 # This is a standard Ruby class modified to mimic the Symbolic::Expression descendant behavior.
 class ::Numeric
+  include TrivialOperations
   def apply(obj) obj.numeric(self) end
-  def expand() self end
-  def convert() self end
-  def collect() self end
-  def revert() self end
   def extract_minus_one
     if self == -1
       1
@@ -169,8 +181,6 @@ end
 # of the Expression hierarchy but nonetheless considered valid expressions are
 # modified accordingly to mimic Expression behavior.
 class Expression
-  # Enforces the immutability of all user-defined expression descendants.
-  Symbolic.freezing_new(self)
   # Returns string representation of self. Employs Emitter class for string rendering.
   def to_s
     Emitter.new.emit!(self)
@@ -184,6 +194,18 @@ class Expression
   # this definition must be left as is otherwise things might break.
   # Each redefinition of #== should be followed by the corresponding alias :eql? :==
   include Operators
+  # Optional caching versions of operations
+  if true
+    def convert!; @convert.nil? ? @convert = convert : @convert end
+    def revert!; @revert.nil? ? @revert = revert : @revert end
+    def expand!; @expand.nil? ? @expand = expand : @expand end
+    def collect!; @collect.nil? ? @collect = collect : @collect end
+  else
+    def convert!; convert end
+    def revert!; revert end
+    def expand!; expand end
+    def collect!; collect end
+  end
 end
 
 
@@ -198,22 +220,23 @@ class UnaryFunction < Expression
     equal?(other) || self.class == other.class && arg == other.arg
   end
   alias :eql? :==
-  def convert
-    new_instance(arg.convert)
-  end
-  def revert
-    new_instance(arg.revert)
-  end
-  def expand
-    new_instance(arg.expand)
-  end
-  def collect
-    new_instance(arg.collect)
-  end
   def new_instance(arg)
     # to be overriden in descendant classes which require additional arguments
     # to be passed to the respective constructors
     self.class.new(arg)
+  end
+private
+  def convert
+    new_instance(arg.convert!)
+  end
+  def revert
+    new_instance(arg.revert!)
+  end
+  def expand
+    new_instance(arg.expand!)
+  end
+  def collect
+    new_instance(arg.collect!)
   end
 end
 
@@ -227,20 +250,21 @@ class NaryFunction < Expression
     args.each {|arg| contents[arg] += 1}
     @hash = self.class.hash ^ contents.hash # TODO
   end
-  def convert
-    new_instance(*args.collect{|arg| arg.convert})
-  end
-  def revert
-    new_instance(*args.collect{|arg| arg.convert})
-  end
-  def expand
-    new_instance(*args.collect{|arg| arg.expand})
-  end
-  def collect
-    new_instance(*args.collect{|arg| arg.collect})
-  end
   def new_instance(*args)
     self.class.new(*args)
+  end
+private
+  def convert
+    new_instance(*args.collect {|arg| arg.convert!})
+  end
+  def revert
+    new_instance(*args.collect {|arg| arg.convert!})
+  end
+  def expand
+    new_instance(*args.collect {|arg| arg.expand!})
+  end
+  def collect
+    new_instance(*args.collect {|arg| arg.collect!})
   end
 end
 
@@ -248,8 +272,9 @@ end
 # Symbolic unary plus.
 class Plus < UnaryFunction
   def apply(obj) obj.plus(self) end
+private
   def convert
-    arg.convert # +x --> x
+    arg.convert! # +x --> x
   end
 end
 
@@ -257,11 +282,12 @@ end
 # Symbolic unary minus.
 class Minus < UnaryFunction
   def apply(obj) obj.minus(self) end
-  def convert
-    (-1)*arg.convert # -x --> (-1)*x
-  end
   def extract_minus_one
     arg
+  end
+private
+  def convert
+    (-1)*arg.convert! # -x --> (-1)*x
   end
 end
 
@@ -297,10 +323,11 @@ class Add < NaryFunction
       Add.new(*ops)
     end
   end
+private
   def convert
     # flatten nested adds
     ops = args.collect do |op|
-      op = op.convert
+      op = op.convert!
       op.is_a?(Add) ? op.args : op
     end
     ops.flatten!
@@ -315,7 +342,7 @@ class Add < NaryFunction
       end
     end
     # push back the resulting num
-    value = value.convert
+    value = value.convert!
     ops << value unless value == 0 # a+0 --> a
     # recreate add
     Add.make(*ops)
@@ -323,7 +350,7 @@ class Add < NaryFunction
   def revert
     pos = []; neg = []
     args.each do |arg|
-      arg = arg.revert
+      arg = arg.revert!
       begin
         rest = arg.extract_minus_one
         if rest.nil?
@@ -378,8 +405,8 @@ class Add < NaryFunction
         if found.size > 1
           # it is only worth to move try out of the braces if it is found in more than two add operands
           # [found]*try + [not_found]
-          obj = try*Add.make(*found.collect{|mul| Multiply.make(*mul)}).collect
-          return not_found.empty? ? obj : obj + Add.make(*not_found.collect{|mul| Multiply.make(*mul)}).collect
+          obj = try*Add.make(*found.collect {|mul| Multiply.make(*mul)}).collect!
+          return not_found.empty? ? obj : obj + Add.make(*not_found.collect {|mul| Multiply.make(*mul)}).collect!
         end
       end
     end
@@ -401,10 +428,24 @@ class Multiply < NaryFunction
       Multiply.new(*ops)
     end
   end
+  def extract_minus_one
+    found = false
+    rest = []
+    args.each do |arg|
+      if !found && !arg.is_a?(Complex) && arg.is_a?(Numeric) && arg < 0 # TODO reimplement with Numeric#extract_minus_one
+        found = true
+        rest << arg.abs unless arg == -1
+      else
+        rest << arg
+      end
+    end
+    found ? Multiply.make(*rest) : nil
+  end
+private
   def convert
     # flatten nested muls
     ops = args.collect do |op|
-      op = op.convert
+      op = op.convert!
       op.is_a?(Multiply) ? op.args : op
     end
     ops.flatten!
@@ -420,7 +461,7 @@ class Multiply < NaryFunction
       end
     end
     # push back the resulting num
-    value = value.convert
+    value = value.convert!
     ops << value unless value == 1 # a*1 --> a
     # recreate add
     Multiply.make(*ops)
@@ -429,7 +470,7 @@ class Multiply < NaryFunction
     negate = false
     rest = []
     args.each do |arg|
-      arg = arg.revert
+      arg = arg.revert!
       if arg.is_a?(Minus)
         negate = !negate
         rest << arg.arg
@@ -474,7 +515,7 @@ class Multiply < NaryFunction
         # a*(b+c)*d --> a*b*d + a*c*d
         ops = args.dup; ops.delete_at(i)
         rest = Multiply.make(*ops)
-        return Add.make(*args[i].args.collect{|arg| arg*rest}).expand
+        return Add.make(*args[i].args.collect {|arg| arg*rest}).expand!
       end
     end
     super # expand the args as the last resort
@@ -489,20 +530,7 @@ class Multiply < NaryFunction
         bases[arg] += [1] # a --> a**1
       end
     end
-    Multiply.make(*bases.keys.collect{|base| base**Add.make(*bases[base])})
-  end
-  def extract_minus_one
-    found = false
-    rest = []
-    args.each do |arg|
-      if !found && !arg.is_a?(Complex) && arg.is_a?(Numeric) && arg < 0 # TODO reimplement with Numeric#extract_minus_one
-        found = true
-        rest << arg.abs unless arg == -1
-      else
-        rest << arg
-      end
-    end
-    found ? Multiply.make(*rest) : nil
+    Multiply.make(*bases.keys.collect {|base| base**Add.make(*bases[base])})
   end
 end
 
@@ -511,9 +539,10 @@ end
 class Subtract < NaryFunction
   include Noncommutative
   def apply(obj) obj.subtract(self) end
+private
   def convert
     # a-b --> a+(-1)*b
-    Add.new(*args[1..-1].collect{|op| (-1)*op}.unshift(args.first)).convert
+    Add.new(*args[1..-1].collect {|op| (-1)*op}.unshift(args.first)).convert!
   end
 end
 
@@ -522,9 +551,10 @@ end
 class Divide < NaryFunction
   include Noncommutative
   def apply(obj) obj.divide(self) end
+private
   def convert
     # a/b --> a*b**(-1)
-    Multiply.new(*args[1..-1].collect{|op| op**(-1)}.unshift(args.first)).convert
+    Multiply.new(*args[1..-1].collect {|op| op**(-1)}.unshift(args.first)).convert!
   end
 end
 
@@ -533,9 +563,10 @@ end
 class Power < NaryFunction
   include Noncommutative
   def apply(obj) obj.power(self) end
+private
   def convert
-    base = args.first.convert
-    power = Multiply.make(*args[1..-1]).convert
+    base = args.first.convert!
+    power = Multiply.make(*args[1..-1]).convert!
     if base == 0 && power == 0
       1 # 0**0 --> 1
     elsif power == 0
@@ -549,7 +580,7 @@ class Power < NaryFunction
     end
   end
   def revert
-    rest = args.collect{|arg| arg.revert}
+    rest = args.collect {|arg| arg.revert!}
     if rest.size == 2
       if rest.last == -1
         return 1/rest.first # a**(-1) -- > 1/a
@@ -560,16 +591,16 @@ class Power < NaryFunction
     Power.new(*rest)
   end
   def expand
-    base = args.first.expand
+    base = args.first.expand!
     if base.is_a?(Multiply) && args.size == 2 # do not expand in case of non-trivial power
       # (a*b)**3 --> a**3 * b**3
-      power = args.last.expand
-      return Multiply.make(*base.args.collect {|arg| arg**power}).expand
+      power = args.last.expand!
+      return Multiply.make(*base.args.collect {|arg| arg**power}).expand!
     end
-    powers = args[1..-1].collect {|arg| arg.expand}
+    powers = args[1..-1].collect {|arg| arg.expand!}
     if powers.size == 1 && powers.first.is_a?(Add)
       # a**(b+c) --> a**b * a**c
-      return Multiply.make(*powers.first.args.collect {|arg| base**arg}).expand
+      return Multiply.make(*powers.first.args.collect {|arg| base**arg}).expand!
     end
     super # expand the args as the last resort
   end
@@ -580,8 +611,9 @@ end
 # Symbolic exponential function.
 class Exp < UnaryFunction
   def apply(obj) obj.exp(self) end
+private
   def convert
-    op = arg.convert
+    op = arg.convert!
     op.is_a?(Numeric) ? ::Math.exp(op) : Exp.new(op)
   end
 end
@@ -590,8 +622,9 @@ end
 # Symbolic natural logarithm function.
 class Log < UnaryFunction
   def apply(obj) obj.log(self) end
+private
   def convert
-    op = arg.convert
+    op = arg.convert!
     op.is_a?(Numeric) ? ::Math.log(op) : Log.new(op)
   end
 end
@@ -607,7 +640,7 @@ class Differ
     @unit = ary.size == 2 && ary.last == 1 # true in case of {???=>1} and false otherwise
   end
   def apply!(obj)
-    obj.convert.apply(self)
+    obj.convert!.apply(self)
     result
   end
   def symbol(obj)
@@ -624,12 +657,12 @@ class Differ
   end
   def add(obj)
     # (a+b)' --> a' + b'
-    @result = Add.make(*obj.args.collect {|arg| apply!(arg)}).convert
+    @result = Add.make(*obj.args.collect {|arg| apply!(arg)}).convert!
     # no need process the arguments with self.class.run() explicitly
   end
   def multiply(obj)
     if zero?
-      @result = Multiply.new(*obj.args.collect {|arg| apply!(arg)}).convert
+      @result = Multiply.new(*obj.args.collect {|arg| apply!(arg)}).convert!
     elsif unit?
       # (a*b)' --> a'*b + a*b'
       rest = obj.args.dup
@@ -637,39 +670,39 @@ class Differ
       rest_mul = Multiply.make(*rest)
       lt = apply!(term)*self.class.new.apply!(rest_mul)
       rt = self.class.new.apply!(term)*(rest.size > 1 ? apply!(rest_mul) : apply!(rest.first))
-      @result = Add.new(lt, rt).convert
+      @result = Add.new(lt, rt).convert!
     else
       diffs_seq(obj)
     end
   end
   def power(obj)
     if zero?
-      @result = Power.new(*obj.args.collect {|arg| apply!(arg)}).convert
+      @result = Power.new(*obj.args.collect {|arg| apply!(arg)}).convert!
     elsif unit?
       raise "expected Power instance in a canonicalized form" unless obj.args.size == 2
       base, power = obj.args
       # (a^b)' --> a^b*(ln(a)*b' + b/a*a')
-      @result = (obj*(apply!(power)*Log.new(base) + apply!(base)*power/base)).convert
+      @result = (obj*(apply!(power)*Log.new(base) + apply!(base)*power/base)).convert!
     else
       diffs_seq(obj)
     end
   end
   def exp(obj)
     if zero?
-      @result = Exp.new(apply!(obj.arg)).convert
+      @result = Exp.new(apply!(obj.arg)).convert!
     elsif unit?
       # exp(a)' --> exp(a)*a'
-      @result = (obj*apply!(obj.arg)).convert
+      @result = (obj*apply!(obj.arg)).convert!
     else
       diffs_seq(obj)
     end
   end
   def log(obj)
     if zero?
-      @result = Log.new(apply!(obj.arg)).convert
+      @result = Log.new(apply!(obj.arg)).convert!
     elsif unit?
       # ln(a)' --> a'/a
-      @result = (apply!(obj.arg)/obj).convert
+      @result = (apply!(obj.arg)/obj).convert!
     else
       diffs_seq(obj)
     end
