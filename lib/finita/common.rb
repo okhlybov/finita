@@ -8,13 +8,21 @@ module Finita
 Version = "0.1.1"
 
 
-def self.expand(obj)
-  Symbolic.coerce(obj).convert.expand
-end
-
-
-def self.simplify(obj)
-  Symbolic.coerce(obj).convert.revert
+# Simplification level
+if false
+  def self.expand(obj)
+    Symbolic.expand(obj)
+  end
+  def self.simplify(obj)
+    Symbolic.simplify(obj)
+  end
+else
+  def self.expand(obj)
+    Symbolic.coerce(obj).convert!.expand!
+  end
+  def self.simplify(obj)
+    Symbolic.coerce(obj).convert!.revert!
+  end
 end
 
 

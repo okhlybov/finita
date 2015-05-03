@@ -123,10 +123,7 @@ class Constant < Numeric
   def apply(obj)
     obj.constant(self)
   end
-  def expand() self end
-  def convert() self end
-  def collect() self end
-  def revert() self end
+  include Symbolic::TrivialOperations
   def method_missing(method, *args)
     value.send(method, *args)
   end
@@ -182,10 +179,7 @@ class Variable < Symbolic::Expression
   def apply(obj)
     obj.variable(self)
   end
-  def expand() self end
-  def convert() self end
-  def collect() self end
-  def revert() self end
+  include Symbolic::TrivialOperations
   def[](*args) self end
   def code(problem_code)
     Code.new(self, problem_code)
@@ -247,10 +241,7 @@ class Field < Symbolic::Expression
   def apply(obj)
     obj.field(self)
   end
-  def expand() self end
-  def convert() self end
-  def collect() self end
-  def revert() self end
+  include Symbolic::TrivialOperations
   def code(problem_code)
     Code.new(self, problem_code)
   end
@@ -526,7 +517,7 @@ class Ref::Merger
     merge_unary(obj)
   end
   def apply!(obj)
-    obj.convert.apply(self)
+    obj.convert!.apply(self)
     @result
   end
   private
@@ -711,7 +702,7 @@ class Emitter < Symbolic::Emitter
     @out << "]"
   end
   def d(obj)
-    @out << "D{" << obj.diffs.collect{|v,d| d == 1 ? v : "#{v}^#{d}"}.join(",") << "}("
+    @out << "D{" << obj.diffs.collect {|v,d| d == 1 ? v : "#{v}^#{d}"}.join(",") << "}("
     obj.arg.apply(self)
     @out << ")"
   end
