@@ -54,8 +54,10 @@ class Code < AutoC::Code
 
         #if defined(_MSC_VER)
           #define FINITA_ARGSUSED __pragma(warning(disable:4100))
+          #define FINITA_PARAMUSED __pragma(warning(disable:4101))
         #elif defined(__GNUC__)
           #define FINITA_ARGSUSED __attribute__((__unused__))
+          #define FINITA_PARAMUSED __attribute__((__unused__))
         #elif __STDC_VERSION__ >= 199901L && !defined(__DMC__)
           #define FINITA_ARGSUSED _Pragma("argsused")
         #else
@@ -198,6 +200,56 @@ ComplexCode = Class.new(Code) do
     $
   end
 end.new(:FinitaComplex)
+
+
+XYZCode = Class.new(Finita::Code) do
+  def write_intf(stream)
+    stream << %$
+      #define FINITA_FORXYZ_BEGIN(obj) { FINITA_ENTER; \\
+        size_t index; \\
+        int FINITA_PARAMUSED x, y, z; \\
+        for(index = 0; index < obj##_XYZ.size; ++index) { \\
+          x = obj##_XYZ.nodes[index].x; y = obj##_XYZ.nodes[index].y; z = obj##_XYZ.nodes[index].z;
+      #define FINITA_FORXYZ_END } FINITA_LEAVE; }
+      typedef struct #{node} #{node};
+      struct #{node} {int x; int y; int z;};
+      typedef struct #{type} #{type};
+      struct #{type} {
+        #{node}* nodes;
+        size_t size;
+      };
+      #{extern} void #{ctor}(FinitaXYZ*, size_t);
+      #{extern} void #{dtor}(FinitaXYZ*);
+      #{extern} void #{set}(FinitaXYZ*, size_t, int, int, int);
+    $
+  end
+  def write_defs(stream)
+    stream << %$
+      void #{ctor}(FinitaXYZ* self, size_t size) {
+        FINITA_ENTER;
+        #{assert}(self);
+        self->size = size;
+        self->nodes = (FinitaXYZNode*)#{malloc}(sizeof(FinitaXYZNode)*size); #{assert}(self->nodes);
+        FINITA_LEAVE;
+      }
+      void #{dtor}(FinitaXYZ* self) {
+        FINITA_ENTER;
+        #{assert}(self);
+        #{free}(self->nodes);
+        FINITA_LEAVE;
+      }
+      void #{set}(FinitaXYZ* self, size_t index, int x, int y, int z) {
+        FINITA_ENTER;
+        #{assert}(self);
+        #{assert}(index < self->size);
+        self->nodes[index].x = x;
+        self->nodes[index].y = y;
+        self->nodes[index].z = z;
+        FINITA_LEAVE;
+      }
+    $
+  end
+end.new(:FinitaXYZ)
 
 
 end # Finita
