@@ -254,13 +254,13 @@ class Field < Symbolic::Expression
     end
     attr_reader :field, :symbol, :instance
     def entities
-      super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code])
+      super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code]) << XYZCode
     end
     def initialize(field, problem_code)
       @field = field
       super("#{problem_code.type}#{field.name}")
       @instance = type
-      @symbol = field.name
+      @xyz = "#{field.name}_XYZ"
       @ctype = Finita::CType[field.type]
       @domain_code = field.domain.code(problem_code)
       problem_code.initializer_codes << self
@@ -277,12 +277,33 @@ class Field < Symbolic::Expression
         #{extern} #{@ctype}* #{instance};
         #define #{field.name}(x,y,z) (#{instance}[#{@domain_code.index}(&#{@domain_code.instance}, x, y, z)])
       $
+      if @domain_code.named?
+        stream << %$
+          #define #{@xyz} #{@domain_code.xyz}
+        $
+      else
+        stream << %$
+          #define #{@xyz} #{instance}XYZ
+          #{extern} FinitaXYZ #{@xyz};
+        $
+      end
     end
     def write_defs(stream)
       stream << %$#{@ctype}* #{instance};$
+      stream << %$FinitaXYZ #{@xyz};$ unless @domain_code.named?
     end
     def write_initializer(stream)
       stream << %$#{instance} = (#{@ctype}*)#{calloc}(#{@domain_code.size}(&#{@domain_code.instance}), sizeof(#{@ctype})); #{assert}(#{instance});$
+      stream << %${
+        #{@domain_code.it} it;
+        size_t index = 0;
+        #{XYZCode.ctor}(&#{@xyz}, #{@domain_code.size}(&#{@domain_code.instance}));
+        #{@domain_code.itCtor}(&it, &#{@domain_code.instance});
+        while(#{@domain_code.itMove}(&it)) {
+          #{@domain_code.node} node = #{@domain_code.itGet}(&it);
+          #{XYZCode.set}(&#{@xyz}, index++, node.x, node.y, node.z);
+        }
+      }$ unless @domain_code.named?
     end
   end # Code
 end # Field

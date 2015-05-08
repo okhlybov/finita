@@ -74,6 +74,7 @@ end # Range
 
 
 StaticCode = Class.new(Finita::Code) do
+  def entities; super << Finita::XYZCode end
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -239,13 +240,16 @@ class Area
     def entities
       super.concat([StaticCode] + Collector.new.apply!(*(@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a)).instances.collect {|o| o.code(@problem_code)})
     end
+    def named?; !@area.name.nil? end
+    attr_reader :xyz
     def initialize(area, problem_code)
       @area = area
       @instance = "#{StaticCode.type}#{@@count += 1}"
-      @name = @area.name.nil? ? "##{@@count}" : @area.name
+      @name = named? ? @area.name : "##{@@count}"
       @problem_code = problem_code
       super(StaticCode.type)
       @hash = @area.hash
+      @xyz = "#{@name}_XYZ" if named?
       problem_code.initializer_codes << self
     end
     def ==(other)
@@ -253,17 +257,29 @@ class Area
     end
     alias :eql? :==
     def write_intf(stream)
-      stream << %$
-        #define #{@name} #{instance}
-      $ unless @area.name.nil?
       stream << %$#{extern} #{type} #{instance};$
+      stream << %$
+        #define #{@xyz} #{instance}XYZ
+        #{extern} FinitaXYZ #{@xyz};
+      $ if named?
     end
     def write_defs(stream)
       stream << %$#{type} #{instance};$
+      stream << %$#{XYZCode.type} #{@xyz};$ if named?
     end
     def write_initializer(stream)
       args = (@area.xrange.to_a + @area.yrange.to_a + @area.zrange.to_a).collect {|e| CEmitter.new.emit!(e)}.join(",")
       stream << %$#{ctor}(&#{instance}, "#{@name}", #{args});$
+      stream << %${
+        #{it} it;
+        size_t index = 0;
+        #{XYZCode.ctor}(&#{@xyz}, #{size}(&#{instance}));
+        #{itCtor}(&it, &#{instance});
+        while(#{itMove}(&it)) {
+          #{node} node = #{itGet}(&it);
+          #{XYZCode.set}(&#{@xyz}, index++, node.x, node.y, node.z);
+        }
+      }$ if named?
     end
   end # Code
 end # Area
