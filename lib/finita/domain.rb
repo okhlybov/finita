@@ -260,7 +260,7 @@ class Area
       stream << %$#{extern} #{type} #{instance};$
       stream << %$
         #define #{@xyz} #{instance}XYZ
-        #{extern} FinitaXYZ #{@xyz};
+        #{extern} #{XYZCode.type} #{@xyz};
       $ if named?
     end
     def write_defs(stream)

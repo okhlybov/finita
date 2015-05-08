@@ -284,13 +284,13 @@ class Field < Symbolic::Expression
       else
         stream << %$
           #define #{@xyz} #{instance}XYZ
-          #{extern} FinitaXYZ #{@xyz};
+          #{extern} #{XYZCode.type} #{@xyz};
         $
       end
     end
     def write_defs(stream)
       stream << %$#{@ctype}* #{instance};$
-      stream << %$FinitaXYZ #{@xyz};$ unless @domain_code.named?
+      stream << %$#{XYZCode.type} #{@xyz};$ unless @domain_code.named?
     end
     def write_initializer(stream)
       stream << %$#{instance} = (#{@ctype}*)#{calloc}(#{@domain_code.size}(&#{@domain_code.instance}), sizeof(#{@ctype})); #{assert}(#{instance});$
