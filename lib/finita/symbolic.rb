@@ -275,7 +275,12 @@ class Field < Symbolic::Expression
     def write_intf(stream)
       stream << %$
         #{extern} #{@ctype}* #{instance};
-        #define #{field.name}(x,y,z) (#{instance}[#{@domain_code.index}(&#{@domain_code.instance}, x, y, z)])
+        #ifndef NDEBUG
+          #define #{field.name}(x,y,z) (*#{ref}(x, y, z))
+          #{extern} #{@ctype}* #{ref}(int, int, int);
+        #else
+          #define #{field.name}(x,y,z) (#{instance}[#{@domain_code.index}(&#{@domain_code.instance}, x, y, z)])
+        #endif
       $
       if @domain_code.named?
         stream << %$
@@ -289,7 +294,22 @@ class Field < Symbolic::Expression
       end
     end
     def write_defs(stream)
-      stream << %$#{@ctype}* #{instance};$
+      stream << %$
+        #{@ctype}* #{instance};
+        #ifndef NDEBUG
+          #{@ctype}* #{ref}(int x, int y, int z) {
+            FINITA_ENTER
+            if(!#{@domain_code.within}(&#{@domain_code.instance}, x, y, z)) {
+              char msg[1024];
+              char info[1024];
+              #{@domain_code.info}(info, &#{@domain_code.instance});
+              sprintf(msg, "#{field.name}(%d,%d,%d) is not within %s", x, y, z, info);
+              FINITA_FAILURE(msg);
+            }
+            FINITA_RETURN(&#{instance}[#{@domain_code.index}(&#{@domain_code.instance}, x, y, z)]);
+          }
+        #endif
+      $
       stream << %$#{XYZCode.type} #{@xyz};$ unless @domain_code.named?
     end
     def write_initializer(stream)
