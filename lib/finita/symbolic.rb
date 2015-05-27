@@ -132,9 +132,9 @@ class Constant < Numeric
   end
   class Code < Finita::Code
     class << self
-      alias :__new__ :new
+      alias :default_new :new
       def new(owner, problem_code)
-        problem_code.bound!(owner) {__new__(owner, problem_code)}
+        problem_code.bind!(owner) {default_new(owner, problem_code)}
       end
     end
     attr_reader :constant, :symbol
@@ -186,9 +186,9 @@ class Variable < Symbolic::Expression
   end
   class Code < Finita::Code
     class << self
-      alias :__new__ :new
+      alias :default_new :new
       def new(owner, problem_code)
-        problem_code.bound!(owner) {__new__(owner, problem_code)}
+        problem_code.bind!(owner) {default_new(owner, problem_code)}
       end
     end
     attr_reader :variable, :symbol
@@ -247,9 +247,9 @@ class Field < Symbolic::Expression
   end
   class Code < Finita::Code
     class << self
-      alias :__new__ :new
+      alias :default_new :new
       def new(owner, problem_code)
-        problem_code.bound!(owner) {__new__(owner, problem_code)}
+        problem_code.bind!(owner) {default_new(owner, problem_code)}
       end
     end
     attr_reader :field, :symbol, :instance
