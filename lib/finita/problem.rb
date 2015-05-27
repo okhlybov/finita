@@ -70,7 +70,7 @@ class Problem
       equal?(other) || self.class == other.class && @problem == other.instance_variable_get(:@problem)
     end
     alias :eql? :==
-    def bound!(owner, &ctor)
+    def bind!(owner, &ctor)
       @bound_codes.include?(owner) ? @bound_codes[owner] : @bound_codes[owner] = yield(self)
     end
     def write_intf(stream)
