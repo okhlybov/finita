@@ -1,4 +1,5 @@
 require "finita"
+require "delegate"
 
 
 class FiniteVolumeXY
