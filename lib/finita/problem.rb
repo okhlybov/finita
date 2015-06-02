@@ -46,11 +46,11 @@ class Problem
     self
   end
   def code
-    Code.new(self)
+    self.class::Code.new(self)
   end
   class Code < Finita::Code
     def initialize(problem)
-      @problem = problem
+      @problem = Finita.check_type(problem, Problem)
       @initializer_codes = Set.new
       @finalizer_codes = Set.new
       @bound_codes = {}

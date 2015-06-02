@@ -331,7 +331,7 @@ end # Field
 
 class Index
   Symbolic.freezing_new(self)
-  Coords = Set.new [:x, :y, :z]
+  Coords = Set[:x, :y, :z]
   class Hash < ::Hash
     def []=(key, value)
       raise "invalid index symbol" unless Index::Coords.include?(key)
@@ -410,7 +410,7 @@ end # Index
 
 
 class D < Symbolic::UnaryFunction
-  Diffs = Set.new [:x, :y, :z]
+  Diffs = Set[:x, :y, :z]
   attr_reader :diffs
   def initialize(op, arg)
     super(op)
