@@ -44,6 +44,30 @@ class FiniteVolumeXY
     
   end
   
+  def dxdx(a, b) normal(a, b, :e, :w) end
+
+  def dydy(a, b) normal(a, b, :n, :s) end
+  
+  def dxdy(a, b) tangential(a, b, :e, :w) end
+
+  def dydx(a, b) tangential(a, b, :n, :s) end
+  
+  def v(a) center.(a)*size end
+  
+  private def normal(a, b, *faces)
+    flux = 0
+    f = face[faces.first]; flux += f.center.(a) * f.dn(b) * f.size unless f.nil?
+    f = face[faces.last];  flux -= f.center.(a) * f.dn(b) * f.size unless f.nil?
+    flux
+  end
+
+  private def tangential(a, b, *faces)
+    flux = 0
+    f = face[faces.first]; flux += f.center.(a) * f.ds(b) * f.size unless f.nil?
+    f = face[faces.last];  flux -= f.center.(a) * f.ds(b) * f.size unless f.nil?
+    flux
+  end
+
   class Node < DelegateClass(Rational)
     def initialize(base, value = 0)
       @base = base

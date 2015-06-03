@@ -7,14 +7,16 @@ class GenericDomainXY
   attr_reader :j, :g11, :g22, :g12
   def di(f) D.new(f,:x) end
   def dj(f) D.new(f,:y) end
-  def initialize(name, *args)
+  def initialize(name, x = :X, y = :Y, *args)
     @domain = Domain::Rectangular::Domain.new(*args).named!(name)
-    @x = Field.new("#{name}X", Float, @domain)
-    @y = Field.new("#{name}Y", Float, @domain)
-    @ix = Field.new("#{name}IX", Float, @domain)
-    @jy = Field.new("#{name}JY", Float, @domain)
-    @iy = Field.new("#{name}IY", Float, @domain)
-    @jx = Field.new("#{name}JX", Float, @domain)
+    @nx = x
+    @ny = y
+    @x = Field.new("#{name}#{@nx}", Float, @domain)
+    @y = Field.new("#{name}#{@ny}", Float, @domain)
+    @ix = Field.new("#{name}I#{@nx}", Float, @domain)
+    @jy = Field.new("#{name}J#{@ny}", Float, @domain)
+    @iy = Field.new("#{name}I#{@ny}", Float, @domain)
+    @jx = Field.new("#{name}J#{@nx}", Float, @domain)
     @j = Field.new("#{name}J", Float, @domain)
     @g11 = Field.new("#{name}G11", Float, @domain)
     @g22 = Field.new("#{name}G22", Float, @domain)
