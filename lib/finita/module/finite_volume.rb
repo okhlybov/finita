@@ -57,7 +57,7 @@ class FiniteVolumeXY
   private def normal(a, b, *faces)
     flux = 0
     f = face[faces.first]; flux += f.center.(a) * f.dn(b) * f.size unless f.nil?
-    f = face[faces.last];  flux -= f.center.(a) * f.dn(b) * f.size unless f.nil?
+    f = face[faces.last];  flux += f.center.(a) * f.dn(b) * f.size unless f.nil?
     flux
   end
 
