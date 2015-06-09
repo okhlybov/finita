@@ -35,9 +35,9 @@ class GenericDomainXY
       Assignment.new(iy, @iy, @domain)
       Assignment.new(jx, @jx, @domain)
       Assignment.new(d, @j, @domain)
-      Assignment.new(ix**2 + jx**2, @g11, @domain)
-      Assignment.new(iy**2 + jy**2, @g22, @domain)
-      Assignment.new(ix*iy + jx*jy, @g12, @domain)
+      Assignment.new(di(@x)**2 + dj(@x)**2, @g11, @domain)
+      Assignment.new(di(@y)**2 + dj(@y)**2, @g22, @domain)
+      Assignment.new(di(@x)*di(@y) + dj(@x)*dj(@y), @g12, @domain)
     end
   end
   def dn(f)

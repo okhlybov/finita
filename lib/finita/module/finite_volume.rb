@@ -2,6 +2,7 @@ require "finita"
 require "delegate"
 
 
+# Automatically computing mixed (1st,2nd) order approximation employing either full faces or half faces
 class FiniteVolumeXY
   
   class Face
@@ -165,5 +166,48 @@ class FiniteVolumeXY
     raise unless result > 0
     result
   end
-  
+
+end
+
+
+# Manually computed 1st order approximation employing half faces
+class FiniteVolumeXY2
+  DxDx = {
+    ne: -> a,b {(3*(a + a[:x+1]) + a[:y+1] + a[:x+1,:y+1])*(3*(b[:x+1] - b) + b[:x+1,:y+1] - b[:y+1])/64},
+    nw: -> a,b {-(3*(a + a[:x-1]) + a[:y+1] + a[:x-1,:y+1])*(3*(b - b[:x-1]) + b[:y+1] - b[:x-1,:y+1])/64},
+    sw: -> a,b {-(3*(a + a[:x-1]) + a[:y-1] + a[:x-1,:y-1])*(3*(b - b[:x-1]) + b[:y-1] - b[:x-1,:y-1])/64},
+    se: -> a,b {(3*(a + a[:x+1]) + a[:y-1] + a[:x+1,:y-1])*(3*(b[:x+1] - b) + b[:x+1,:y-1] - b[:y-1])/64},
+  }
+  DxDy = {
+    ne: -> a,b {(3*(a + a[:x+1]) + a[:y+1] + a[:x+1,:y+1])*(b[:y+1] + b[:x+1,:y+1] - (b + b[:x+1]))/32},
+    nw: -> a,b {-(3*(a + a[:x-1]) + a[:y+1] + a[:x-1,:y+1])*(b[:y+1] + b[:x-1,:y+1] - (b + b[:x-1]))/32},
+    sw: -> a,b {-(3*(a + a[:x-1]) + a[:y-1] + a[:x-1,:y-1])*(b + b[:x-1] - (b[:y-1] + b[:x-1,:y-1]))/32},
+    se: -> a,b {(3*(a + a[:x+1]) + a[:y-1] + a[:x+1,:y-1])*(b + b[:x+1] - (b[:y-1] + b[:x+1,:y-1]))/32},
+  }
+  DyDy = {
+    ne: -> a,b {(3*(a + a[:y+1]) + a[:x+1] + a[:x+1,:y+1])*(3*(b[:y+1] - b) + b[:x+1,:y+1] - b[:x+1])/64},
+    nw: -> a,b {(3*(a + a[:y+1]) + a[:x-1] + a[:x-1,:y+1])*(3*(b[:y+1] - b) + b[:x-1,:y+1] - b[:x-1])/64},
+    sw: -> a,b {-(3*(a + a[:y-1]) + a[:x-1] + a[:x-1,:y-1])*(3*(b - b[:y-1]) + b[:x-1] - b[:x-1,:y-1])/64},
+    se: -> a,b {-(3*(a + a[:y-1]) + a[:x+1] + a[:x+1,:y-1])*(3*(b - b[:y-1]) + b[:x+1] - b[:x+1,:y-1])/64},
+  }
+  DyDx = {
+    ne: -> a,b {(3*(a + a[:y+1]) + a[:x+1] + a[:x+1,:y+1])*(b[:x+1] + b[:x+1,:y+1] - (b + b[:y+1]))/32},
+    nw: -> a,b {(3*(a + a[:y+1]) + a[:x-1] + a[:x-1,:y+1])*(b + b[:y+1] - (b[:x-1] + b[:x-1,:y+1]))/32},
+    sw: -> a,b {-(3*(a + a[:y-1]) + a[:x-1] + a[:x-1,:y-1])*(b + b[:y-1] - (b[:x-1] + b[:x-1,:y-1]))/32},
+    se: -> a,b {-(3*(a + a[:y-1]) + a[:x+1] + a[:x+1,:y-1])*(b[:x+1] + b[:x+1,:y-1] - (b + b[:y-1]))/32},
+  }
+  attr_reader :quadrants
+  def initialize(*quads)
+    @quadrants = quads.empty? ? Set[:nw,:ne,:sw,:se] : Set[*quads]
+  end
+  def dxdx(a, b) merge(DxDx, a, b) end
+  def dxdy(a, b) merge(DxDy, a, b) end
+  def dydx(a, b) merge(DyDx, a, b) end
+  def dydy(a, b) merge(DyDy, a, b) end
+  def v(f) f*Rational(quadrants.size, 4) end
+  private def merge(hash, a, b)
+    result = 0
+    hash.each {|q,code| result += code.(a,b) if quadrants.include?(q)}
+    result
+  end
 end
