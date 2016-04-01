@@ -214,6 +214,9 @@ class Area
   def to_s
     "{" << [xrange, yrange, zrange].collect {|r| r.nil? ? "?" : r.to_s}.join(" ") << "}"
   end
+  def area
+    self
+  end
   def decompose
     [self]
   end

@@ -11,16 +11,16 @@ class GenericDomainXY
     @domain = Domain::Rectangular::Domain.new(*args).named!(name)
     @nx = x
     @ny = y
-    @x = Field.new("#{name}#{@nx}", Float, @domain)
-    @y = Field.new("#{name}#{@ny}", Float, @domain)
-    @ix = Field.new("#{name}I#{@nx}", Float, @domain)
-    @jy = Field.new("#{name}J#{@ny}", Float, @domain)
-    @iy = Field.new("#{name}I#{@ny}", Float, @domain)
-    @jx = Field.new("#{name}J#{@nx}", Float, @domain)
-    @j = Field.new("#{name}J", Float, @domain)
-    @g11 = Field.new("#{name}G11", Float, @domain)
-    @g22 = Field.new("#{name}G22", Float, @domain)
-    @g12 = Field.new("#{name}G12", Float, @domain)
+    @x = Field.new("#{name}#{@nx}", Float, domain)
+    @y = Field.new("#{name}#{@ny}", Float, domain)
+    @ix = Field.new("#{name}I#{@nx}", Float, domain)
+    @jy = Field.new("#{name}J#{@ny}", Float, domain)
+    @iy = Field.new("#{name}I#{@ny}", Float, domain)
+    @jx = Field.new("#{name}J#{@nx}", Float, domain)
+    @j = Field.new("#{name}J", Float, domain)
+    @g11 = Field.new("#{name}G11", Float, domain)
+    @g22 = Field.new("#{name}G22", Float, domain)
+    @g12 = Field.new("#{name}G12", Float, domain)
     d = di(@x)*dj(@y) - di(@y)*dj(@x)
     ix = -dj(@y)/d
     jy = -di(@x)/d
@@ -30,14 +30,14 @@ class GenericDomainXY
       s.nonlinear!
       s.discretizer = Discretizer::FiniteDifference.new
       s.solver = Solver::Explicit.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new)
-      Assignment.new(ix, @ix, @domain)
-      Assignment.new(jy, @jy, @domain)
-      Assignment.new(iy, @iy, @domain)
-      Assignment.new(jx, @jx, @domain)
-      Assignment.new(d, @j, @domain)
-      Assignment.new(di(@x)**2 + dj(@x)**2, @g11, @domain)
-      Assignment.new(di(@y)**2 + dj(@y)**2, @g22, @domain)
-      Assignment.new(di(@x)*di(@y) + dj(@x)*dj(@y), @g12, @domain)
+      Assignment.new(ix, @ix, domain)
+      Assignment.new(jy, @jy, domain)
+      Assignment.new(iy, @iy, domain)
+      Assignment.new(jx, @jx, domain)
+      Assignment.new(d, @j, domain)
+      Assignment.new(di(@x)**2 + dj(@x)**2, @g11, domain)
+      Assignment.new(di(@y)**2 + dj(@y)**2, @g22, domain)
+      Assignment.new(di(@x)*di(@y) + dj(@x)*dj(@y), @g12, domain)
     end
   end
   def dn(f)
