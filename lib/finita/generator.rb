@@ -4,25 +4,6 @@ require "autoc"
 module Finita
 
 
-class AutoC::Code
-    def debug_code(stream, &block)
-      if block_given?
-        stream << %$\n#ifndef NDEBUG\n$
-        yield
-        stream << %$\n#endif\n$
-      end
-    end
-end # AutoC::Code
-
-
-class AutoC::Type
-  alias :autoc_entities :entities
-  def entities
-    autoc_entities << Code::CommonCode
-  end
-end # AutoC::Type
-
-
 class Code < AutoC::Code
   
   # @private
@@ -41,16 +22,15 @@ class Code < AutoC::Code
   # @private
   CommonCode = Class.new(AutoC::Code) do
     include CommonMethods
-    def entities; super << AutoC::Type::CommonCode end # WARNING implementation dependency
+    String = AutoC::String.new(:FinitaString)
+    def entities
+      super << AutoC::Type::CommonCode << String
+    end
     def write_intf(stream)
       stream << %$
         #include <stdio.h>
         #include <stdlib.h>
         #include <malloc.h>
-
-        #if defined(_MSC_VER) || defined(__PGI)
-          #define __func__ __FUNCTION__
-        #endif
 
         #if defined(_MSC_VER)
           #define FINITA_ARGSUSED __pragma(warning(disable:4100))
@@ -76,11 +56,17 @@ class Code < AutoC::Code
         #define FINITA_LEAVE
         #define FINITA_RETURN(x) return x;
 
-        #define FINITA_FAILURE(msg) FinitaFailure(__func__, __FILE__, __LINE__, msg);
+        #if __STDC_VERSION__ >= 199901L
+          #define __FINITA_FUNC__ __func__
+        #else
+          #define __FINITA_FUNC__ __FUNCTION__
+        #endif
+
+        #define FINITA_FAILURE(msg) FinitaFailure(__FINITA_FUNC__, __FILE__, __LINE__, msg);
         #{extern} void FinitaFailure(const char*, const char*, int, const char*);
 
         #ifndef NDEBUG
-          #define FINITA_ASSERT(test) if(!(test)) FinitaAssert(__func__, __FILE__, __LINE__, #test);
+          #define FINITA_ASSERT(test) if(!(test)) FinitaAssert(__FINITA_FUNC__, __FILE__, __LINE__, #test);
           #{extern} void FinitaAssert(const char*, const char*, int, const char*);
         #else
           #define FINITA_ASSERT(test)
@@ -99,32 +85,27 @@ class Code < AutoC::Code
       $
     end
     def write_defs(stream)
-      # TODO portable version of snprintf
       stream << %$
         #include <math.h>
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
+          #{String.type} out;
+          #{String.ctor}(&out, NULL);
           #ifdef FINITA_MPI
-            fprintf(stderr, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
+            #{String.pushFormat}(&out, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
+            fprintf(stderr, #{String.chars}(&out));
             MPI_Abort(MPI_COMM_WORLD, 1);
           #else
-            fprintf(stderr, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
+            #{String.pushFormat}(&out, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
+            fprintf(stderr, #{String.chars}(&out));
             #{abort}();
           #endif
         }
         #ifndef NDEBUG
-          #if defined(_MSC_VER) || defined(__PGI)
-            #define FINITA_SNPRINTF sprintf_s
-          #else
-            #define FINITA_SNPRINTF snprintf
-          #endif
           void FinitaAssert(const char* func, const char* file, int line, const char* test) {
-            char msg[1024];
-            #if defined __DMC__
-              sprintf(msg, "assertion %s failed", test);
-            #else
-              FINITA_SNPRINTF(msg, 1024, "assertion %s failed", test);
-            #endif
-            FinitaFailure(func, file, line, msg);
+            #{String.type} out;
+            #{String.ctor}(&out, NULL);
+            #{String.pushFormat}(&out, "assertion %s failed", test);
+            FinitaFailure(func, file, line, #{String.chars}(&out));
           }
         #endif
         /*
@@ -175,6 +156,7 @@ class Code < AutoC::Code
     @prefix = prefix.to_s
   end
   
+  # FIXME : why roll out own method instead of using the AutoC's ???
   def method_missing(method, *args)
     str = method.to_s
     str = str.sub(/[\!\?]$/, '') # Strip trailing ? or !
