@@ -15,7 +15,7 @@ class Code < AutoC::Code
     def static; :AUTOC_STATIC end
     def malloc; :malloc end
     def calloc; :calloc end
-    def abort; :abort end
+    def abort; :FinitaAbort end
     def free; :free end
   end # CommonMethods
 
@@ -23,8 +23,61 @@ class Code < AutoC::Code
   CommonCode = Class.new(AutoC::Code) do
     include CommonMethods
     String = AutoC::String.new(:FinitaString)
+    CallStack = Class.new(AutoC::List) do
+      Opening = %$\n#ifndef NDEBUG\n$
+      Closing = %$\n#endif\n$
+      def write_intf(stream)
+        stream << %$
+          #ifndef NDEBUG
+            #{extern} void #{dump}(void);
+          #else
+            #define #{dump}()
+          #endif
+        $
+        stream << Opening
+        stream << %$
+          typedef struct #{element.type} #{element.type};
+          struct #{element.type} {
+            const char* func;
+            const char* file;
+            int line;
+          };
+          /* NOTE : fake functions, not for use! */
+          #define #{element.equal}(lt, rt) 0
+          #define #{element.identify}(obj) 0
+        $
+        super
+        stream << Closing
+      end
+      def write_decls(stream)
+        stream << Opening
+        super
+        stream << Closing
+      end
+      def write_defs(stream)
+        stream << Opening
+        stream << %$
+          void #{dump}(void) {
+            FINITA_HEAD {
+              #{CallStack.it} it;
+              #{CallStack.itCtor}(&it, &#{CallStack.trace});
+              fprintf(stderr, "\\n--- stack trace start ---\\n");
+              while(#{CallStack.itMove}(&it)) {
+                #{CallStack.element.type} cs = #{CallStack.itGet}(&it);
+                fprintf(stderr, "%s() @ %s:%d\\n", cs.func, cs.file, cs.line);
+              }
+              fprintf(stderr, "---  stack trace end  ---\\n");
+              fflush(stderr);
+            }
+          }
+        $
+        super
+        stream << Closing
+      end
+    end.new(:FinitaCallStack, {:type => :FinitaCallStackEntry, :equal => :FinitaCallStackEntryEqual, :identify => :FinitaCallStackEntryIdentify})
+
     def entities
-      super << AutoC::Type::CommonCode << String
+      super << AutoC::Type::CommonCode << String << CallStack
     end
     def write_intf(stream)
       stream << %$
@@ -52,9 +105,16 @@ class Code < AutoC::Code
           #define FINITA_NORETURN(x) x
         #endif
 
-        #define FINITA_ENTER
-        #define FINITA_LEAVE
-        #define FINITA_RETURN(x) return x;
+        #ifndef NDEBUG
+          #{CallStack.type} #{CallStack.trace};
+          #define FINITA_ENTER {#{CallStack.element.type} cs = {__FINITA_FUNC__, __FILE__, __LINE__}; #{CallStack.push}(&#{CallStack.trace}, cs);}
+          #define FINITA_LEAVE #{CallStack.pop}(&#{CallStack.trace})
+          #define FINITA_RETURN(x) #{CallStack.pop}(&#{CallStack.trace}); return x
+        #else
+          #define FINITA_ENTER
+          #define FINITA_LEAVE
+          #define FINITA_RETURN(x) return x
+        #endif
 
         #if __STDC_VERSION__ >= 199901L
           #define __FINITA_FUNC__ __func__
@@ -71,6 +131,8 @@ class Code < AutoC::Code
         #else
           #define FINITA_ASSERT(test)
         #endif
+
+        #{extern} void FinitaAbort(void);
 
         #ifdef FINITA_MPI
           #define FINITA_HEAD if(FinitaProcessIndex == 0)
@@ -93,12 +155,11 @@ class Code < AutoC::Code
           #ifdef FINITA_MPI
             #{String.pushFormat}(&out, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
             fprintf(stderr, #{String.chars}(&out));
-            MPI_Abort(MPI_COMM_WORLD, 1);
           #else
             #{String.pushFormat}(&out, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
             fprintf(stderr, #{String.chars}(&out));
-            #{abort}();
           #endif
+          #{abort}();
         }
         #ifndef NDEBUG
           void FinitaAssert(const char* func, const char* file, int line, const char* test) {
@@ -108,6 +169,17 @@ class Code < AutoC::Code
             FinitaFailure(func, file, line, #{String.chars}(&out));
           }
         #endif
+        #ifndef NDEBUG
+          #{CallStack.type} #{CallStack.trace};
+        #endif
+        void FinitaAbort(void) {
+          #{CallStack.dump}();
+          #ifdef FINITA_MPI
+            MPI_Abort(MPI_COMM_WORLD, 1);
+          #else
+            abort();
+          #endif
+        }
         /*
           Thomas Wang's mixing algorithm, 32-bit version
           http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttwang/tech/inthash.htm

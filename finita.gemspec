@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = Gem::Requirement.new(">= 1.9")
   spec.executables = ["finitac"]
   spec.files = Dir["bin/finitac"] + Dir["lib/**/*.rb"] + Dir["sample/**"]
-  spec.add_runtime_dependency("autoc", ">= 0.8")
+  spec.add_runtime_dependency("autoc", ">= 1.3")
   spec.description = <<-EOF
     Finita is a software package intended for solving complex systems of differential and algebraic equations numerically
     using grid methods in a manner of FreeFEM++ and FlexPDE systems but, instead of solving problems directly,
