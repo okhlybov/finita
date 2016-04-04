@@ -81,14 +81,6 @@ class Problem
     end
     def write_defs(stream)
       stream << %$
-        void FinitaAbort(int code) {
-          #ifdef FINITA_MPI
-            MPI_Abort(MPI_COMM_WORLD, code);
-          #endif
-          exit(code);
-        }
-      $ # FIXME : make this global
-      stream << %$
         FINITA_ARGSUSED
         void #{setup}(int argc, char** argv) {FINITA_ENTER;$
       AutoC.priority_sort(initializer_codes, false).each {|e| e.write_initializer(stream)}

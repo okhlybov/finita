@@ -348,7 +348,7 @@ SparseMatrixCode = numeric_instances_hash do |type|
             #{put}(self, node, list);
           }
           #{element.push}(list, fp);
-          #{element.dtor(:list)}
+          #{element.dtor(:list)};
           FINITA_LEAVE;
         }
       $
@@ -383,7 +383,7 @@ SparseVectorCode = numeric_instances_hash do |type|
           #{put}(self, node, list);
         }
         #{element.push}(list, fp);
-        #{element.dtor(:list)}
+        #{element.dtor(:list)};
         FINITA_LEAVE;
       }
     $
