@@ -4,6 +4,63 @@ require "autoc"
 module Finita
 
 
+StringCode = AutoC::String.new(:FinitaString)
+
+
+CallStackCode = Class.new(AutoC::List) do
+  Opening = %$\n#ifndef NDEBUG\n$
+  Closing = %$\n#endif\n$
+  def write_intf(stream)
+    stream << %$
+      #ifndef NDEBUG
+        #{extern} void #{dump}(void);
+      #else
+        #define #{dump}()
+      #endif
+    $
+    stream << Opening
+    stream << %$
+      typedef struct #{element.type} #{element.type};
+      struct #{element.type} {
+        const char* func;
+        const char* file;
+        int line;
+      };
+      /* NOTE : fake functions, not for use! */
+      #define #{element.equal}(lt, rt) 0
+      #define #{element.identify}(obj) 0
+    $
+    super
+    stream << Closing
+  end
+  def write_decls(stream)
+    stream << Opening
+    super
+    stream << Closing
+  end
+  def write_defs(stream)
+    stream << Opening
+    stream << %$
+      void #{dump}(void) {
+        FINITA_HEAD {
+          #{CallStackCode.it} it;
+          #{CallStackCode.itCtor}(&it, &#{CallStackCode.trace});
+          fprintf(stderr, "\\n--- stack trace start ---\\n");
+          while(#{CallStackCode.itMove}(&it)) {
+            #{CallStackCode.element.type} cs = #{CallStackCode.itGet}(&it);
+            fprintf(stderr, "%s(), %s:%d\\n", cs.func, cs.file, cs.line);
+          }
+          fprintf(stderr, "---  stack trace end  ---\\n");
+          fflush(stderr);
+        }
+      }
+    $
+    super
+    stream << Closing
+  end
+end.new(:FinitaCallStack, {:type => :FinitaCallStackEntry, :equal => :FinitaCallStackEntryEqual, :identify => :FinitaCallStackEntryIdentify})
+
+
 class Code < AutoC::Code
   
   # @private
@@ -22,62 +79,8 @@ class Code < AutoC::Code
   # @private
   CommonCode = Class.new(AutoC::Code) do
     include CommonMethods
-    String = AutoC::String.new(:FinitaString)
-    CallStack = Class.new(AutoC::List) do
-      Opening = %$\n#ifndef NDEBUG\n$
-      Closing = %$\n#endif\n$
-      def write_intf(stream)
-        stream << %$
-          #ifndef NDEBUG
-            #{extern} void #{dump}(void);
-          #else
-            #define #{dump}()
-          #endif
-        $
-        stream << Opening
-        stream << %$
-          typedef struct #{element.type} #{element.type};
-          struct #{element.type} {
-            const char* func;
-            const char* file;
-            int line;
-          };
-          /* NOTE : fake functions, not for use! */
-          #define #{element.equal}(lt, rt) 0
-          #define #{element.identify}(obj) 0
-        $
-        super
-        stream << Closing
-      end
-      def write_decls(stream)
-        stream << Opening
-        super
-        stream << Closing
-      end
-      def write_defs(stream)
-        stream << Opening
-        stream << %$
-          void #{dump}(void) {
-            FINITA_HEAD {
-              #{CallStack.it} it;
-              #{CallStack.itCtor}(&it, &#{CallStack.trace});
-              fprintf(stderr, "\\n--- stack trace start ---\\n");
-              while(#{CallStack.itMove}(&it)) {
-                #{CallStack.element.type} cs = #{CallStack.itGet}(&it);
-                fprintf(stderr, "%s() @ %s:%d\\n", cs.func, cs.file, cs.line);
-              }
-              fprintf(stderr, "---  stack trace end  ---\\n");
-              fflush(stderr);
-            }
-          }
-        $
-        super
-        stream << Closing
-      end
-    end.new(:FinitaCallStack, {:type => :FinitaCallStackEntry, :equal => :FinitaCallStackEntryEqual, :identify => :FinitaCallStackEntryIdentify})
-
     def entities
-      super << AutoC::Type::CommonCode << String << CallStack
+      super << AutoC::Type::CommonCode << StringCode << CallStackCode
     end
     def write_intf(stream)
       stream << %$
@@ -106,10 +109,10 @@ class Code < AutoC::Code
         #endif
 
         #ifndef NDEBUG
-          #{CallStack.type} #{CallStack.trace};
-          #define FINITA_ENTER {#{CallStack.element.type} cs = {__FINITA_FUNC__, __FILE__, __LINE__}; #{CallStack.push}(&#{CallStack.trace}, cs);}
-          #define FINITA_LEAVE #{CallStack.pop}(&#{CallStack.trace})
-          #define FINITA_RETURN(x) #{CallStack.pop}(&#{CallStack.trace}); return x
+          #{CallStackCode.type} #{CallStackCode.trace};
+          #define FINITA_ENTER {#{CallStackCode.element.type} cs = {__FINITA_FUNC__, __FILE__, __LINE__}; #{CallStackCode.push}(&#{CallStackCode.trace}, cs);}
+          #define FINITA_LEAVE #{CallStackCode.pop}(&#{CallStackCode.trace})
+          #define FINITA_RETURN(x) #{CallStackCode.pop}(&#{CallStackCode.trace}); return x
         #else
           #define FINITA_ENTER
           #define FINITA_LEAVE
@@ -150,30 +153,30 @@ class Code < AutoC::Code
       stream << %$
         #include <math.h>
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
-          #{String.type} out;
-          #{String.ctor}(&out, NULL);
+          #{StringCode.type} out;
+          #{StringCode.ctor}(&out, NULL);
           #ifdef FINITA_MPI
-            #{String.pushFormat}(&out, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
-            fprintf(stderr, #{String.chars}(&out));
+            #{StringCode.pushFormat}(&out, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
+            fprintf(stderr, #{StringCode.chars}(&out));
           #else
-            #{String.pushFormat}(&out, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
-            fprintf(stderr, #{String.chars}(&out));
+            #{StringCode.pushFormat}(&out, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
+            fprintf(stderr, #{StringCode.chars}(&out));
           #endif
           #{abort}();
         }
         #ifndef NDEBUG
           void FinitaAssert(const char* func, const char* file, int line, const char* test) {
-            #{String.type} out;
-            #{String.ctor}(&out, NULL);
-            #{String.pushFormat}(&out, "assertion %s failed", test);
-            FinitaFailure(func, file, line, #{String.chars}(&out));
+            #{StringCode.type} out;
+            #{StringCode.ctor}(&out, NULL);
+            #{StringCode.pushFormat}(&out, "assertion %s failed", test);
+            FinitaFailure(func, file, line, #{StringCode.chars}(&out));
           }
         #endif
         #ifndef NDEBUG
-          #{CallStack.type} #{CallStack.trace};
+          #{CallStackCode.type} #{CallStackCode.trace};
         #endif
         void FinitaAbort(void) {
-          #{CallStack.dump}();
+          #{CallStackCode.dump}();
           #ifdef FINITA_MPI
             MPI_Abort(MPI_COMM_WORLD, 1);
           #else

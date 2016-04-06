@@ -74,7 +74,7 @@ end # Range
 
 
 StaticCode = Class.new(Finita::Code) do
-  def entities; super << XYZCode end
+  def entities; super << XYZCode << StringCode end
   def write_intf(stream)
     stream << %$
       typedef struct #{type} #{type};
@@ -92,18 +92,18 @@ StaticCode = Class.new(Finita::Code) do
       #{extern} int #{within}(#{type}*, int, int, int);
       #{extern} size_t #{size}(#{type}*);
       #ifndef NDEBUG
-        void #{info}(char*, #{type}*);
+        void #{info}(#{type}*, #{StringCode.type_ref});
       #endif
       #{inline} size_t #{index}(#{type}* self, int x, int y, int z) {
         size_t index, dx, dy;
         FINITA_ENTER;
         #ifndef NDEBUG
         if(!#{within}(self, x, y, z)) {
-          char msg[1024];
-          char info[1024];
-          #{info}(info, self);
-          sprintf(msg, "node (%d,%d,%d) is not within %s", x, y, z, info);
-          FINITA_FAILURE(msg);
+          #{StringCode.type} out;
+          #{StringCode.ctor}(&out, NULL);
+          #{StringCode.pushFormat}(&out, "node (%d,%d,%d) is not within ", x, y, z);
+          #{info}(self, &out);
+          FINITA_FAILURE(#{StringCode.chars}(&out));
         }
         #endif
         dx = self->x2 - self->x1 + 1;
@@ -120,11 +120,11 @@ StaticCode = Class.new(Finita::Code) do
   def write_defs(stream)
     stream << %$
       #ifndef NDEBUG
-        void #{info}(char* out, #{type}* self) {
+        void #{info}(#{type}* self, #{StringCode.type_ref} out) {
           FINITA_ENTER;
           #{assert}(out);
           #{assert}(self);
-          sprintf(out, "rectangular domain %s [%d..%d,%d..%d,%d..%d]", self->name, self->x1, self->x2, self->y1, self->y2, self->z1, self->z2);
+          #{StringCode.pushFormat}(out, "rectangular domain %s [%d..%d,%d..%d,%d..%d]", self->name, self->x1, self->x2, self->y1, self->y2, self->z1, self->z2);
           FINITA_LEAVE;
         }
       #endif

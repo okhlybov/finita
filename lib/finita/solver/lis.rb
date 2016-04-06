@@ -60,7 +60,7 @@ class Solver::LIS < Solver::Matrix
       @comm = mpi? ? :MPI_COMM_WORLD : 0
     end
     def entities
-      super.concat([@numeric_array_code].compact)
+      super.concat([@numeric_array_code].compact) << StringCode
     end
     def write_setup_body(stream)
       super
@@ -88,10 +88,12 @@ class Solver::LIS < Solver::Matrix
         }
         static void #{setSolverOptions}(LIS_SOLVER* solver) {
           int ierr;
-          char buffer[1024];
+          #{StringCode.type} opts;
           FINITA_ENTER;
-          sprintf(buffer, "-i %s -p %s -maxiter %d -tol %e", "#{Solvers[@solver.solver]}", "#{Preconditioners[@solver.preconditioner]}", #{@solver.max_steps}, #{@solver.relative_tolerance}); /* FIXME : not safe */
-          ierr = lis_solver_set_option(buffer, *solver); CHKERR(ierr);
+          #{StringCode.ctor}(&opts, NULL);
+          #{StringCode.pushFormat}(&opts, "-i %s -p %s -maxiter %d -tol %e", "#{Solvers[@solver.solver]}", "#{Preconditioners[@solver.preconditioner]}", #{@solver.max_steps}, #{@solver.relative_tolerance});
+          ierr = lis_solver_set_option((char*)#{StringCode.chars}(&opts), *solver); CHKERR(ierr);
+          #{StringCode.dtor}(&opts);
           FINITA_LEAVE;
         }
       $

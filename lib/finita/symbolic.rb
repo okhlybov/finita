@@ -254,7 +254,7 @@ class Field < Symbolic::Expression
     end
     attr_reader :field, :symbol, :instance
     def entities
-      super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code]) << XYZCode
+      super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code]) << XYZCode << StringCode
     end
     def initialize(field, problem_code)
       @field = field
@@ -300,11 +300,11 @@ class Field < Symbolic::Expression
           #{@ctype}* #{ref}(int x, int y, int z) {
             FINITA_ENTER
             if(!#{@domain_code.within}(&#{@domain_code.instance}, x, y, z)) {
-              char msg[1024];
-              char info[1024];
-              #{@domain_code.info}(info, &#{@domain_code.instance});
-              sprintf(msg, "#{field.name}(%d,%d,%d) is not within %s", x, y, z, info);
-              FINITA_FAILURE(msg);
+              #{StringCode.type} out;
+              #{StringCode.ctor}(&out, NULL);
+              #{StringCode.pushFormat}(&out, "#{field.name}(%d,%d,%d) is not within ", x, y, z);
+              #{@domain_code.info}(&#{@domain_code.instance}, &out);
+              FINITA_FAILURE(#{StringCode.chars}(&out));
             }
             FINITA_RETURN(&#{instance}[#{@domain_code.index}(&#{@domain_code.instance}, x, y, z)]);
           }
