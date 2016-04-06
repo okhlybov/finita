@@ -392,34 +392,4 @@ SparseVectorCode = numeric_instances_hash do |type|
 end # SparseVectorCode
 
 
-CallStackCode = Class.new(AutoC::List) do
-  def initialize
-    # FIXME : custom hash code
-    super(:FinitaCallStack, {:type => :FinitaCallStackEntry, :identify => :FinitaCallStackEntryIdentify, :equal => :FinitaCallStackEntryEqual, :forward => %$
-      #ifndef NDEBUG
-        typedef struct {const char* func; const char* file; size_t line;} FinitaCallStackEntry;
-      #endif
-    $})
-  end
-  def write_intf(stream)
-    debug_code(stream) do
-      super
-    end
-  end
-  def write_defs(stream)
-    debug_code(stream) do
-      stream << %$
-        int FinitaCallStackEntryEqual(#{element.type} lt, #{element.type} rt) {
-          return 0;
-        }
-        size_t FinitaCallStackEntryIdentify(#{element.type} obj) {
-          return 0;
-        }
-      $
-      super
-    end
-  end
-end.new
-
-
 end # Finita

@@ -8,9 +8,9 @@ class GenericDomainXY
   def di(f) D.new(f,:x) end
   def dj(f) D.new(f,:y) end
   def initialize(name, x = :X, y = :Y, *args)
-    @domain = Domain::Rectangular::Domain.new(*args).named!(name)
     @nx = x
     @ny = y
+    @domain = Domain::Rectangular::Domain.new(*args).named!(name)
     @x = Field.new("#{name}#{@nx}", Float, domain)
     @y = Field.new("#{name}#{@ny}", Float, domain)
     @ix = Field.new("#{name}I#{@nx}", Float, domain)
