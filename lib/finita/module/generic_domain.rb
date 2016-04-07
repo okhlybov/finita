@@ -40,9 +40,6 @@ class GenericDomainXY
       Assignment.new(di(@x)*di(@y) + dj(@x)*dj(@y), @g12, domain)
     end
   end
-  def dn(f)
-    Dn.new(self, f)
-  end
   def dx(f)
     @ix*di(f) + @jx*dj(f)
   end
@@ -59,17 +56,12 @@ class GenericDomainXY
     dj(f)*(@iy*di(@jy) + @jy*dj(@jy)) + dj(dj(f))*@jy**2 +
     2*di(dj(f))*@iy*@jy
   end
-private
-  class Dn
-    extend Forwardable
-    def_delegators :@ctr, :x, :y, :dx, :dy
-    def initialize(ctr, f) @ctr = ctr; @f = f end
-    def top; -dv end
-    def bottom; +dv end
-    def right; -dh end
-    def left; +dh end
-    private
-    def dv; (dy(@f) - dx(y)*dx(@f))*(1 + dx(y)**2)**(-0.5) end
-    def dh; (dx(@f) - dy(x)*dy(@f))*(1 + dy(x)**2)**(-0.5) end
+  Dn = Struct.new(:top, :bottom, :left, :right)
+  def dn(f)
+    bottom = (dy(f) - dx(y)*dx(f))*(1 + dx(y)**2)**-0.5
+    top = -bottom
+    left = (dx(f) - dy(x)*dy(f))*(1 + dy(x)**2)**-0.5
+    right = -left
+    Dn.new(top, bottom, left, right)
   end
 end
