@@ -22,12 +22,12 @@ class GenericDomainXY
     @g22 = Field.new("#{name}G22", Float, domain)
     @g12 = Field.new("#{name}G12", Float, domain)
     d = di(@x)*dj(@y) - di(@y)*dj(@x)
-    ix = -dj(@y)/d
-    jy = -di(@x)/d
-    iy = +di(@y)/d
-    jx = +dj(@x)/d
+    ix = dj(@y)/d
+    jy = di(@x)/d
+    iy = -dj(@x)/d
+    jx = -di(@y)/d
     System.new(name) do |s|
-      s.nonlinear!
+      #s.nonlinear!
       s.discretizer = Discretizer::FiniteDifference.new
       s.solver = Solver::Explicit.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new)
       Assignment.new(ix, @ix, domain)
@@ -58,10 +58,12 @@ class GenericDomainXY
   end
   Dn = Struct.new(:top, :bottom, :left, :right)
   def dn(f)
-    bottom = (dy(f) - dx(y)*dx(f))*(1 + dx(y)**2)**-0.5
-    top = -bottom
-    left = (dx(f) - dy(x)*dy(f))*(1 + dy(x)**2)**-0.5
-    right = -left
-    Dn.new(top, bottom, left, right)
+    dydx = di(y)*@ix
+    #h = (dy(f) - dydx*dx(f))*(1 + dydx**2)**-0.5
+    h = (dy(f) - dx(y)*dx(f))*(1 + dx(y)**2)**-0.5
+    dxdy = dj(x)*@jy
+    #v = (dx(f) - dxdy*dy(f))*(1 + dxdy**2)**-0.5
+    v = (dx(f) - dy(x)*dy(f))*(1 + dy(x)**2)**-0.5
+    Dn.new(-h, h, v, -v)
   end
 end
