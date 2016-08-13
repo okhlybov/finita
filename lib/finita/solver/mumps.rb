@@ -18,7 +18,7 @@ class Solver::MUMPS < Solver::Matrix
       @numeric_array_code = NumericArrayCode[system_code.result] if mpi?
     end
     def entities
-      super.concat([@numeric_array_code].compact)
+      super.concat([@numeric_array_code].compact) << StringCode
     end
     def write_setup_body(stream)
       super
@@ -89,9 +89,10 @@ class Solver::MUMPS < Solver::Matrix
           #{ctx}.job = job;
           #{@mumps_c}(&#{ctx});
           FINITA_HEAD if(#{ctx}.INFOG(1) < 0) {
-            char msg[1024];
-            snprintf(msg, 1024, "MUMPS returned error code %d", #{ctx}.INFOG(1)); /* FIXME snprintf */
-            FINITA_FAILURE(msg);
+            #{StringCode.type} out;
+            #{StringCode.ctor}(&out, NULL);
+            #{StringCode.pushFormat}(&out, "MUMPS returned error code %d", #{ctx}.INFOG(1));
+            FINITA_FAILURE(#{StringCode.chars}(&out));
           }
           FINITA_LEAVE;
         }

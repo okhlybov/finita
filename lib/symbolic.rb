@@ -77,6 +77,7 @@ def self.split_args(args, obj)
   found ? out : nil
 end
 
+
 # Instructs the constructor to freeze the object after creation.
 def self.freezing_new(cls)
   class << cls
