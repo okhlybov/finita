@@ -59,10 +59,8 @@ class GenericDomainXY
   Dn = Struct.new(:top, :bottom, :left, :right)
   def dn(f)
     dydx = di(y)*@ix
-    #h = (dy(f) - dydx*dx(f))*(1 + dydx**2)**-0.5
     h = (dy(f) - dx(y)*dx(f))*(1 + dx(y)**2)**-0.5
     dxdy = dj(x)*@jy
-    #v = (dx(f) - dxdy*dy(f))*(1 + dxdy**2)**-0.5
     v = (dx(f) - dy(x)*dy(f))*(1 + dy(x)**2)**-0.5
     Dn.new(-h, h, v, -v)
   end

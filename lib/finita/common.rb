@@ -5,11 +5,11 @@ require "symbolic"
 module Finita
 
 
-Version = "0.1.1"
+Version = "0.2"
 
 
 # Simplification level
-if false
+if true
   def self.expand(obj)
     Symbolic.expand(obj)
   end

@@ -23,4 +23,4 @@ end.parse!(argv)
 
 eval(IO.read(argv[0]), binding, argv[0], 1)
 
-puts Benchmark.measure {Problem.problems.each {|p| p.process!}}
+Problem.problems.each {|p| p.process!}
