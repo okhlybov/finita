@@ -65,15 +65,16 @@ class Symbolic::Expression
 end
 
 class Collector < Symbolic::Traverser
-  attr_reader :constants, :variables, :fields, :refs
+  attr_reader :constants, :variables, :fields, :refs, :udfs
   def initialize
     @constants = Set.new
     @variables = Set.new
     @fields = Set.new
+    @udfs = Set.new
     @refs = Set.new
   end
   def instances
-    constants | variables | fields
+    constants | variables | fields | udfs
   end
   def constant(obj)
     @constants << obj
@@ -83,6 +84,9 @@ class Collector < Symbolic::Traverser
   end
   def field(obj)
     @fields << obj
+  end
+  def udf(obj)
+    @udfs << obj
   end
   def ref(obj)
     @refs << obj
@@ -252,7 +256,7 @@ class Field < Symbolic::Expression
         problem_code.bind!(owner) {default_new(owner, problem_code)}
       end
     end
-    attr_reader :field, :symbol, :instance
+    attr_reader :field, :instance
     def entities
       super.concat((@field.type == Complex) ? [Finita::ComplexCode, @domain_code] : [@domain_code]) << XYZCode << StringCode
     end
@@ -327,6 +331,46 @@ class Field < Symbolic::Expression
     end
   end # Code
 end # Field
+
+
+class UDF < Symbolic::Expression
+  attr_reader :hash, :name, :type
+  def initialize(name, type)
+    @name = name.to_s # TODO validate
+    @type = type # TODO validate
+    @hash =  self.class.hash ^ name.hash ^ type.hash # TODO
+  end
+  def ==(other)
+    equal?(other) || self.class == other.class && name == other.name && type == other.type
+  end
+  alias :eql? :==
+  def apply(obj)
+    obj.udf(self)
+  end
+  include Symbolic::TrivialOperations
+  def code(problem_code)
+    Code.new(self)
+  end
+  class Code < Finita::Code
+    attr_reader :udf
+    def initialize(udf)
+      @udf = udf
+      super("UDF#{udf.name}")
+    end
+    def hash
+      udf.hash
+    end
+    def ==(other)
+      equal?(other) || self.class == other.class && udf == other.udf
+    end
+    alias :eql? :==
+    def write_intf(stream)
+      stream << %$
+        #{extern} #{Finita::CType[udf.type]} #{udf.name}(int, int, int);
+      $
+    end
+  end # Code
+end # UDF
 
 
 class Index
@@ -440,6 +484,9 @@ class Differ < Symbolic::Differ
   def field(obj)
     @result = zero? ? obj : D.new(obj, diffs)
   end
+  def udf(obj)
+    @result = zero? ? obj : D.new(obj, diffs)
+  end
   def ref(obj)
     @result = Ref.new(apply!(obj.arg), obj.xindex, obj.yindex, obj.zindex)
   end
@@ -525,6 +572,9 @@ class Ref::Merger
     @result = obj
   end
   def field(obj)
+    @result = Ref.new(obj, {:x=>@xindex, :y=>@yindex, :z=>@zindex})
+  end
+  def udf(obj)
     @result = Ref.new(obj, {:x=>@xindex, :y=>@yindex, :z=>@zindex})
   end
   def ref(obj)
@@ -628,6 +678,9 @@ class TypeInferer < Symbolic::Traverser
   def field(obj)
     @type = obj.type
   end
+  def udf(obj)
+    @type = obj.type # !!!!!!
+  end
   def ref(obj)
     obj.arg.apply(self)
   end
@@ -660,6 +713,7 @@ class ObjectCollector < Symbolic::Traverser
   def constant(obj) collect_obj(obj) end
   def variable(obj) collect_obj(obj) end
   def field(obj) collect_obj(obj) end
+  def udf(obj) collect_obj(obj) end
   def ref(obj) traverse_unary(obj) end
   def d(obj) traverse_unary(obj) end
   protected
@@ -694,6 +748,7 @@ class ProductExtractor
   alias :constant :compare_obj
   alias :variable :compare_obj
   alias :field :compare_obj
+  alias :udf :compare_obj
   alias :ref :compare_obj
   alias :add :compare_obj
   alias :exp :compare_obj
@@ -715,6 +770,7 @@ class PrecedenceComputer < Symbolic::PrecedenceComputer
   def constant(obj) 100 end
   def variable(obj) 100 end
   def field(obj) 100 end
+  def udf(obj) 100 end
   def ref(obj) 100 end
   def d(obj) 100 end
 end # PrecedenceComputer
@@ -731,6 +787,9 @@ class Emitter < Symbolic::Emitter
     @out << obj.name
   end
   def field(obj)
+    @out << obj.name
+  end
+  def udf(obj)
     @out << obj.name
   end
   def ref(obj)
@@ -761,6 +820,9 @@ class CEmitter < Symbolic::CEmitter
     @out << obj.name
   end
   def field(obj)
+    @out << obj.name
+  end
+  def udf(obj)
     @out << obj.name
   end
   def ref(obj)
