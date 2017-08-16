@@ -41,6 +41,9 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
   def field(obj)
     @expression = Ref.new(obj)
   end
+  def udf(obj)
+    @expression = Ref.new(obj)
+  end
   def ref(obj)
     traverse_unary(obj)
   end
