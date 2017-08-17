@@ -679,7 +679,7 @@ class TypeInferer < Symbolic::Traverser
     @type = obj.type
   end
   def udf(obj)
-    @type = obj.type # !!!!!!
+    @type = obj.type
   end
   def ref(obj)
     obj.arg.apply(self)

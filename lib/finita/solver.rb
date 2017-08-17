@@ -97,7 +97,8 @@ class Solver::Matrix < Solver
         js = {}
         ev = Evaluator.new(e.equation, system.result)
         ObjectCollector.new(Ref).apply!(e.equation).each do |ref|
-          raise "expected reference to the Field instance (was the equation discretized?)" unless ref.arg.is_a?(Field)
+          # There may be a few nodewise types, including Field and UDF, so this check might not be relevant
+          # raise "expected reference to the Field instance (was the equation discretized?)" unless ref.arg.is_a?(Field)
           js[ref] = ev if system.unknowns.include?(ref.arg)
         end
         {:jacobian=>js, :residual=>ev, :domain=>e.domain, :unknown=>e.unknown, :merge=>e.merge?}
