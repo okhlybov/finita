@@ -12,13 +12,22 @@ FINITA_HEAD { \
 	fclose(file); \
 }
 
+#include <gsl/gsl_sf_bessel.h>
+
+double IxaR(int x, int y, int z) {
+	double aR = 1/*a*/ *R(x,y,z);
+	return gsl_sf_bessel_I1(aR)*(gsl_sf_bessel_I0(aR) + gsl_sf_bessel_In(2, aR));
+}
+
 int main(int argc, char** argv) {
     int x, y;
     NX = 25;
     NY = 50;
+    Pr = 0.1;
+    Gr = 100;
     A = (NX-1)/1.0;
     B = (NY-1)/2.0;
-    double _[] = {10, 1e2, 1e3, 1e4, 1e5, -1}, *p = _;
+    double _[] = {1e2, -1}, *p = _;
     TMFSetup(argc, argv);
     /*
         Setting up the coordinate transformation.
@@ -38,6 +47,8 @@ int main(int argc, char** argv) {
     PRINT_FIELD("Psi.dat", Psi);
     PRINT_FIELD("Phi.dat", Phi);
     PRINT_FIELD("T.dat", T);
+    PRINT_FIELD("Vr.dat", Vr);
+    PRINT_FIELD("Vz.dat", Vz);
     TMFCleanup();
     return 0;
 }
