@@ -23,6 +23,9 @@ T   = Field.new(:T, Float, Cylinder) # Temperature
 R = Field.new(:R, Float, Cylinder) # R-coordinate
 Z = Field.new(:Z, Float, Cylinder) # Z-coordinate
 
+Vr = Field.new(:Vr, Float, Cylinder) # Velocity in R direction
+Vz = Field.new(:Vz, Float, Cylinder) # Velocity in Z direction
+
 # 1st order derivative with respect to the R spatial coordinate
 def dr(f)
   D.new(f, :x)*A
@@ -47,8 +50,7 @@ def c(f)
   (dz(Psi)*(dr(f) - f/R) - dr(Psi)*dz(f))/R
 end
 
-I0aR = UDF.new("I0aR", Float)
-I1aR = UDF.new("I1aR", Float)
+IxaR = UDF.new("IxaR", Float)
 
 Problem.new(:TMF) do |p|
   # Flow field calculation
@@ -59,7 +61,15 @@ Problem.new(:TMF) do |p|
     Equation.new(R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
     Equation.new(R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)
     Equation.new(s(Psi) - R*Phi, Psi, Cylinder.interior)
-    Equation.new(c(Phi) + (l(Phi) - Phi/R**2) + (Ha*I0aR)**2*dz(dz(Psi))/R + dr((Ha**2*dr(Psi)/R - Tm/a)*I1aR**2) - Gr*dr(T), Phi, Cylinder.interior)
+    Equation.new(c(Phi) + (l(Phi) - Phi/R**2) - Tm*IxaR - Gr*dr(T), Phi, Cylinder.interior)
+    Equation.new(T - 1, T, Cylinder.top)
+    Equation.new(T, T, Cylinder.bottom)
+    Equation.new(dr(T), T, Cylinder.left)
+    Equation.new(dr(T), T, Cylinder.right)
     Equation.new((dr(Psi)*dz(T) - dz(Psi)*dr(T))*Pr/R - l(T), T, Cylinder.interior)
+    Equation.new(Vr, Vr, Cylinder.left)
+    Equation.new(dr(Vz), Vz, Cylinder.left)
+    Equation.new(Vr + dz(Psi)/R, Vr, Cylinder)
+    Equation.new(Vz - dr(Psi)/R, Vz, Cylinder)
   end
 end
