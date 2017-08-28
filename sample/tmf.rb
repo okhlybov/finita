@@ -14,8 +14,6 @@ Gr = Variable.new(:Gr, Float) # Grashof number
 Pr = Variable.new(:Pr, Float) # Prandtl number
 Ha = Variable.new(:Ha, Float) # Hartmann number
 
-a = Variable.new(:a, Float) # dimentionless Wavelength
-
 Psi = Field.new(:Psi, Float, Cylinder) # Stream function
 Phi = Field.new(:Phi, Float, Cylinder) # Vorticity
 T   = Field.new(:T, Float, Cylinder) # Temperature
@@ -50,26 +48,36 @@ def c(f)
   (dz(Psi)*(dr(f) - f/R) - dr(Psi)*dz(f))/R
 end
 
-IxaR = UDF.new("IxaR", Float)
+def equations_T
+  t = - 1.5*Z + 1
+  Equation.new(T + t, T, Cylinder.top)
+  Equation.new(T + R**2, T, Cylinder.bottom)
+  Equation.new(dr(T), T, Cylinder.left)
+  Equation.new(T + t, T, Cylinder.right)
+  Equation.new((dr(Psi)*dz(T) - dz(Psi)*dr(T))/R - l(T)/Pr, T, Cylinder.interior)
+end
 
 Problem.new(:TMF) do |p|
   # Flow field calculation
   System.new(:Flow) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
     s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    equations_T
     Equation.new(R*Phi - 2*Psi[:x-1]/(R-R[:x-1])**2, Phi, Cylinder.right)
     Equation.new(R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
     Equation.new(R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)
+    Equation.new(c(Phi) + l(Phi) - Phi/R**2 - Tm*UDF.new("IxaR", Float) - Gr*dr(T), Phi, Cylinder.interior)
     Equation.new(s(Psi) - R*Phi, Psi, Cylinder.interior)
-    Equation.new(c(Phi) + (l(Phi) - Phi/R**2) - Tm*IxaR - Gr*dr(T), Phi, Cylinder.interior)
-    Equation.new(T - 1, T, Cylinder.top)
-    Equation.new(T, T, Cylinder.bottom)
-    Equation.new(dr(T), T, Cylinder.left)
-    Equation.new(dr(T), T, Cylinder.right)
-    Equation.new((dr(Psi)*dz(T) - dz(Psi)*dr(T))*Pr/R - l(T), T, Cylinder.interior)
     Equation.new(Vr, Vr, Cylinder.left)
     Equation.new(dr(Vz), Vz, Cylinder.left)
     Equation.new(Vr + dz(Psi)/R, Vr, Cylinder)
     Equation.new(Vz - dr(Psi)/R, Vz, Cylinder)
+
+  end
+  # T boundaries
+  System.new(:T0) do |s|
+    s.discretizer = Discretizer::FiniteDifference.new
+    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    equations_T
   end
 end

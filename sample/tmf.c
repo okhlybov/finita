@@ -19,15 +19,18 @@ double IxaR(int x, int y, int z) {
 	return gsl_sf_bessel_I1(aR)*(gsl_sf_bessel_I0(aR) + gsl_sf_bessel_In(2, aR));
 }
 
+double Tm;
+
 int main(int argc, char** argv) {
     int x, y;
-    NX = 25;
-    NY = 50;
-    Pr = 0.1;
-    Gr = 100;
+	#define S 2
+    NX = S*25;
+    NY = S*50;
+    Pr = 1;
+    Gr = 10;
     A = (NX-1)/1.0;
     B = (NY-1)/2.0;
-    double _[] = {1e2, -1}, *p = _;
+    double _[] = {10, -1}, *p = _;
     TMFSetup(argc, argv);
     /*
         Setting up the coordinate transformation.
@@ -35,9 +38,11 @@ int main(int argc, char** argv) {
         but before the solution phase because these fields are a part of equations.
     */
     for(x = 0; x < NX; ++x) for(y = 0; y < NY; ++y) {
-        R(x, y, 0) = x/A;
-        Z(x, y, 0) = y/B;
+        R(x,y,0) = x/A;
+        Z(x,y,0) = y/B;
     }
+    TMFT0Solve(); /* Likely a bug in Finita which leads to wrong T field if this system is not solved prior the main one */
+    PRINT_FIELD("T0.dat", T);
     /* Employing the continuation technique with respect to Tm to attain the solution for the flow */
     while((Tm = *p++) >= 0) {
         FINITA_HEAD printf("*** Tm = %e\n", Tm);
@@ -49,6 +54,8 @@ int main(int argc, char** argv) {
     PRINT_FIELD("T.dat", T);
     PRINT_FIELD("Vr.dat", Vr);
     PRINT_FIELD("Vz.dat", Vz);
+    PRINT_FIELD("R.dat", R);
+    PRINT_FIELD("Z.dat", Z);
     TMFCleanup();
     return 0;
 }
