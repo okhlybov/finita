@@ -40,9 +40,8 @@ int main(int argc, char** argv) {
     for(x = 0; x < NX; ++x) for(y = 0; y < NY; ++y) {
         R(x,y,0) = x/A;
         Z(x,y,0) = y/B;
+        T(x,y,0) = Z(x,y,0); /* Have to initialize T field to avoid misbehaving of the Newton method for nonlinear system */
     }
-    TMFT0Solve(); /* Likely a bug in Finita which leads to wrong T field if this system is not solved prior the main one */
-    PRINT_FIELD("T0.dat", T);
     /* Employing the continuation technique with respect to Tm to attain the solution for the flow */
     while((Tm = *p++) >= 0) {
         FINITA_HEAD printf("*** Tm = %e\n", Tm);

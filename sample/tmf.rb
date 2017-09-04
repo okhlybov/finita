@@ -48,21 +48,17 @@ def c(f)
   (dz(Psi)*(dr(f) - f/R) - dr(Psi)*dz(f))/R
 end
 
-def equations_T
-  t = - 1.5*Z + 1
-  Equation.new(T + t, T, Cylinder.top)
-  Equation.new(T + R**2, T, Cylinder.bottom)
-  Equation.new(dr(T), T, Cylinder.left)
-  Equation.new(T + t, T, Cylinder.right)
-  Equation.new((dr(Psi)*dz(T) - dz(Psi)*dr(T))/R - l(T)/Pr, T, Cylinder.interior)
-end
-
 Problem.new(:TMF) do |p|
   # Flow field calculation
   System.new(:Flow) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
     s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
-    equations_T
+    t = - 1.5*Z + 1
+    Equation.new(T + t, T, Cylinder.top)
+    Equation.new(T + R**2, T, Cylinder.bottom)
+    Equation.new(dr(T), T, Cylinder.left)
+    Equation.new(T + t, T, Cylinder.right)
+    Equation.new((dr(Psi)*dz(T) - dz(Psi)*dr(T))/R - l(T)/Pr, T, Cylinder.interior)
     Equation.new(R*Phi - 2*Psi[:x-1]/(R-R[:x-1])**2, Phi, Cylinder.right)
     Equation.new(R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
     Equation.new(R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)
@@ -72,12 +68,5 @@ Problem.new(:TMF) do |p|
     Equation.new(dr(Vz), Vz, Cylinder.left)
     Equation.new(Vr + dz(Psi)/R, Vr, Cylinder)
     Equation.new(Vz - dr(Psi)/R, Vz, Cylinder)
-
-  end
-  # T boundaries
-  System.new(:T0) do |s|
-    s.discretizer = Discretizer::FiniteDifference.new
-    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
-    equations_T
   end
 end
