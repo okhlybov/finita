@@ -1,0 +1,72 @@
+# 2D axisymmetric fluid flow driven by the traveling magnetic field in a cylindrical cavity
+# Dimensional form
+
+NX = Variable.new(:NX, Integer)
+NY = Variable.new(:NY, Integer)
+
+DX = Variable.new(:DX, Float) # Stretch coefficient in R-direction
+DY = Variable.new(:DY, Float) # Stretch coefficient in Z-direction
+
+Cylinder = Domain::Rectangular::Domain.new(NX, NY) # Cylindrical domain with 0-based indices
+
+Psi = Field.new(:Psi, Float, Cylinder) # Stream function
+Phi = Field.new(:Phi, Float, Cylinder) # Vorticity
+
+R = Field.new(:R, Float, Cylinder) # R-coordinate
+Z = Field.new(:Z, Float, Cylinder) # Z-coordinate
+
+Vr = Field.new(:Vr, Float, Cylinder) # Velocity in R direction
+Vz = Field.new(:Vz, Float, Cylinder) # Velocity in Z direction
+
+Hc = Variable.new(:Hc, Float) # Domain height
+Rc = Variable.new(:Rc, Float) # Domain radius
+Nu = Variable.new(:Nu, Float) # Kinematic viscosity of liquid
+RhoM = Variable.new(:RhoM, Float) # Density of liquid
+Sigma = Variable.new(:Sigma, Float) # Electric conductivity of lquid
+Omega = Variable.new(:Omega, Float) # TMF frequency
+B = Variable.new(:B, Float) # TMF induction
+a = Variable.new(:a, Float) # Wavevector length ???
+
+# = Variable.new(, Float)
+
+# 1st order derivative with respect to the R spatial coordinate
+def dr(f)
+  D.new(f, :x)*DX
+end
+
+# 1st order derivative with respect to the Z spatial coordinate
+def dz(f)
+  D.new(f, :y)*DY
+end
+
+# Laplace operator in axisymmetric cylindrical coordinate system
+def l(f)
+  dr(dr(f)) + dr(f)/R + dz(dz(f))
+end
+
+def s(f)
+  dr(dr(f)) - dr(f)/R + dz(dz(f))
+end
+
+# Convective term in axisymmetric cylindrical coordinate system
+def c(f)
+  (dz(Psi)*(dr(f) - f/R) - dr(Psi)*dz(f))/R
+end
+
+Problem.new(:TMFd) do |p|
+  p.instances << a << Rc << Hc << R << Z
+  # Flow field calculation
+  System.new(:Flow) do |s|
+    s.discretizer = Discretizer::FiniteDifference.new
+    s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    Equation.new(c(Phi)/RhoM + Nu*(l(Phi) - Phi/R**2) - B**2*Sigma*Omega*UDF.new("IxaR", Float), Phi, Cylinder.interior)
+    Equation.new(s(Psi) + RhoM*R*Phi, Psi, Cylinder.interior)
+    Equation.new(RhoM*R*Phi + dz(dz(Psi)), Phi, Cylinder.top)
+    Equation.new(RhoM*R*Phi + dz(dz(Psi)), Phi, Cylinder.bottom)
+    Equation.new(RhoM*R*Phi + dr(dr(Psi)), Phi, Cylinder.right)
+    Equation.new(Vr, Vr, Cylinder.left)
+    Equation.new(dr(Vz), Vz, Cylinder.left)
+    Equation.new(RhoM*R*Vr - dz(Psi), Vr, Cylinder)
+    Equation.new(RhoM*R*Vz + dr(Psi), Vz, Cylinder)
+  end
+end
