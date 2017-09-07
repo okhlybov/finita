@@ -240,6 +240,20 @@ class Solver::PETSc < Solver::Matrix
           FINITA_RETURN(0);
         }
       $
+      stream << %$
+        #ifndef NDEBUG
+          static void #{checkPivot}(PetscScalar* values, size_t index, size_t count) {
+            FinitaNode rn = #{mapper_code.node}(#{matrixRC}[index].row);
+            if(#{matrixRC}[index].row == #{matrixRC}[index].column && values[count] == 0.0) {
+              #{StringCode.type} out;
+              #{StringCode.ctor}(&out, NULL);
+              #{StringCode.pushFormat}(&out, "*** WARNING: zero pivot detected for %s(%d,%d,%d)\\n", #{mapper_code.fieldName}[rn.field], rn.x, rn.y, rn.z);
+              fputs(#{StringCode.chars}(&out), stderr);
+              #{StringCode.dtor}(&out);
+            }
+          }
+        #endif
+      $
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
       stream << %$
         void #{system_code.solve}(void) {
@@ -268,6 +282,9 @@ class Solver::PETSc < Solver::Matrix
             }
             #{assert}(count < #{matrixSize});
             values[count] = #{lhs_code.evaluate}(#{mapper_code.node}(#{matrixRC}[index].row), #{mapper_code.node}(#{matrixRC}[index].column));
+            #ifndef NDEBUG
+              #{checkPivot}(values, index, count);
+            #endif
             columns[count] = #{matrixRC}[index].column;
             ++count;
           }
@@ -383,6 +400,9 @@ class Solver::PETSc < Solver::Matrix
             }
             #{assert}(count < #{matrixSize});
             values[count] = #{jacobian_code.evaluate}(#{mapper_code.node}(#{matrixRC}[index].row), #{mapper_code.node}(#{matrixRC}[index].column));
+            #ifndef NDEBUG
+              #{checkPivot}(values, index, count);
+            #endif
             columns[count] = #{matrixRC}[index].column;
             ++count;
           }

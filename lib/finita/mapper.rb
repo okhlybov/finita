@@ -81,6 +81,12 @@ class Mapper
       end
       stream << %$default: #{abort}();$
       stream << %$} return 0;}$
+      fs = @mapper.unknowns.collect{|u| %~"#{u.name}"~}.join(",")
+      stream << %$
+        #ifndef NDEBUG
+          static const char* #{fieldName}[] = {#{fs}};
+        #endif
+      $
       stream << %$
         void #{indexSet}(size_t index, #{sc.cresult} value) {
           #{nodeSet}(#{node}(index), value);
