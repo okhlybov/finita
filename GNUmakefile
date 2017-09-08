@@ -10,7 +10,13 @@
 
 # Name of executable without extension, ex. <runme>.
 # On Windows the executable <runme.exe> will be produced.
-PROG ?= test
+PROG ?= tmfd
+
+PRJ = $(PROG)
+
+SRC_RB = sample/$(PRJ).rb
+SRC_C = $(PRJ)_auto.c
+SRC_H = $(PRJ)_auto.h
 
 # Space-separated list of source files which constitute the program.
 # C, C++ and FORTRAN source files may be specified simultaneously.
@@ -19,25 +25,23 @@ PROG ?= test
 # <.c> for C language,
 # <.cpp .cxx .cc> for C++ language,
 # <.f .F .for .f90> for FORTRAN language.
-MOD = cavity
-SRC ?= sample/$(MOD).c $(MOD)_auto.c
-
+SRC ?= sample/$(PRJ).c $(SRC_C)
 
 ### [optional] user-definable variables which are normally set.
 
 # Space-separated list of WHPC packages to be used, ex. <mpi blas lapack>.
 # This list will be passed to the PkgConfig utility to determine proper
 # compile and link command line options.
-PKG ?= paralution_dto
+PKG ?= lis_dso gsl
 
 # Options passed to the C preprocessor, ex. <-DNDEBUG>.
 # The same options will used to preprocess all kinds of sources
 # (FORTRAN included).
-CPPFLAGS ?= -I. -DNDEBUG
+CPPFLAGS ?= -I. #-DNDEBUG
 
 # Language-neutral options passed to all compilers, ex. <-O3>.
 # This variable is mainly intended to control the compilers optimizations.
-OPTFLAGS ?= -ansi -Wall -pedantic -g -std=c99 -O3 -x c++
+OPTFLAGS ?= -O3 #-ansi -Wall -pedantic -g #-x c++
 
 
 ### [extra] user-definable variables that might be of use.
@@ -97,7 +101,7 @@ PKG_CONFIG ?= pkg-config
 
 ifneq ($(PKG),)
 PKGCFLAGS := $(shell $(PKG_CONFIG) $(PKG) --cflags)
-PKGLIBS := $(shell $(PKG_CONFIG) $(PKG) --libs)
+PKGLIBS := $(shell $(PKG_CONFIG) $(PKG) --libs --static)
 endif
 
 CFLAGS += $(OPTFLAGS) $(PKGCFLAGS)
@@ -141,5 +145,11 @@ $(OBJPAT) : %.f90
 
 clean :
 	$(RM) $(EXE) $(OBJ) $(MOD) $(DEP)
+
+run : $(PROG)
+	./$(PROG) -info
+
+$(SRC_H) : $(SRC_RB)
+	ruby -I./lib bin/finitac $<
 
 -include $(DEP)
