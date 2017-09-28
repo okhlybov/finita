@@ -11,6 +11,7 @@ Cylinder = Domain::Rectangular::Domain.new(NX, NY) # Cylindrical domain with 0-b
 
 Psi = Field.new(:Psi, Float, Cylinder) # Stream function
 Phi = Field.new(:Phi, Float, Cylinder) # Vorticity
+T = Field.new(:T, Float, Cylinder) # Temperature
 
 R = Field.new(:R, Float, Cylinder) # R-coordinate
 Z = Field.new(:Z, Float, Cylinder) # Z-coordinate
@@ -21,11 +22,15 @@ Vz = Field.new(:Vz, Float, Cylinder) # Velocity in Z direction
 Hc = Variable.new(:Hc, Float) # Domain height
 Rc = Variable.new(:Rc, Float) # Domain radius
 Nu = Variable.new(:Nu, Float) # Kinematic viscosity of liquid
+KappaM = Variable.new(:KappaM, Float) # Heat conductivity of fluid
 RhoM = Variable.new(:RhoM, Float) # Density of liquid
+CpM = Variable.new(:CpM, Float) # Specific heat of liquid
 Sigma = Variable.new(:Sigma, Float) # Electric conductivity of lquid
 Omega = Variable.new(:Omega, Float) # TMF frequency
 B = Variable.new(:B, Float) # TMF induction
 a = Variable.new(:a, Float) # Wavevector length ???
+BetaT = Variable.new(:BetaT, Float) # Thermal expansion coeff.
+G = Variable.new(:G, Float) # Gravity coeff.
 
 # = Variable.new(, Float)
 
@@ -38,6 +43,10 @@ end
 def dz(f)
   D.new(f, :y)*DY
 end
+
+def d2r(f) dr(dr(f)) end
+
+def d2z(f) dz(dz(f)) end
 
 # Laplace operator in axisymmetric cylindrical coordinate system
 def l(f)
@@ -54,19 +63,30 @@ def c(f)
 end
 
 Problem.new(:TMFd) do |p|
-  p.instances << a << Rc << Hc << R << Z
+  p.instances << a << Rc << Hc << R << Z << Vr << Vz << Nu << Sigma << Omega << B << RhoM << KappaM << CpM << T
   # Flow field calculation
   System.new(:Flow) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
     s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
-    Equation.new(c(Phi)/RhoM + Nu*(l(Phi) - Phi/R**2) - B**2*Sigma*Omega*UDF.new("IxaR", Float), Phi, Cylinder.interior)
-    Equation.new(s(Psi) + RhoM*R*Phi, Psi, Cylinder.interior)
-    Equation.new(RhoM*R*Phi + dz(dz(Psi)), Phi, Cylinder.top)
-    Equation.new(RhoM*R*Phi + dz(dz(Psi)), Phi, Cylinder.bottom)
-    Equation.new(RhoM*R*Phi + dr(dr(Psi)), Phi, Cylinder.right)
+    s.nonlinear!
+
+    Equation.new(T - 1, T, Cylinder.top)
+    Equation.new(T, T, Cylinder.bottom)
+    Equation.new(dr(T), T, Cylinder.left)
+    Equation.new(dr(T), T, Cylinder.right)
+    Equation.new((dr(Psi)*dz(T) - dz(Psi)*dr(T))/(R*RhoM) - l(T)*KappaM/(RhoM*CpM), T, Cylinder.interior)
+
+    Equation.new(s(Psi) - RhoM*R*Phi, Psi, Cylinder.interior)
+
+    Equation.new(Phi, Phi, Cylinder.left)
+    Equation.new(RhoM*R*Phi - 2*Psi[:x-1]/(R-R[:x-1])**2, Phi, Cylinder.right)
+    Equation.new(RhoM*R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
+    Equation.new(RhoM*R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)
+    Equation.new(c(Phi)/RhoM + Nu*(l(Phi) - Phi/R**2) - G*BetaT*dr(T) - B**2*Sigma*Omega*UDF.new("IxaR", Float) , Phi, Cylinder.interior)
+
     Equation.new(Vr, Vr, Cylinder.left)
     Equation.new(dr(Vz), Vz, Cylinder.left)
-    Equation.new(RhoM*R*Vr - dz(Psi), Vr, Cylinder)
-    Equation.new(RhoM*R*Vz + dr(Psi), Vz, Cylinder)
+    Equation.new(RhoM*R*Vr + dz(Psi), Vr, Cylinder)
+    Equation.new(RhoM*R*Vz - dr(Psi), Vz, Cylinder)
   end
 end
