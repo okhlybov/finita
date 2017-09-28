@@ -32,7 +32,7 @@ SRC ?= sample/$(PRJ).c $(SRC_C)
 # Space-separated list of WHPC packages to be used, ex. <mpi blas lapack>.
 # This list will be passed to the PkgConfig utility to determine proper
 # compile and link command line options.
-PKG ?= lis_dso gsl
+PKG ?= petsc_dso gsl
 
 # Options passed to the C preprocessor, ex. <-DNDEBUG>.
 # The same options will used to preprocess all kinds of sources
@@ -41,7 +41,7 @@ CPPFLAGS ?= -I. #-DNDEBUG
 
 # Language-neutral options passed to all compilers, ex. <-O3>.
 # This variable is mainly intended to control the compilers optimizations.
-OPTFLAGS ?= -O3 #-ansi -Wall -pedantic -g #-x c++
+OPTFLAGS ?= -O3 #-ansi -Wall -pedantic -g
 
 
 ### [extra] user-definable variables that might be of use.
@@ -147,7 +147,7 @@ clean :
 	$(RM) $(EXE) $(OBJ) $(MOD) $(DEP)
 
 run : $(PROG)
-	./$(PROG) -info
+	time ./$(PROG) -pc_type lu -ksp_type bicg
 
 $(SRC_H) : $(SRC_RB)
 	ruby -I./lib bin/finitac $<
