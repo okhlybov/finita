@@ -32,12 +32,12 @@ SRC ?= sample/$(PRJ).c $(SRC_C)
 # Space-separated list of WHPC packages to be used, ex. <mpi blas lapack>.
 # This list will be passed to the PkgConfig utility to determine proper
 # compile and link command line options.
-PKG ?= lis_dso gsl
+PKG ?= mumps_dmo gsl
 
 # Options passed to the C preprocessor, ex. <-DNDEBUG>.
 # The same options will used to preprocess all kinds of sources
 # (FORTRAN included).
-CPPFLAGS ?= -I. #-DNDEBUG
+CPPFLAGS ?= -I. -DNDEBUG
 
 # Language-neutral options passed to all compilers, ex. <-O3>.
 # This variable is mainly intended to control the compilers optimizations.
@@ -146,8 +146,8 @@ $(OBJPAT) : %.f90
 clean :
 	$(RM) $(EXE) $(OBJ) $(MOD) $(DEP)
 
-run : $(PROG)
-	./$(PROG) -info
+run : $(EXE)
+	mpiexec -n 4 $(EXE) -snes_monitor -snes_converged_reason -pc_type ilu -ksp_type gmres
 
 $(SRC_H) : $(SRC_RB)
 	ruby -I./lib bin/finitac $<
