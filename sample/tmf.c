@@ -15,7 +15,7 @@ FINITA_HEAD { \
 #include <gsl/gsl_sf_bessel.h>
 
 double IxaR(int x, int y, int z) {
-	double aR = 1/*a*/ *R(x,y,z);
+	double aR = -1/*a*/ *R(x,y,z);
 	return gsl_sf_bessel_I1(aR)*(gsl_sf_bessel_I0(aR) + gsl_sf_bessel_In(2, aR));
 }
 
@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
     Gr = 10;
     A = (NX-1)/1.0;
     B = (NY-1)/2.0;
-    double _[] = {10, -1}, *p = _;
+    double _[] = {10, 1e3, 1e4, 1e5, 2e5, 5e5, 1e6, 2e6, 2.5e6, -1}, *p = _;
     TMFSetup(argc, argv);
     /*
         Setting up the coordinate transformation.
@@ -44,7 +44,10 @@ int main(int argc, char** argv) {
     }
     /* Employing the continuation technique with respect to Tm to attain the solution for the flow */
     while((Tm = *p++) >= 0) {
-        FINITA_HEAD printf("*** Tm = %e\n", Tm);
+        FINITA_HEAD {
+            printf("*** Tm = %e\n", Tm);
+            fflush(stdout);
+        }
         /* Attain the solution for the flow field */
         TMFFlowSolve();
     }

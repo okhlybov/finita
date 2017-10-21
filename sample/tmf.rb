@@ -49,16 +49,18 @@ def c(f)
 end
 
 Problem.new(:TMF) do |p|
+  p.instances << Pr
   # Flow field calculation
   System.new(:Flow) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
-    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
+    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::MPI.new, Jacobian::Numeric.new)
     t = - 1.5*Z + 1
     Equation.new(T + t, T, Cylinder.top)
     Equation.new(T + R**2, T, Cylinder.bottom)
     Equation.new(dr(T), T, Cylinder.left)
     Equation.new(T + t, T, Cylinder.right)
     Equation.new((dr(Psi)*dz(T) - dz(Psi)*dr(T))/R - l(T)/Pr, T, Cylinder.interior)
+    Equation.new(Phi, Phi, Cylinder.left)
     Equation.new(R*Phi - 2*Psi[:x-1]/(R-R[:x-1])**2, Phi, Cylinder.right)
     Equation.new(R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
     Equation.new(R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)

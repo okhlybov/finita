@@ -54,19 +54,20 @@ def c(f)
 end
 
 Problem.new(:TMFd) do |p|
-  p.instances << a << Rc << Hc << R << Z
+  p.instances << a << Rc << Hc << R << Z << B << Sigma << Omega
   # Flow field calculation
   System.new(:Flow) do |s|
     s.discretizer = Discretizer::FiniteDifference.new
-    s.solver = Solver::PETSc.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::Sequential.new, Jacobian::Numeric.new)
-    Equation.new(c(Phi)/RhoM + Nu*(l(Phi) - Phi/R**2) - B**2*Sigma*Omega*UDF.new("IxaR", Float), Phi, Cylinder.interior)
-    Equation.new(s(Psi) + RhoM*R*Phi, Psi, Cylinder.interior)
-    Equation.new(RhoM*R*Phi + dz(dz(Psi)), Phi, Cylinder.top)
-    Equation.new(RhoM*R*Phi + dz(dz(Psi)), Phi, Cylinder.bottom)
-    Equation.new(RhoM*R*Phi + dr(dr(Psi)), Phi, Cylinder.right)
+    s.solver = Solver::MUMPS.new(Mapper::Naive.new, Decomposer::Naive.new, Environment::MPI.new, Jacobian::Numeric.new)
+    Equation.new(Phi, Phi, Cylinder.left)
+    Equation.new(RhoM*R*Phi - 2*Psi[:x-1]/(R-R[:x-1])**2, Phi, Cylinder.right)
+    Equation.new(RhoM*R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
+    Equation.new(RhoM*R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)
+    Equation.new(c(Phi)/RhoM + Nu*(l(Phi) - Phi/R**2) - UDF.new("IxaR", Float), Phi, Cylinder.interior)
+    Equation.new(s(Psi) - RhoM*R*Phi, Psi, Cylinder.interior)
     Equation.new(Vr, Vr, Cylinder.left)
     Equation.new(dr(Vz), Vz, Cylinder.left)
-    Equation.new(RhoM*R*Vr - dz(Psi), Vr, Cylinder)
-    Equation.new(RhoM*R*Vz + dr(Psi), Vz, Cylinder)
+    Equation.new(RhoM*R*Vr + dz(Psi), Vr, Cylinder)
+    Equation.new(RhoM*R*Vz - dr(Psi), Vz, Cylinder)
   end
 end
