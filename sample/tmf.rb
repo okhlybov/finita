@@ -45,7 +45,7 @@ end
 
 # Convective term in axisymmetric cylindrical coordinate system
 def c(f)
-  (dz(Psi)*(dr(f) - f/R) - dr(Psi)*dz(f))/R
+  (dz(Psi)*f/R - dz(Psi)*dr(f) + dr(Psi)*dz(f))/R
 end
 
 Problem.new(:TMF) do |p|

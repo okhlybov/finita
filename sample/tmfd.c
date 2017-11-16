@@ -18,7 +18,7 @@ FINITA_HEAD { \
 
 double IxaR(int x, int y, int z) {
     double aR = a*R(x,y,z);
-    return (1.0/RhoM)*pow(B,2)*Sigma*Omega*gsl_sf_bessel_I1(aR)*(gsl_sf_bessel_I0(aR) + gsl_sf_bessel_In(2, aR));
+    return pow(B,2)*Sigma*Omega/(2*RhoM)*gsl_sf_bessel_I1(aR)*(gsl_sf_bessel_I0(aR) + gsl_sf_bessel_In(2, aR));
 }
 
 int main(int argc, char** argv) {
@@ -30,12 +30,12 @@ int main(int argc, char** argv) {
     Hc = Rc*2; // [cm]
     Nu = 1.3e-3; // [cm^2/s]
     RhoM = 5.5; // [g/cm^3]
-    Sigma = 2.37e6/*[Sm/m]*/ * 1e-11; // --> [CGS/cm]
-    Omega = 300/*[Hz]*/ *(2*M_PI); // --> [Rad/s]
+    Sigma = 2.37e6 /*[Sm/m]*/ *1e-11; // --> [CGS/cm]
+    Omega = 300 /*[Hz]*/ *(2*M_PI); // --> [Rad/s]
     a = -1/Rc;
     DX = (NX-1)/Rc;
     DY = (NY-1)/Hc;
-    double _[] = {1e-5, 1e-4, 5e-4, 6e-4, 8e-4, 1e-3, 1.5e-3, 1.8e-3, 1.9e-3, 2e-3, -1}, *p = _; // [T]
+    double _[] = {1e-5, 1e-4, 2e-4, 5e-4, 7e-4, 7.5e-4, 9e-4, 1e-3, 1.5e-3, 1.8e-3, 1.9e-3, 2e-3, -1}, *p = _; // [T]
     TMFdSetup(argc, argv);
     /*
         Setting up the coordinate transformation.
@@ -46,9 +46,9 @@ int main(int argc, char** argv) {
         R(x,y,0) = x/DX;
         Z(x,y,0) = y/DY;
     }
-    /* Employing the continuation technique with respect to Tm to attain the solution for the flow */
+    /* Employing the continuation technique with respect to B to attain the solution for the flow */
     while((B = *p++) >= 0) {
-        B = B/*[T]*/ *1e4; // --> [Gs]
+        B = B /*[T]*/ *1e4; // --> [Gs]
         FINITA_HEAD {
             printf("*** B = %e [Gs], Tm = %e\n", B,pow(B,2)*Omega*Sigma*pow(Rc,4)/(2*RhoM*pow(Nu,2)));
             fflush(stdout);

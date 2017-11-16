@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
     Gr = 10;
     A = (NX-1)/1.0;
     B = (NY-1)/2.0;
-    double _[] = {10, 1e3, 1e4, 1e5, 2e5, 5e5, 1e6, 2e6, 2.5e6, -1}, *p = _;
+    double _[] = {10, 1e3, 6.25e3, 1e4, 1e5, 1.56e5, 2e5, 3e5, 5e5, 6.25e5, 7e5, 1e6, 1.5e6, 1.8e6, 1.85e6, 1.9e6, 2e6, 2.5e6, -1}, *p = _;
     TMFSetup(argc, argv);
     /*
         Setting up the coordinate transformation.
