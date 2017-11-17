@@ -1,3 +1,4 @@
+CC = mpicc
 # This is a template of the WHPC-friendly makefile for building single executable
 # from multiple source files written in C, C++ and/or FORTRAN languages.
 # The makefile requires GCC compilers and GNU Make.
@@ -10,7 +11,7 @@
 
 # Name of executable without extension, ex. <runme>.
 # On Windows the executable <runme.exe> will be produced.
-PROG ?= tmfd
+PROG ?= tmf
 
 PRJ = $(PROG)
 
@@ -32,7 +33,7 @@ SRC ?= sample/$(PRJ).c $(SRC_C)
 # Space-separated list of WHPC packages to be used, ex. <mpi blas lapack>.
 # This list will be passed to the PkgConfig utility to determine proper
 # compile and link command line options.
-PKG ?= mumps_dmo gsl
+PKG ?= gsl
 
 # Options passed to the C preprocessor, ex. <-DNDEBUG>.
 # The same options will used to preprocess all kinds of sources
@@ -63,7 +64,7 @@ FFLAGS ?=
 LDFLAGS ?= -g
 
 # Extra library options, ex. <-lm>.
-LDLIBS ?=
+LDLIBS ?= -ldmumps
 
 ### No user-serviceable parts below ###
 
