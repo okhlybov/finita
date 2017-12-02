@@ -63,7 +63,7 @@ Problem.new(:TMFd) do |p|
     Equation.new(R*Phi - 2*Psi[:x-1]/(R-R[:x-1])**2, Phi, Cylinder.right)
     Equation.new(R*Phi - 2*Psi[:y-1]/(Z-Z[:y-1])**2, Phi, Cylinder.top)
     Equation.new(R*Phi - 2*Psi[:y+1]/(Z-Z[:y+1])**2, Phi, Cylinder.bottom)
-    Equation.new(c(Phi) + Nu*(l(Phi) - Phi/R**2) - UDF.new("IxaR", Float), Phi, Cylinder.interior)
+    Equation.new(c(Phi) + Nu*(l(Phi) - Phi/R**2) + UDF.new("IxaR", Float), Phi, Cylinder.interior)
     Equation.new(s(Psi) - R*Phi, Psi, Cylinder.interior)
     Equation.new(Vr, Vr, Cylinder.left)
     Equation.new(dr(Vz), Vz, Cylinder.left)
