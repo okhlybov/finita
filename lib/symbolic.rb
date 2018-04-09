@@ -1,6 +1,6 @@
 # Module for manipulating the symbolic expressions.
 #
-# Note: alters the following standard Ruby classes: ::Symbol, ::Numeric, ::Fixnum, ::Bignum, ::Float, ::Complex, ::Rational.
+# Note: alters the following standard Ruby classes: ::Symbol, ::Numeric, ::Integer, {::Fixnum, ::Bignum}, ::Float, ::Complex, ::Rational.
 module Symbolic
 
 
@@ -159,8 +159,11 @@ class ::Complex
 end
 
 
-#
-[::Fixnum, ::Float, ::Complex, ::Bignum, ::Rational].each do |cls|
+# Core Ruby numeric classes which require monkey patching
+NumericClasses = [::Float, ::Complex, ::Rational] + (::RUBY_VERSION > '2.4' ? [::Integer] : [::Fixnum, ::Bignum])
+
+
+NumericClasses.each do |cls|
   cls.class_eval do
     alias :symbolic_add +
     alias :symbolic_sub -

@@ -33,7 +33,7 @@ end # Numeric
 
 
 # Constant needs extra treatment
-[::Fixnum, ::Float, ::Complex, ::Bignum, ::Rational].each do |cls|
+Symbolic::NumericClasses.each do |cls|
   cls.class_eval do
     alias :finita_add +
     alias :finita_sub -
