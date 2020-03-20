@@ -299,7 +299,14 @@ class Solver::PETSc < Solver::Matrix
           ierr = VecSetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values, INSERT_VALUES); CHKERRQ(ierr);
           ierr = VecAssemblyBegin(#{vector}); CHKERRQ(ierr);
           ierr = VecAssemblyEnd(#{vector}); CHKERRQ(ierr);
-          ierr = KSPSolve(#{ksp}, #{vector}, #{vector});
+          ierr = KSPSolve(#{ksp}, #{vector}, #{vector}); CHKERRQ(ierr);
+          #ifndef NDEBUG
+            {
+              KSPConvergedReason reason;
+              ierr = KSPGetConvergedReason(#{ksp}, &reason); CHKERRQ(ierr);
+              #{assert}(reason > 0);
+            }
+          #endif
           ierr = VecGetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values); CHKERRQ(ierr);
           for(index = 0; index < #{vectorSize}; ++index) {
             #{mapper_code.indexSet}(#{vectorIndices}[index], values[index]);
@@ -418,6 +425,13 @@ class Solver::PETSc < Solver::Matrix
           FINITA_ENTER;
           ierr = #{unknowns2Vector}(#{vector}); CHKERRQ(ierr);
           ierr = SNESSolve(#{snes}, PETSC_NULL, #{vector}); CHKERRQ(ierr);
+          #ifndef NDEBUG
+            {
+              SNESConvergedReason reason;
+              ierr = SNESGetConvergedReason(#{snes}, &reason); CHKERRQ(ierr);
+              #{assert}(reason > 0);
+            }
+          #endif
           ierr = #{vector2Unknowns}(#{vector}); CHKERRQ(ierr);
           FINITA_RETURN(0);
         }
