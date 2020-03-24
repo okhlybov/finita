@@ -4,7 +4,7 @@ module Finita
 class Solver::Explicit < Solver
   def initialize(*args)
     super
-    raise "unsupported environment" unless environment.seq?
+    raise "unsupported environment" if environment.mpi?
   end
   def process!(*args)
     super
@@ -72,6 +72,7 @@ class Solver::Explicit < Solver
           FINITA_ENTER;
           first = #{decomposer_code.firstIndex}();
           last = #{decomposer_code.lastIndex}();
+          #{'#pragma omp parallel for' if @solver.environment.omp?}
           for(index = first; index <= last; ++index) {
             #{NodeCode.type} node = #{mapper_code.node}(index);
             #{mapper_code.indexSet}(index, #{@function_list_code.summate}(#{@array_code.get}(&#{evaluators}, index - first), node.x, node.y, node.z));
