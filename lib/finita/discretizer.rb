@@ -71,13 +71,13 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
   def self.d1i(f,i,d)
     r = range(i, d)
     if r.nil?
-      0.0
+      0
     elsif r.before? && r.after?
-      (f[i+1] - f[i-1])/2.0
+      (f[i+1] - f[i-1])/2
     elsif r.before?
-      (4.0*f[i-1] - f[i-2] - 3.0*f)/2.0
+      (4*f[i-1] - f[i-2] - 3*f)/2
     elsif r.after?
-      (4.0*f[i+1] - f[i+2] - 3.0*f)/2.0
+      (4*f[i+1] - f[i+2] - 3*f)/2
     else
       raise
     end
@@ -87,11 +87,11 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
     if r.nil?
       0
     elsif r.before? && r.after?
-      f[i+1] - 2.0*f + f[i-1]
+      f[i+1] - 2*f + f[i-1]
     elsif r.before?
-      f - 2.0*f[i-1] + f[i-2]
+      f - 2*f[i-1] + f[i-2]
     elsif r.after?
-      f - 2.0*f[i+1] + f[i+2]
+      f - 2*f[i+1] + f[i+2]
     else
       raise
     end
