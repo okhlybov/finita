@@ -2,10 +2,6 @@ module Finita
 
 
 class Solver::Explicit < Solver
-  def initialize(*args)
-    super
-    raise "unsupported environment" if environment.mpi?
-  end
   def process!(*args)
     super
     @unknowns = system.unknowns.to_a
