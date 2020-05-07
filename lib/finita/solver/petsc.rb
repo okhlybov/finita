@@ -66,9 +66,9 @@ class Solver::PETSc < Solver::Matrix
   end.new(:FinitaPETSc) # StaticCode
   # TODO : only the most common are listed; add more types
   Solvers = {
-    :Richardson => :KSPRICHARDSON, :Chebyshev => :KSPCHEBYSHEV, :CG => :KSPCG, :GMRES => :KSPGMRES, :FGMRES => :KSPFGMRES,
-    :TCQMR => :KSPTCQMR, :TFQMR => :KSPTFQMR, :CGS => :KSPCGS, :CR => :KSPCR, :QCG => :KSPQCG, :BiCG => :KSPBICG,
-    :MINRES => :KSPMINRES, :GCR => :KSPGCR
+      :Richardson => :KSPRICHARDSON, :Chebyshev => :KSPCHEBYSHEV, :CG => :KSPCG, :GMRES => :KSPGMRES, :FGMRES => :KSPFGMRES,
+      :TCQMR => :KSPTCQMR, :TFQMR => :KSPTFQMR, :CGS => :KSPCGS, :CR => :KSPCR, :QCG => :KSPQCG, :BiCG => :KSPBICG,
+      :MINRES => :KSPMINRES, :GCR => :KSPGCR
   }
   def solver=(s)
     raise "unsupported solver type #{s}" if Solvers[s].nil?
@@ -76,8 +76,8 @@ class Solver::PETSc < Solver::Matrix
   end
   # TODO : only the most common are listed; add more types
   Preconditioners = {
-    nil => :PCNONE, :Jacobi => :PCJACOBI, :SOR => :PCSOR, :LU => :PCLU, :ILU => :PCILU, :Cholesky => :PCCHOLESKY,
-    :BJacobi => :PCBJACOBI, :PBJacobi => :PCPBJACOBI
+      nil => :PCNONE, :Jacobi => :PCJACOBI, :SOR => :PCSOR, :LU => :PCLU, :ILU => :PCILU, :Cholesky => :PCCHOLESKY,
+      :BJacobi => :PCBJACOBI, :PBJacobi => :PCPBJACOBI
   }
   def preconditioner=(p)
     raise "unsupported preconditioner type #{p}" if Preconditioners[p].nil?
@@ -101,46 +101,12 @@ class Solver::PETSc < Solver::Matrix
       system_code.finalizer_codes << self
     end
     def write_defs(stream)
-      stream << %$static PetscErrorCode #{petscSetup}(void);$;
+      stream << %$static PetscErrorCode #{petscSetup}(void);$
       super
-      if @solver.linear?
-        stream << %$static KSP #{ksp};$
-        solver_setup_stmt = %$
-          ierr = KSPCreate(PETSC_COMM_WORLD, &#{ksp}); CHKERRQ(ierr);
-          ierr = KSPSetType(#{ksp}, #{Solvers[@solver.solver]}); CHKERRQ(ierr);
-          {
-            PC pc;
-            ierr = KSPGetPC(#{ksp}, &pc); CHKERRQ(ierr);
-            ierr = PCSetType(pc, #{Preconditioners[@solver.preconditioner]}); CHKERRQ(ierr);
-          }
-          ierr = KSPSetTolerances(#{ksp}, #{@solver.relative_tolerance}, #{@solver.absolute_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}); CHKERRQ(ierr);
-          ierr = KSPSetFromOptions(#{ksp}); CHKERRQ(ierr);
-          ierr = KSPSetOperators(#{ksp}, #{matrix}, #{matrix}); CHKERRQ(ierr);
-        $
-      else
-        stream << %$
-          static SNES #{snes};
-          static Vec #{functionVector};
-          static PetscErrorCode #{jacobianEvaluator}(SNES, Vec, Mat, Mat, void*);
-          static PetscErrorCode #{residualEvaluator}(SNES, Vec, Vec, void*);
-        $
-        solver_setup_stmt = %$
-          ierr = VecDuplicate(#{vector}, &#{functionVector}); CHKERRQ(ierr);
-          ierr = SNESCreate(PETSC_COMM_WORLD, &#{snes}); CHKERRQ(ierr);
-          {
-            PC pc;
-            KSP ksp;
-            ierr = SNESGetKSP(#{snes}, &ksp); CHKERRQ(ierr);
-            ierr = KSPSetType(ksp, #{Solvers[@solver.solver]}); CHKERRQ(ierr);
-            ierr = KSPGetPC(ksp, &pc); CHKERRQ(ierr);
-            ierr = PCSetType(pc, #{Preconditioners[@solver.preconditioner]}); CHKERRQ(ierr);
-          }
-          ierr = SNESSetTolerances(#{snes}, #{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}, PETSC_DEFAULT); CHKERRQ(ierr);
-          ierr = SNESSetFromOptions(#{snes}); CHKERRQ(ierr);
-          ierr = SNESSetJacobian(#{snes}, #{matrix}, #{matrix}, #{jacobianEvaluator}, PETSC_NULL); CHKERRQ(ierr);
-          ierr = SNESSetFunction(#{snes}, #{functionVector}, #{residualEvaluator}, PETSC_NULL); CHKERRQ(ierr);
-        $
-      end
+      stream << %$
+        static PetscErrorCode #{jacobianEvaluator}(SNES, Vec, Mat, Mat, void*);
+        static PetscErrorCode #{residualEvaluator}(SNES, Vec, Vec, void*);
+      $ if !@solver.linear?
       stream << %$
         static Mat #{matrix};
         static Vec #{vector};
@@ -217,7 +183,6 @@ class Solver::PETSc < Solver::Matrix
           ierr = VecCreate(PETSC_COMM_WORLD, &#{vector}); CHKERRQ(ierr);
           ierr = VecSetSizes(#{vector}, size, PETSC_DECIDE); CHKERRQ(ierr);
           ierr = VecSetFromOptions(#{vector}); CHKERRQ(ierr);
-          #{solver_setup_stmt};
           {
             index = 0;
             #{matrixSize} = #{SparsityPatternCode.size}(&#{sparsity});
@@ -269,6 +234,8 @@ class Solver::PETSc < Solver::Matrix
           PetscInt row;
           PetscInt* columns;
           PetscErrorCode ierr;
+          KSP ksp;
+          PC pc;
           FINITA_ENTER;
           values = (PetscScalar*)#{malloc}(#{matrixSize}*sizeof(PetscScalar)); #{assert}(values);
           columns = (PetscInt*)#{malloc}(#{matrixSize}*sizeof(PetscInt)); #{assert}(columns);
@@ -291,22 +258,30 @@ class Solver::PETSc < Solver::Matrix
           ierr = MatSetValues(#{matrix}, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
           #{free}(columns);
           ierr = MatAssemblyBegin(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+            #{assert}(#{matrixSize} >= #{vectorSize});
+            for(index = 0; index < #{vectorSize}; ++index) {
+              values[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(#{vectorIndices}[index]));
+            }
+            ierr = VecSetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values, INSERT_VALUES); CHKERRQ(ierr);
+            ierr = VecAssemblyBegin(#{vector}); CHKERRQ(ierr);
+              ierr = KSPCreate(PETSC_COMM_WORLD, &ksp); CHKERRQ(ierr);
+              ierr = KSPSetType(ksp, #{Solvers[@solver.solver]}); CHKERRQ(ierr);
+              ierr = KSPGetPC(ksp, &pc); CHKERRQ(ierr);
+              ierr = PCSetType(pc, #{Preconditioners[@solver.preconditioner]}); CHKERRQ(ierr);
+              ierr = KSPSetTolerances(ksp, #{@solver.relative_tolerance}, #{@solver.absolute_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}); CHKERRQ(ierr);
+              ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
+              ierr = KSPSetOperators(ksp, #{matrix}, #{matrix}); CHKERRQ(ierr);
+            ierr = VecAssemblyEnd(#{vector}); CHKERRQ(ierr);
           ierr = MatAssemblyEnd(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-          #{assert}(#{matrixSize} >= #{vectorSize});
-          for(index = 0; index < #{vectorSize}; ++index) {
-            values[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(#{vectorIndices}[index]));
-          }
-          ierr = VecSetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values, INSERT_VALUES); CHKERRQ(ierr);
-          ierr = VecAssemblyBegin(#{vector}); CHKERRQ(ierr);
-          ierr = VecAssemblyEnd(#{vector}); CHKERRQ(ierr);
-          ierr = KSPSolve(#{ksp}, #{vector}, #{vector}); CHKERRQ(ierr);
+          ierr = KSPSolve(ksp, #{vector}, #{vector}); CHKERRQ(ierr);
           #ifndef NDEBUG
             {
               KSPConvergedReason reason;
-              ierr = KSPGetConvergedReason(#{ksp}, &reason); CHKERRQ(ierr);
+              ierr = KSPGetConvergedReason(ksp, &reason); CHKERRQ(ierr);
               #{assert}(reason > 0);
             }
           #endif
+          ierr = KSPDestroy(&ksp); CHKERRQ(ierr);
           ierr = VecGetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values); CHKERRQ(ierr);
           for(index = 0; index < #{vectorSize}; ++index) {
             #{mapper_code.indexSet}(#{vectorIndices}[index], values[index]);
@@ -422,16 +397,32 @@ class Solver::PETSc < Solver::Matrix
         }
         static PetscErrorCode #{invoke}(void) {
           PetscErrorCode ierr;
+          Vec vector;
+          SNES snes;
+          KSP ksp;
+          PC pc;
           FINITA_ENTER;
           ierr = #{unknowns2Vector}(#{vector}); CHKERRQ(ierr);
-          ierr = SNESSolve(#{snes}, PETSC_NULL, #{vector}); CHKERRQ(ierr);
+          ierr = VecDuplicate(#{vector}, &vector); CHKERRQ(ierr);
+          ierr = SNESCreate(PETSC_COMM_WORLD, &snes); CHKERRQ(ierr);
+          ierr = SNESGetKSP(snes, &ksp); CHKERRQ(ierr);
+          ierr = KSPSetType(ksp, #{Solvers[@solver.solver]}); CHKERRQ(ierr);
+          ierr = KSPGetPC(ksp, &pc); CHKERRQ(ierr);
+          ierr = PCSetType(pc, #{Preconditioners[@solver.preconditioner]}); CHKERRQ(ierr);
+          ierr = SNESSetTolerances(snes, #{@solver.absolute_tolerance}, #{@solver.relative_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}, PETSC_DEFAULT); CHKERRQ(ierr);
+          ierr = SNESSetFromOptions(snes); CHKERRQ(ierr);
+          ierr = SNESSetJacobian(snes, #{matrix}, #{matrix}, #{jacobianEvaluator}, PETSC_NULL); CHKERRQ(ierr);
+          ierr = SNESSetFunction(snes, vector, #{residualEvaluator}, PETSC_NULL); CHKERRQ(ierr);
+          ierr = SNESSolve(snes, PETSC_NULL, #{vector}); CHKERRQ(ierr);
           #ifndef NDEBUG
             {
               SNESConvergedReason reason;
-              ierr = SNESGetConvergedReason(#{snes}, &reason); CHKERRQ(ierr);
+              ierr = SNESGetConvergedReason(snes, &reason); CHKERRQ(ierr);
               #{assert}(reason > 0);
             }
           #endif
+          ierr = SNESDestroy(&snes); CHKERRQ(ierr);
+          ierr = VecDestroy(&vector); CHKERRQ(ierr);
           ierr = #{vector2Unknowns}(#{vector}); CHKERRQ(ierr);
           FINITA_RETURN(0);
         }
