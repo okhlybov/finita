@@ -76,6 +76,87 @@ class Code < AutoC::Code
     def free; :free end
   end # CommonMethods
 
+  # Include into the Finita::Code descendant classes to trace heap allocations
+  module AllocTrace
+    def entities
+      super << AllocTraceCode
+    end
+    def malloc; :FINITA_MALLOC_TRACE end
+    def calloc; :FINITA_CALLOC_TRACE end
+  end
+
+  AllocTraceCode = Class.new(AutoC::Code) do
+    def write_intf(stream)
+      stream << %$
+        #include <malloc.h>
+        #ifndef NDEBUG
+          #define FINITA_MALLOC_TRACE(size) FinitaMallocTrace(size, __FINITA_FUNC__, __FILE__, __LINE__)
+          void* FinitaMallocTrace(size_t, const char*, const char*, int);
+          #define FINITA_CALLOC_TRACE(count, size) FinitaCallocTrace(count, size, __FINITA_FUNC__, __FILE__, __LINE__)
+          void* FinitaCallocTrace(size_t, size_t, const char*, const char*, int);
+        #else
+          #define FINITA_MALLOC_TRACE(size) malloc(size)
+          #define FINITA_CALLOC_TRACE(count, size) malloc(count, size)
+        #endif
+      $
+    end
+    def write_defs(stream)
+      stream << %$
+        #ifndef NDEBUG
+          #undef SZ
+          #define SZ size
+          #define Gb (1024*1024*1024)
+          #define Mb (1024*1024)
+          #define Kb (1024)
+          void* FinitaMallocTrace(size_t size, const char* func, const char* file, int line) {
+            char t[1024];
+            char* u;
+            double v;
+            if(size >= Gb) {
+              u = "Gb";
+              v = (double)SZ / Gb;
+            } else if(SZ >= Mb) {
+              u = "Mb";
+              v = (double)SZ / Mb;
+            } else if(SZ >= Kb) {
+              u = "Kb";
+              v = (double)SZ / Kb;
+            } else {
+              u = "b";
+              v = SZ;
+            }
+            snprintf(t, 1024, "malloc(%d) = %.2f%s", size, v, u);
+            FinitaInfo(func, file, line, t);
+            return malloc(size);
+          }
+          #undef SZ
+          #define SZ size*count
+          void* FinitaCallocTrace(size_t count, size_t size, const char* func, const char* file, int line) {
+            char t[1024];
+            char* u;
+            double v;
+            if(size >= Gb) {
+              u = "Gb";
+              v = (double)SZ / Gb;
+            } else if(SZ >= Mb) {
+              u = "Mb";
+              v = (double)SZ / Mb;
+            } else if(SZ >= Kb) {
+              u = "Kb";
+              v = (double)SZ / Kb;
+            } else {
+              u = "b";
+              v = SZ;
+            }
+            snprintf(t, 1024, "calloc(%d,%d) = %.2f%s", count, size, v, u);
+            FinitaInfo(func, file, line, t);
+            return calloc(count, size);
+          }
+        #endif
+      $
+    end
+  end.new
+
   # @private
   CommonCode = Class.new(AutoC::Code) do
     include CommonMethods
@@ -125,6 +206,9 @@ class Code < AutoC::Code
           #define __FINITA_FUNC__ __FUNCTION__
         #endif
 
+        #define FINITA_INFO(msg) FinitaInfo(__FINITA_FUNC__, __FILE__, __LINE__, msg);
+        #{extern} void FinitaInfo(const char*, const char*, int, const char*);
+
         #define FINITA_FAILURE(msg) FinitaFailure(__FINITA_FUNC__, __FILE__, __LINE__, msg);
         #{extern} void FinitaFailure(const char*, const char*, int, const char*);
 
@@ -152,6 +236,17 @@ class Code < AutoC::Code
     def write_defs(stream)
       stream << %$
         #include <math.h>
+        void FinitaInfo(const char* func, const char* file, int line, const char* msg) {
+          #{StringCode.type} out;
+          #{StringCode.ctor}(&out, NULL);
+          #ifdef FINITA_MPI
+            #{StringCode.pushFormat}(&out, "\\n[%d] Finita INFO in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
+            fprintf(stderr, #{StringCode.chars}(&out));
+          #else
+            #{StringCode.pushFormat}(&out, "\\nFinita INFO in %s(), %s:%d: %s\\n", func, file, line, msg);
+            fprintf(stderr, #{StringCode.chars}(&out));
+          #endif
+        }
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
           #{StringCode.type} out;
           #{StringCode.ctor}(&out, NULL);
