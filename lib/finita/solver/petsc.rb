@@ -83,6 +83,7 @@ class Solver::PETSc < Solver::Matrix
     raise "unsupported preconditioner type #{p}" if Preconditioners[p].nil?
     super
   end
+  attr_accessor :purge_sparsity # Boolean to purge sparsity pattern(s) after solver initialization to save (a lot) of heap memory
   def initialize(*args)
     super
     self.solver = :GMRES
@@ -202,6 +203,7 @@ class Solver::PETSc < Solver::Matrix
           for(index = first; index <= last; ++index) {
             #{vectorIndices}[index - first] = index;
           }
+          #{SparsityPatternCode.purge('&'+sparsity) if @solver.purge_sparsity};
           FINITA_RETURN(0);
         }
       $
