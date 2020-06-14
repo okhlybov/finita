@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-
 require "finita"
 require "optparse"
 require "benchmark"
