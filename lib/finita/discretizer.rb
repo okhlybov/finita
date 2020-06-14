@@ -45,7 +45,7 @@ class Discretizer::FiniteDifference < Symbolic::Traverser
     @expression = Ref.new(obj)
   end
   def ref(obj)
-    traverse_unary(obj)
+    obj.arg.is_a?(Field) ? @expression = obj : traverse_unary(obj)
   end
   def d(obj)
     @expression = Diffs[obj.diffs].call(obj.arg, @domain)
