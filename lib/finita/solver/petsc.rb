@@ -84,10 +84,12 @@ class Solver::PETSc < Solver::Matrix
     super
   end
   attr_accessor :purge_sparsity # Boolean to purge sparsity pattern(s) after solver initialization to save (a lot) of heap memory
+  attr_accessor :retain_solution # Boolean to retain the solution result and use it as an initial guess in subsequent computations
   def initialize(*args)
     super
     self.solver = :GMRES
     self.preconditioner = :ILU
+    self.retain_solution = true
     raise "unsupported environment" unless environment.seq? or environment.mpi?
   end
   def code(system_code)
@@ -110,7 +112,8 @@ class Solver::PETSc < Solver::Matrix
       $ if !@solver.linear?
       stream << %$
         static Mat #{matrix};
-        static Vec #{vector};
+        static Vec #{vector}, #{solution};
+        #define #{retainSolution} #{@solver.retain_solution ? 1 : 0}
         static size_t #{matrixSize}, #{vectorSize};
         static FinitaRowColumn* #{matrixRC};
         static PetscInt *#{vectorIndices};
@@ -184,6 +187,9 @@ class Solver::PETSc < Solver::Matrix
           ierr = VecCreate(PETSC_COMM_WORLD, &#{vector}); CHKERRQ(ierr);
           ierr = VecSetSizes(#{vector}, size, PETSC_DECIDE); CHKERRQ(ierr);
           ierr = VecSetFromOptions(#{vector}); CHKERRQ(ierr);
+          if(#{retainSolution}) {
+            ierr = VecDuplicate(#{vector}, &#{solution}); CHKERRQ(ierr);
+          }
           {
             index = 0;
             #{matrixSize} = #{SparsityPatternCode.size}(&#{sparsity});
@@ -271,11 +277,17 @@ class Solver::PETSc < Solver::Matrix
               ierr = KSPGetPC(ksp, &pc); CHKERRQ(ierr);
               ierr = PCSetType(pc, #{Preconditioners[@solver.preconditioner]}); CHKERRQ(ierr);
               ierr = KSPSetTolerances(ksp, #{@solver.relative_tolerance}, #{@solver.absolute_tolerance}, PETSC_DEFAULT, #{@solver.max_steps}); CHKERRQ(ierr);
+              if(#{retainSolution}) {
+                ierr = KSPSetInitialGuessNonzero(ksp, PETSC_TRUE); CHKERRQ(ierr);
+              } else {
+                ierr = VecDuplicate(#{vector}, &#{solution}); CHKERRQ(ierr);
+                ierr = VecZeroEntries(#{solution}); CHKERRQ(ierr);
+              }
               ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
               ierr = KSPSetOperators(ksp, #{matrix}, #{matrix}); CHKERRQ(ierr);
             ierr = VecAssemblyEnd(#{vector}); CHKERRQ(ierr);
           ierr = MatAssemblyEnd(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-          ierr = KSPSolve(ksp, #{vector}, #{vector}); CHKERRQ(ierr);
+          ierr = KSPSolve(ksp, #{vector}, #{solution}); CHKERRQ(ierr);
           #ifndef NDEBUG
             {
               KSPConvergedReason reason;
@@ -284,11 +296,14 @@ class Solver::PETSc < Solver::Matrix
             }
           #endif
           ierr = KSPDestroy(&ksp); CHKERRQ(ierr);
-          ierr = VecGetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values); CHKERRQ(ierr);
+          ierr = VecGetValues(#{solution}, #{vectorSize}, #{vectorIndices}, values); CHKERRQ(ierr);
           for(index = 0; index < #{vectorSize}; ++index) {
             #{mapper_code.indexSet}(#{vectorIndices}[index], values[index]);
           }
           #{decomposer_code.synchronizeUnknowns}();
+          if(!#{retainSolution}) {
+            ierr = VecDestroy(&#{solution}); CHKERRQ(ierr);
+          }
           #{free}(values);
           FINITA_RETURN(0);
         }
