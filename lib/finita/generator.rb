@@ -190,7 +190,7 @@ class Code < AutoC::Code
         #endif
 
         #ifndef NDEBUG
-          #{CallStackCode.type} #{CallStackCode.trace};
+          extern #{CallStackCode.type} #{CallStackCode.trace};
           #define FINITA_ENTER {#{CallStackCode.element.type} cs = {__FINITA_FUNC__, __FILE__, __LINE__}; #{CallStackCode.push}(&#{CallStackCode.trace}, cs);}
           #define FINITA_LEAVE {#{CallStackCode.pop}(&#{CallStackCode.trace})}
           #define FINITA_RETURN(x) {#{CallStackCode.pop}(&#{CallStackCode.trace}); return x;}
