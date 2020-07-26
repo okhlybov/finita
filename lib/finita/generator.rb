@@ -195,9 +195,9 @@ class Code < AutoC::Code
           #define FINITA_LEAVE {#{CallStackCode.pop}(&#{CallStackCode.trace});}
           #define FINITA_RETURN(x) {#{CallStackCode.pop}(&#{CallStackCode.trace}); return x;}
         #else
-          #define FINITA_ENTER
-          #define FINITA_LEAVE
-          #define FINITA_RETURN(x) return x
+          #define FINITA_ENTER {}
+          #define FINITA_LEAVE {}
+          #define FINITA_RETURN(x) {return x;}
         #endif
 
         #if __STDC_VERSION__ >= 199901L
