@@ -101,7 +101,7 @@ class Solver::MUMPS < Solver::Matrix
       abs = CAbs[system_code.result]
       if @solver.linear?
         stream << %$
-          void #{system_code.solve}(void) {
+          int #{system_code.solve}(void) {
             int index;
             FINITA_ENTER;
             for(index = 0; index < #{ctx}.nz_loc; ++index) {
@@ -144,10 +144,10 @@ class Solver::MUMPS < Solver::Matrix
             }
           $
         end
-        stream << "FINITA_LEAVE;}"
+        stream << "FINITA_RETURN(#{ctx}.INFOG(1));}"
       else
         stream << %$
-          void #{system_code.solve}(void) {
+          int #{system_code.solve}(void) {
             #{system_code.cresult} norm;
             int index, step = 0;
             int stop, first = 1;
@@ -214,7 +214,7 @@ class Solver::MUMPS < Solver::Matrix
         end
         stream << %$
             ++step;} while(!stop);
-            FINITA_LEAVE;
+            FINITA_RETURN(#{ctx}.INFOG(1));
           }
         $
       end

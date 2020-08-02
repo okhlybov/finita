@@ -47,7 +47,7 @@ class Solver::ViennaCL < Solver::Matrix
     end
     def write_solve_linear(stream)
       stream << %$
-        void #{system_code.solve}(void) {
+        int #{system_code.solve}(void) {
           size_t index;
           #{SparsityPatternCode.it} it;
           FINITA_ENTER;
@@ -73,14 +73,14 @@ class Solver::ViennaCL < Solver::Matrix
             #{mapper_code.indexSet}(index, v[index]);
           }
           #{decomposer_code.synchronizeUnknowns}();
-          FINITA_LEAVE;
+          FINITA_RETURN(1); /* FIXME */
         }
       $
     end
     def write_solve_nonlinear(stream)
       abs = CAbs[system_code.result]
       stream << %$
-        void #{system_code.solve}(void) {
+        int #{system_code.solve}(void) {
           int stop, step = 0;
           size_t index;
           #{SparsityPatternCode.it} it;
@@ -122,7 +122,7 @@ class Solver::ViennaCL < Solver::Matrix
             #endif
             ++step;
           } while(!stop);
-          FINITA_LEAVE;
+          FINITA_RETURN(1); /* FIXME */
         }
       $
     end

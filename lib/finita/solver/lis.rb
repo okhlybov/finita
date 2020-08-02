@@ -101,7 +101,7 @@ class Solver::LIS < Solver::Matrix
     end
     def write_solve_linear(stream)
       stream << %$
-        void #{system_code.solve}(void) {
+        int #{system_code.solve}(void) {
           int ierr;
           size_t first, last, index;
           #{SparsityPatternCode.it} it;
@@ -158,14 +158,14 @@ class Solver::LIS < Solver::Matrix
           ierr = lis_matrix_destroy(A); CHKERR(ierr);
           ierr = lis_vector_destroy(x); CHKERR(ierr);
           ierr = lis_vector_destroy(b); CHKERR(ierr);
-          FINITA_LEAVE;
+          FINITA_RETURN(1); /* FIXME */
         }
       $
     end
     def write_solve_nonlinear(stream)
       abs = CAbs[system_code.result]
       stream << %$
-        void #{system_code.solve}(void) {
+        int #{system_code.solve}(void) {
           int stop, step = 0;
           int ierr;
           size_t first, last, index;
@@ -253,7 +253,7 @@ class Solver::LIS < Solver::Matrix
           ++step;
         } while(!stop);
         #{free}(nnz);
-        FINITA_LEAVE;
+        FINITA_RETURN(1); /* FIXME */
       }$
     end
     def write_initializer(stream)

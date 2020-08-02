@@ -229,8 +229,8 @@ class Solver::PETSc < Solver::Matrix
       $
       @solver.linear? ? write_solve_linear(stream) : write_solve_nonlinear(stream)
       stream << %$
-        void #{system_code.solve}(void) {
-          #{invoke}();
+        int #{system_code.solve}(void) {
+          return #{invoke}();
         }
       $
     end
@@ -242,6 +242,7 @@ class Solver::PETSc < Solver::Matrix
           PetscInt row;
           PetscInt* columns;
           PetscErrorCode ierr;
+          KSPConvergedReason reason;
           KSP ksp;
           PC pc;
           FINITA_ENTER;
@@ -288,13 +289,7 @@ class Solver::PETSc < Solver::Matrix
             ierr = VecAssemblyEnd(#{vector}); CHKERRQ(ierr);
           ierr = MatAssemblyEnd(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
           ierr = KSPSolve(ksp, #{vector}, #{solution}); CHKERRQ(ierr);
-          #ifndef NDEBUG
-            {
-              KSPConvergedReason reason;
-              ierr = KSPGetConvergedReason(ksp, &reason); CHKERRQ(ierr);
-              #{assert}(reason > 0);
-            }
-          #endif
+          ierr = KSPGetConvergedReason(ksp, &reason); CHKERRQ(ierr);
           ierr = KSPDestroy(&ksp); CHKERRQ(ierr);
           ierr = VecGetValues(#{solution}, #{vectorSize}, #{vectorIndices}, values); CHKERRQ(ierr);
           for(index = 0; index < #{vectorSize}; ++index) {
@@ -305,7 +300,7 @@ class Solver::PETSc < Solver::Matrix
             ierr = VecDestroy(&#{solution}); CHKERRQ(ierr);
           }
           #{free}(values);
-          FINITA_RETURN(0);
+          FINITA_RETURN(reason);
         }
       $
     end
@@ -414,6 +409,7 @@ class Solver::PETSc < Solver::Matrix
         }
         static PetscErrorCode #{invoke}(void) {
           PetscErrorCode ierr;
+          SNESConvergedReason reason;
           Vec vector;
           SNES snes;
           KSP ksp;
@@ -431,17 +427,11 @@ class Solver::PETSc < Solver::Matrix
           ierr = SNESSetJacobian(snes, #{matrix}, #{matrix}, #{jacobianEvaluator}, PETSC_NULL); CHKERRQ(ierr);
           ierr = SNESSetFunction(snes, vector, #{residualEvaluator}, PETSC_NULL); CHKERRQ(ierr);
           ierr = SNESSolve(snes, PETSC_NULL, #{vector}); CHKERRQ(ierr);
-          #ifndef NDEBUG
-            {
-              SNESConvergedReason reason;
-              ierr = SNESGetConvergedReason(snes, &reason); CHKERRQ(ierr);
-              #{assert}(reason > 0);
-            }
-          #endif
+          ierr = SNESGetConvergedReason(snes, &reason); CHKERRQ(ierr);
           ierr = SNESDestroy(&snes); CHKERRQ(ierr);
           ierr = VecDestroy(&vector); CHKERRQ(ierr);
           ierr = #{vector2Unknowns}(#{vector}); CHKERRQ(ierr);
-          FINITA_RETURN(0);
+          FINITA_RETURN(reason);
         }
       $
     end

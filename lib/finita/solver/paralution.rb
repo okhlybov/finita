@@ -147,7 +147,7 @@ class Solver::Paralution < Solver::Matrix
     end
     def write_solve_linear(stream)
       stream << %$
-        void #{system_code.solve}(void) {
+        int #{system_code.solve}(void) {
           FINITA_ENTER;
           double tic = paralution_time();
           #{SparsityPatternCode.it} it;
@@ -193,14 +193,14 @@ class Solver::Paralution < Solver::Matrix
           #{decomposer_code.synchronizeUnknowns}();
           double tac = paralution_time();
           std::cout << "System solution time " << (tac-tic)/1000000 << " seconds" << std::endl;
-          FINITA_LEAVE;
+          FINITA_RETURN(1); /* FIXME */
         }
       $
     end
     def write_solve_nonlinear(stream)
       abs = CAbs[system_code.result]
       stream << %$
-        void #{system_code.solve}(void) {
+        int #{system_code.solve}(void) {
           int stop, step = 0;
           #{SparsityPatternCode.it} it;
           FINITA_ENTER;
@@ -268,7 +268,7 @@ class Solver::Paralution < Solver::Matrix
           } while(!stop);
           double tac = paralution_time();
           std::cout << "System solution time " << (tac-tic)/1000000 << " seconds" << std::endl;
-          FINITA_LEAVE;
+          FINITA_RETURN(1); /* FIXME */
         }
       $
     end

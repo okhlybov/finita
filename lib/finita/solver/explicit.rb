@@ -63,7 +63,7 @@ class Solver::Explicit < Solver
       end
       stream << %$}FINITA_LEAVE;}$
       stream << %$
-        void #{system_code.solve}(void) {
+        int #{system_code.solve}(void) {
           size_t index, first, last;
           FINITA_ENTER;
           first = #{decomposer_code.firstIndex}();
@@ -74,7 +74,7 @@ class Solver::Explicit < Solver
             #{mapper_code.indexSet}(index, #{@function_list_code.summate}(#{@array_code.get}(&#{evaluators}, index - first), node.x, node.y, node.z));
           }
           #{decomposer_code.synchronizeUnknowns}();
-          FINITA_LEAVE;
+          FINITA_RETURN(1);
         }
       $
     end
