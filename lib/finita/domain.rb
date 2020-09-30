@@ -92,7 +92,7 @@ StaticCode = Class.new(Finita::Code) do
       #{extern} int #{within}(#{type}*, int, int, int);
       #{extern} size_t #{size}(#{type}*);
       #ifndef NDEBUG
-        void #{info}(#{type}*, #{StringCode.type_ref});
+        #{extern} void #{info}(#{type}*, #{StringCode.type_ref});
       #endif
       #{inline} size_t #{index}(#{type}* self, int x, int y, int z) {
         size_t index, dx, dy;
