@@ -1,0 +1,8 @@
+[submodule "ext/autoc"]
+	path = ext/autoc
+	url = git@github.com:okhlybov/autoc.git
+	branch = next
+[submodule "ext/symbolica"]
+	path = ext/symbolica
+	url = git@github.com:okhlybov/symbolica.git
+	branch = next
