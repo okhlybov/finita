@@ -28,7 +28,7 @@ CPMAddPackage(
 
 find_program(Ruby_EXECUTABLE ruby)
 
-#find_program(AStyle NAMES astyle REQUIRED)
+find_program(AStyle NAMES astyle REQUIRED)
 
 # Source code formatting with AStyle is mandatory for proper Doxygen operation
 add_custom_command(
@@ -36,7 +36,7 @@ add_custom_command(
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/test.rb
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMAND ${Ruby_EXECUTABLE} -I../lib -I../ext/autoc/lib -I../ext/symbolica/lib ${CMAKE_CURRENT_SOURCE_DIR}/test.rb
-    #COMMAND ${AStyle} -n test_auto.[ch]
+    COMMAND ${AStyle} -n test_auto.h test_auto.c
     VERBATIM
 )
 
@@ -82,7 +82,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE)
 # *
 # Specify GCC-specific optimization flags
 # Set it to empty string or comment it out to revert to default configuration behavior
-set(GNU_RELEASE_FLAGS "-pipe -O3 -Wall -pedantic")
+set(GNU_RELEASE_FLAGS "-pipe -O3 -Wall -pedantic -DNDEBUG")
 
 # *
 # Specify GCC-specific debugging flags
