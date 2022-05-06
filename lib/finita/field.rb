@@ -1,14 +1,17 @@
 # frozen_string_literal: true
 
 
-require 'autoc/composite'
+require 'finita/core'
 require 'finita/grid'
+require 'autoc/composite'
 
 
 module Finita
 
 
   class Field < AutoC::Composite
+
+    include Finita::Instantiable
 
     attr_reader :grid
 
@@ -17,6 +20,8 @@ module Finita
     include Finita::Pristine
 
     def destructible? = true
+    def custom_constructible? = false
+    def default_constructible? = false
 
     def initialize(grid, scalar = :double, type: grid.decorate_identifier(scalar), visibility: :public)
       super(type, visibility:)
@@ -38,7 +43,7 @@ module Finita
     private def configure
       dependencies << scalar << grid
       super
-      def_method :void, :create, { self: type, grid: grid.const_ptr_type, layer_count: :size_t }, instance: :custom_create do
+      def_method :void, :create, { self: type, grid: grid.const_type, layer_count: :size_t }, refs: 2 do
         code %{
           assert(self);
           assert(grid);

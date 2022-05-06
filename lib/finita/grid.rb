@@ -60,9 +60,12 @@ module Finita::Grid
 
   class Cartesian2 < AutoC::Structure
 
+    include Finita::Instantiable
+    
     prepend AutoC::Composite::Traversable
 
     def copyable? = false
+    def custom_constructible? = false
     def default_constructible? = false
 
     def node = XY
