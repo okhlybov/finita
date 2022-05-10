@@ -53,11 +53,15 @@ module Finita
     end
 
     def interface_definitions(stream)
-      stream << "AUTOC_EXTERN #{type.type} #{identifier};" if visibility == :public
+      instance_definitions(stream) if visibility == :public
     end
 
     def forward_declarations(stream)
-      stream << "AUTOC_EXTERN #{type.type} #{identifier};" unless visibility == :public
+      instance_definitions(stream) unless visibility == :public
+    end
+
+    private def instance_definitions(stream)
+      stream << "AUTOC_EXTERN #{type.type} #{identifier};"
     end
 
     def definitions(stream)

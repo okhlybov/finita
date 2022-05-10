@@ -11,13 +11,23 @@ require 'autoc/structure'
 module Finita::Grid
 
 
-  XY = AutoC::Structure.new :XY, { x: :int, y: :int }, profile: :glassbox
+  class Node < AutoC::Structure
+
+    attr_reader :items
+
+    def initialize(type, items)
+      @items = items
+      super type, ::Hash[items.collect{ |_| [_, :int] }], profile: :glassbox
+    end
+
+    XY = new :XY, %i[x y]
+    XYZ = new :XYZ, %i[x y z]
+
+  end
 
 
-  XY_VECTOR = AutoC::Vector.new :XYVector, XY
-
-
-  XYZ = AutoC::Structure.new :XYZ, { x: :int, y: :int, z: :int }, profile: :glassbox
+  XY_VECTOR = AutoC::Vector.new :XYVector, Node::XY
+  XYZ_VECTOR = AutoC::Vector.new :XYZVector, Node::XYZ
 
 
   # @abstract
@@ -68,11 +78,13 @@ module Finita::Grid
     def custom_constructible? = false
     def default_constructible? = false
 
-    def node = XY
+    def node = Node::XY
 
     def element = node
 
     private def nodes = XY_VECTOR
+
+    def field(scalar, **kws) = Field.new(self, scalar, **kws)
 
     def initialize(type = :Cartesian2, visibility: :public)
       super(type, { x1: :int, x2: :int, y1: :int, y2: :int, nodes: }, visibility:)

@@ -6,18 +6,17 @@ require 'finita/grid'
 require 'autoc/composite'
 
 
-module Finita
+module Finita::Grid
 
 
   class Field < AutoC::Composite
 
+    include Finita::Pristine
     include Finita::Instantiable
 
     attr_reader :grid
 
     attr_reader :scalar
-
-    include Finita::Pristine
 
     def destructible? = true
     def custom_constructible? = false
@@ -28,6 +27,8 @@ module Finita
       @scalar = AutoC::Type.coerce(scalar)
       @grid = grid
     end
+
+    def instance(identifier = "_field#{@@count+=1}_", visibility: :public) = Field::Instance.new(self, identifier, visibility:)
 
     def composite_interface_declarations(stream)
       super
@@ -95,5 +96,47 @@ module Finita
     end
   end
 
+
+  class Field::Instance < Finita::Instantiable::Instance
+
+    def create(grid, layer_count = 1) = super grid, @layer_count = layer_count
+
+    private def instance_definitions(stream)
+      super
+      node = type.grid.node.type
+      fields = type.grid.node.items.join(',')
+      defs = [
+        %{
+          /**
+            @brief
+          */
+          #define #{identifier}_n(t,#{fields}) (*#{type.view}(&#{identifier},(#{node}){#{fields}},t))
+        },
+        %{
+          /**
+            @brief
+          */
+          #define #{identifier}(#{fields}) (*#{type.view0}(&#{identifier},(#{node}){#{fields}}))
+        }
+      ]
+      if @layer_count > 1
+        defs << %{
+          /**
+            @brief
+          */
+          #define #{identifier}_(#{fields}) #{identifier}_n(1,#{fields})
+        }
+      end
+      if @layer_count > 2
+        defs << %{
+          /**
+            @brief
+          */
+          #define #{identifier}__(#{fields}) #{identifier}_n(2,#{fields})
+        }
+      end
+      defs.each { |x| stream << x }
+    end
+  end
 
 end
