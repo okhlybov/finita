@@ -119,7 +119,7 @@ module Finita::Grid
           assert(self);
           assert(self->x1 <= node.x && node.x <= self->x2);
           assert(self->y1 <= node.y && node.y <= self->y2);
-          return (self->x2-self->x1+1)*node.y + (node.x-self->x1);
+          return (self->x2-self->x1+1)*(node.y-self->y1) + (node.x-self->x1);
         }
       end
       def_method :size_t, :index_count, { self: const_type } do
