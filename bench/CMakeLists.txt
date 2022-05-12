@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.16) # Ninja Multi-Config requires 3.17+
 # ****
 # Set to project name from which the executable name will be deduced
 # Specify languages the program is written in
-project(test LANGUAGES C)
+project(c0 LANGUAGES C)
 
 find_program(Ruby_EXECUTABLE ruby)
 
@@ -74,7 +74,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE)
 # *
 # Specify GCC-specific optimization flags
 # Set it to empty string or comment it out to revert to default configuration behavior
-set(GNU_RELEASE_FLAGS "-pipe -O3 -Wall -pedantic -g -DNDEBUG")
+set(GNU_RELEASE_FLAGS "-pipe -O3 -march=native -Wall -pedantic -g -DNDEBUG")
 
 # *
 # Specify GCC-specific debugging flags

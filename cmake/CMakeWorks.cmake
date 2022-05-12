@@ -62,7 +62,7 @@ endforeach(PC)
 # GCC specific configuration
 if(${CMAKE_C_COMPILER_ID} MATCHES GNU)
  	# Strip debugging information from release builds
-	set(CMAKE_EXE_LINKER_FLAGS_RELEASE -s)
+	#set(CMAKE_EXE_LINKER_FLAGS_RELEASE -s)
 	# Account for static linking on demand
 	if(${USE_STATIC_LINKING})
 		target_link_options(${PROJECT_NAME} PUBLIC -static)
