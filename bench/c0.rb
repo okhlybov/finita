@@ -3,7 +3,7 @@ require 'finita/field'
 require 'finita/grid'
 
 
-N = 10
+N = 1000
 
 
 world = Finita::Grid::Cartesian2.new(:C2)

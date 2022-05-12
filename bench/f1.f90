@@ -14,8 +14,8 @@ do y=1,N
 end do
 
 do q=1,T
-  do x=2,N-1
-    do y=2,N-1
+  do y=2,N-1
+    do x=2,N-1
       f_(x,y) = ( (f(x+1,y) + f(x-1,y) + f(x,y+1) + f(x,y-1) - 4*f(x,y)) + f(x,y) )*0.1
     end do
   end do

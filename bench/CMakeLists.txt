@@ -74,7 +74,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE)
 # *
 # Specify GCC-specific optimization flags
 # Set it to empty string or comment it out to revert to default configuration behavior
-set(GNU_RELEASE_FLAGS "-pipe -O3 -march=native -Wall -pedantic -g -DNDEBUG")
+set(GNU_RELEASE_FLAGS "-pipe -O3 -march=native -ffast-math -Wall -pedantic -g -DNDEBUG -pg")
 
 # *
 # Specify GCC-specific debugging flags

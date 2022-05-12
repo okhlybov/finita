@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "c0_auto.h"
 
-#define N 10
+#define N 1000
 
 void runme() {
   for(unsigned t = 0; t < 10000; ++t) {
