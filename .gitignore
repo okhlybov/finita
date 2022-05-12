@@ -1,1 +1,5 @@
-build
+.idea
+**/build
+**/*_auto.[ch]
+**/*.out
+**/*~
