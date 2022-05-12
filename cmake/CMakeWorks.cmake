@@ -30,6 +30,26 @@ if(NOT "${GNU_DEBUG_FLAGS}" STREQUAL "")
 	endif()
 endif()
 
+# Set up default Clang-specific release compilation flags
+if(NOT "${CLANG_RELEASE_FLAGS}" STREQUAL "")
+	if(${CMAKE_C_COMPILER_ID} MATCHES Clang)
+		set(CMAKE_C_FLAGS_RELEASE ${CLANG_RELEASE_FLAGS})
+	endif()
+	if(${CMAKE_CXX_COMPILER_ID} MATCHES Clang)
+		set(CMAKE_CXX_FLAGS_RELEASE ${CLANG_RELEASE_FLAGS})
+	endif()
+endif()
+
+# Set up default Clang-specific debug compilation flags
+if(NOT "${CLANG_DEBUG_FLAGS}" STREQUAL "")
+	if(${CMAKE_C_COMPILER_ID} MATCHES Clang)
+		set(CMAKE_C_FLAGS_DEBUG ${CLANG_DEBUG_FLAGS})
+	endif()
+	if(${CMAKE_CXX_COMPILER_ID} MATCHES Clang)
+		set(CMAKE_CXX_FLAGS_DEBUG ${CLANG_DEBUG_FLAGS})
+	endif()
+endif()
+
 include(CMakeDependentOption)
 
 # If set, PkgConfig is requested to link its modules statically
