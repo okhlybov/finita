@@ -5,7 +5,13 @@
 #include <malloc.h>
 #include <assert.h>
 
-unsigned N;
+//#define static_N
+
+#ifdef static_N
+  #define N 1000
+#else
+  unsigned N;
+#endif
 #define T 10000
 
 double *f, *f_;
@@ -20,7 +26,6 @@ static inline double* ref(double* restrict f, unsigned x, unsigned y) {
 #define f_(x,y) (*ref(f_,x,y))
 
 void runme() {
-  int x = 0; for(int y = 0; y < N; ++y) f_(x,y) = f(x,y) = 1;
   for(unsigned t = 0 ; t < T; ++t) {
     for(unsigned y = 1; y < N-1; ++y) {
       for(unsigned x = 1; x < N-1; ++x) {
@@ -43,8 +48,11 @@ void runme() {
 }
 
 int main(int argc, char** argv) {
+#ifndef static_N
   N = 1000;
+#endif
   f  = malloc(N*N*sizeof(double));
   f_ = malloc(N*N*sizeof(double));
-  runme();
+  int x = 0; for(int y = 0; y < N; ++y) f_(x,y) = f(x,y) = 1;
+   runme();
 }
