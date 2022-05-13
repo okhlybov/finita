@@ -88,6 +88,9 @@ module Finita::Grid2
     
     def composite_interface_declarations(stream)
       stream << %{
+        /**
+          @brief
+        */
         typedef struct {
           #{node_range.type} node_range; /**< @private */
         } #{type};
@@ -117,4 +120,103 @@ module Finita::Grid2
   end
 
 
+  class StaticCartesian < AutoC::Composite
+
+    include Finita::Pristine
+    include Finita::Instantiable
+    prepend AutoC::Composite::Traversable
+  
+    def node = NODE
+    def element = node
+  
+    def field(scalar, **kws) = Finita::Field.new(self, scalar, **kws)
+  
+    attr_reader :x1, :x2, :y1, :y2
+  
+    def initialize(type, xs, ys, visibility: :public)
+      super(type, visibility:)
+      @x1, @x2 = xs.is_a?(Array) ? xs : [0, xs-1]
+      @y1, @y2 = ys.is_a?(Array) ? ys : [0, ys-1]
+    end
+  
+    def composite_interface_declarations(stream)
+      stream << %{
+        /**
+          @brief
+        */
+        typedef int #{type};
+      }
+      super
+    end
+  
+    private def configure
+      dependencies << element
+      super
+      def_method :void, :create, { self: type } do
+        inline_code %{
+          assert(#{x1} < #{x2});
+          assert(#{y1} < #{y2});
+        }
+      end
+      destroy.inline_code %{}
+      def_method :size_t, :index, { self: const_type, node: element.const_type } do
+        inline_code %{
+          assert(#{x1} <= node.x && node.x <= #{x2});
+          assert(#{y1} <= node.y && node.y <= #{y2});
+          return (#{x2}-#{x1}+1)*(node.y-#{y1}) + (node.x-#{x1});
+      }
+      end
+      def_method :size_t, :index_count, { self: const_type } do
+        inline_code %{
+          return (#{x2}-#{x1}+1)*(#{y2}-#{y1}+1);
+        }
+      end
+      def_method element.type, :node, { self: const_type, index: :size_t } do
+        inline_code %{
+          const size_t t = index/(#{x2}-#{x1}+1);
+          return (#{element.type}){index - t*(#{x2}-#{x1}+1) + #{x1}, t + #{y1}};
+        }
+      end
+    end
+
+  end
+    
+  
+  class StaticCartesian::Range < AutoC::Range::Forward
+  
+    def composite_interface_declarations(stream)
+      stream << %{
+        /**
+          @brief
+        */
+        typedef size_t #{type};
+      }
+    end
+  
+    private def configure
+      super
+      custom_create.inline_code %{
+        assert(self);
+        *self = 0;
+      }
+      empty.inline_code %{
+        assert(self);
+        return *self >= #{iterable.index_count}(NULL);
+      }
+      pop_front.inline_code %{
+        assert(self);
+        ++(*self);
+      }
+      view_front.inline_code %{
+        assert(self);
+        return NULL;
+      }
+      take_front.inline_code %{
+        assert(self);
+        return #{iterable.decorate_identifier(:node)}(NULL, *self);
+      }
+    end
+  end
+
+  
 end
