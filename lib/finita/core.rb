@@ -26,6 +26,15 @@ module Finita
   end
 
 
+  class Node < AutoC::Structure
+    attr_reader :items
+    def initialize(type, items)
+      @items = items
+      super type, ::Hash[items.collect{ |_| [_, :int] }], profile: :glassbox
+    end
+  end
+
+
   #
   class Instantiable::Instance
 

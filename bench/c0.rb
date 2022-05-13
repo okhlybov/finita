@@ -1,12 +1,12 @@
 require 'finita/module'
 require 'finita/field'
-require 'finita/grid'
+require 'finita/grid2'
 
 
 N = 1000
 
 
-world = Finita::Grid::Cartesian2.new(:C2)
+world = Finita::Grid2::Cartesian.new(:C2)
 field = world.field(:double, type: :C2F)
 
 

@@ -2,11 +2,10 @@
 
 
 require 'finita/core'
-require 'finita/grid'
 require 'autoc/composite'
 
 
-module Finita::Grid
+module Finita
 
 
   class Field < AutoC::Composite
