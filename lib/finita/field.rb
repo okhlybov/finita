@@ -21,6 +21,8 @@ module Finita
     def custom_constructible? = false
     def default_constructible? = false
 
+    def memory = AutoC::Allocator::Aligning.instance
+
     def initialize(grid, scalar = :double, type: grid.decorate_identifier(scalar), visibility: :public)
       super(type, visibility:)
       @scalar = AutoC::Type.coerce(scalar)
@@ -67,12 +69,6 @@ module Finita
           return &self->layers[layer][#{grid.index}(self->grid, node)];
         }
       end
-      def_method scalar.ptr_type, :view0, { self: type, node: grid.node.const_type } do
-        inline_code %{
-          assert(self);
-          return &self->layers[0][#{grid.index}(self->grid, node)];
-        }
-      end
       def_method :void, :rotate_n, { self: type, times: :unsigned } do
         code %{
           assert(self);
@@ -115,7 +111,7 @@ module Finita
           /**
             @brief
           */
-          #define #{identifier}(#{fields}) (*#{type.view0}(&#{identifier},(#{node}){#{fields}}))
+          #define #{identifier}(#{fields}) #{identifier}_n(0,#{fields})
         }
       ]
       if @layer_count > 1
