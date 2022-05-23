@@ -48,7 +48,7 @@ module Finita
       @module  = m
       @setup_entities = []
       @cleanup_entities = []
-      dependencies << AutoC::Composite::CODE
+      dependencies << Module::DEFINITIONS << Module::INCLUDES
     end
 
     def interface_declarations(stream)
