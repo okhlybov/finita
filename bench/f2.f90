@@ -2,15 +2,15 @@
 
 program f1
 
-  integer, parameter :: N = 1000
+  integer, parameter :: N = 1024
 
   call runme(N)
 
 end program
 
-subroutine runme(N1)
+subroutine runme(N)
 
-  integer, parameter :: N = 1000
+  integer, parameter :: N1 = 1024
   integer, parameter :: T = 10000
 
   real(8), allocatable, dimension(:,:) :: f, f_

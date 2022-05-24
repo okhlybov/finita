@@ -1,8 +1,9 @@
-! -Ofast -march=native -ffast-math
+! gfortran -Ofast -march=native -ffast-math
+! ifort -g -O3 -fp-model fast -xhost -qopt-report=5
 
 program f1
 
-integer, parameter :: N = 1000, T = 10000
+integer, parameter :: N = 1024, T = 10000
 
 integer x, y, q
 

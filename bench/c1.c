@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define N 1000
+#define N 1024
 #define T 10000
 
 double f[N][N], f_[N][N];
