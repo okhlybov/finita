@@ -42,6 +42,16 @@ module Finita
       }
     end
 
+    def composite_interface_definitions(stream)
+      super
+      stream << %{
+        /**
+          @brief Macro to traverse through the #{self} field instance
+        */
+        #define #{decorate_identifier :for}(field) #{grid.decorate_identifier :for}((field)->grid)
+      }
+    end
+
     private def configure
       dependencies << scalar << grid
       super

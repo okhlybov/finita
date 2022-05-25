@@ -38,12 +38,11 @@ module Finita::Grid2
     def interface_definitions(stream)
       stream << %{
         /**
-          @brief Macro to traverse over #{type} instance
+          @brief Macro to traverse through the #{type} grid instance
         */
         #define #{decorate_identifier :for}(grid) \\
-          for(int y = (grid)->y1; y <= (grid)->y2; ++y) \\
-            _Pragma("omp simd") \\
-            for(int x = (grid)->x1; x <= (grid)->x2; ++x)
+          _Pragma("omp for") for(int y = (grid)->y1; y <= (grid)->y2; ++y) \\
+            _Pragma("omp simd") for(int x = (grid)->x1; x <= (grid)->x2; ++x)
       }
       super
     end
