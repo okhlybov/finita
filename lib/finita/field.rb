@@ -52,6 +52,13 @@ module Finita
       }
     end
 
+    def definitions(stream)
+      stream << %{
+        #include <tgmath.h>
+      }
+      super
+    end
+
     private def configure
       dependencies << scalar << grid
       super
@@ -96,6 +103,40 @@ module Finita
       def_method :void, :rotate, { self: type } do
         code %{
           #{rotate_n}(self, 1);
+        }
+      end
+      def_method :int, :converge_ex, { self: const_type, rtol: :double, atol: :double, n1: :size_t, n2: :size_t } do
+        code %{
+          assert(self);
+          assert(rtol >= 0);
+          assert(atol >= 0);
+          double norm12 = 0, norm2 = 0;
+          #{grid.range.type} r = #{grid.range.new}(self->grid); /* Create a serial range covering entire grid to be cloned per section */
+          #pragma omp parallel sections firstprivate(r)
+          {
+            #pragma omp section
+            {
+              size_t i = 0;
+              for(; !#{grid.range.empty}(&r); #{grid.range.pop_front}(&r), ++i) {
+                #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
+                norm2 = (norm2*i + pow(*#{view}((#{ptr_type})self, n, n2), 2))/(i+1);
+              }
+            }
+            #pragma omp section
+            {
+              size_t i = 0;
+              for(; !#{grid.range.empty}(&r); #{grid.range.pop_front}(&r), ++i) {
+                #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
+                norm12 = (norm12*i + pow(*#{view}((#{ptr_type})self, n, n1) - *#{view}((#{ptr_type})self, n, n2), 2))/(i+1);
+              }
+            }
+          }
+          return norm12 < rtol*norm2 + atol;
+        }
+      end
+      def_method :int, :converge, { self: const_type, rtol: :double, atol: :double } do
+        code %{
+          return #{converge_ex}(self, rtol, atol, 0, 1);
         }
       end
     end
