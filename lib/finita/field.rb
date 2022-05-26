@@ -34,6 +34,7 @@ module Finita
     def composite_interface_declarations(stream)
       super
       stream << %{
+        #include <stdio.h>
         typedef struct {
           #{scalar.type}** layers; /**< @private */
           size_t layer_count; /**< @private */
@@ -50,6 +51,12 @@ module Finita
         */
         #define #{decorate_identifier :for}(field) #{grid.decorate_identifier :for}((field)->grid)
       }
+      stream << %{
+        /**
+          @brief
+        */
+        AUTOC_EXTERN int #{write_DAT}(#{const_ptr_type} self, const char* file, ...);
+      } if !@omit_writers
     end
 
     def definitions(stream)
@@ -57,6 +64,29 @@ module Finita
         #include <tgmath.h>
       }
       super
+      stream << %{
+        /**
+          @brief
+        */
+        #include <stdarg.h>
+        int #{write_DAT}(#{const_ptr_type} self, const char* file, ...) {
+          assert(self);
+          assert(file);
+          int c;
+          char buffer[1024];
+          va_list args;
+          va_start(args, file);
+          c = vsnprintf(buffer, 1024-1, file, args);
+          va_end(args);
+          if(c >= 0) {
+            FILE* stream = fopen(buffer, "wt");
+            if(stream == NULL) return 0;
+            c = #{output_DAT}(self, stream, 0, 0);
+            fclose(stream);
+          }
+          return c;
+        }
+      } if !@omit_writers
     end
 
     private def configure
@@ -137,6 +167,26 @@ module Finita
       def_method :int, :converge, { self: const_type, rtol: :double, atol: :double } do
         code %{
           return #{converge_ex}(self, rtol, atol, 0, 1);
+        }
+      end
+      def_method :int, :output_DAT, { self: const_type, stream: 'FILE*', first_layer: :int, last_layer: :int }, require:-> { !@omit_writers } do
+        node_format = grid.node.items.collect { '%d' }.join('\t')
+        node_args = grid.node.items.collect { |s| "n.#{s}" }.join(',')
+        code %{
+          if(first_layer < 0) first_layer = 0;
+          if(last_layer < 0) last_layer = self->layer_count-1;
+          assert(first_layer <= last_layer);
+          assert(first_layer < self->layer_count);
+          assert(last_layer < self->layer_count);
+          for(#{grid.range.type} r = #{grid.range.new}(self->grid); !#{grid.range.empty}(&r); #{grid.range.pop_front}(&r)) {
+            #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
+            if(fprintf(stream, "#{node_format}", #{node_args}) < 0) return 0;
+            for(size_t layer = first_layer; layer <= last_layer; ++layer) {
+              if(fprintf(stream, "\\t%e", *#{view}((#{ptr_type})self, n, layer)) < 0) return 0;
+            }
+            if(fputs("\\n", stream) == EOF) return 0;
+          }
+          return 1;
         }
       end
     end
