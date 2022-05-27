@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 
+require 'autoc/stdc'
 require 'autoc/module'
 require 'autoc/composite'
 require 'autoc/structure'

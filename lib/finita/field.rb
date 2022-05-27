@@ -13,6 +13,8 @@ module Finita
     include Finita::Pristine
     include Finita::Instantiable
 
+    include AutoC::STDC
+
     attr_reader :grid
 
     attr_reader :scalar
@@ -172,6 +174,16 @@ module Finita
       def_method :int, :output_DAT, { self: const_type, stream: 'FILE*', first_layer: :int, last_layer: :int }, require:-> { !@omit_writers } do
         node_format = grid.node.items.collect { '%d' }.join('\t')
         node_args = grid.node.items.collect { |s| "n.#{s}" }.join(',')
+        scalar_format = case scalar
+          when Complex then '%e\t%e'
+          when Real then '%e'
+          when Integer then '%d'
+          else raise 'unsupported scalar type'
+        end
+        scalar_args = case scalar
+          when Complex then 'creal(v),cimag(v)'
+          else 'v'
+        end
         code %{
           if(first_layer < 0) first_layer = 0;
           if(last_layer < 0) last_layer = self->layer_count-1;
@@ -182,7 +194,8 @@ module Finita
             #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
             if(fprintf(stream, "#{node_format}", #{node_args}) < 0) return 0;
             for(size_t layer = first_layer; layer <= last_layer; ++layer) {
-              if(fprintf(stream, "\\t%e", *#{view}((#{ptr_type})self, n, layer)) < 0) return 0;
+              #{scalar.const_type} v = *#{view}((#{ptr_type})self, n, layer);
+              if(fprintf(stream, "\\t#{scalar_format}", #{scalar_args}) < 0) return 0;
             }
             if(fputs("\\n", stream) == EOF) return 0;
           }
