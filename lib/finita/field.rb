@@ -143,12 +143,13 @@ module Finita
           assert(rtol >= 0);
           assert(atol >= 0);
           double norm12 = 0, norm2 = 0;
-          #{grid.range.type} r = #{grid.range.new}(self->grid); /* Create a serial range covering entire grid to be cloned per section */
-          #pragma omp parallel sections firstprivate(r)
+          #{grid.range.type} _r = #{grid.range.new}(self->grid); /* Create a serial range covering entire grid to be cloned per section */
+          #pragma omp parallel sections
           {
             #pragma omp section
             {
               size_t i = 0;
+              #{grid.range.type} r = _r;
               for(; !#{grid.range.empty}(&r); #{grid.range.pop_front}(&r), ++i) {
                 #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
                 norm2 = (norm2*i + pow(*#{view}((#{ptr_type})self, n, n2), 2))/(i+1);
@@ -157,6 +158,7 @@ module Finita
             #pragma omp section
             {
               size_t i = 0;
+              #{grid.range.type} r = _r;
               for(; !#{grid.range.empty}(&r); #{grid.range.pop_front}(&r), ++i) {
                 #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
                 norm12 = (norm12*i + pow(*#{view}((#{ptr_type})self, n, n1) - *#{view}((#{ptr_type})self, n, n2), 2))/(i+1);
