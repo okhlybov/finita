@@ -1,5 +1,6 @@
 require 'autoc/vector'
 require 'finita/core'
+require 'finita/grid'
 require 'finita/field'
 
 
@@ -7,24 +8,16 @@ module Finita::Grid2
 
 
   NODE = Finita::Node.new :XY, %i[x y]
-  
-  
   NODE_VECTOR = AutoC::Vector.new :XYVector, NODE
 
 
-  class Cartesian < AutoC::Structure
+  class Cartesian < Finita::Grid::Base
 
     include Finita::Instantiable
     
-    prepend AutoC::Composite::Traversable
-
     def copyable? = false
     def custom_constructible? = false
     def default_constructible? = false
-
-    def node = NODE
-
-    def element = node
 
     def nodes = NODE_VECTOR
 
@@ -68,65 +61,14 @@ module Finita::Grid2
           #{create}(self, 0, nx-1, 0, ny-1);
         }
       end
-      def_method :size_t, :index, { self: const_type, node: node.const_type } do
-        inline_code %{
-          assert(self);
-          assert(self->x1 <= node.x && node.x <= self->x2);
-          assert(self->y1 <= node.y && node.y <= self->y2);
-          return self->nx*(node.y-self->y1) + (node.x-self->x1);
-        }
-      end
-      def_method :size_t, :index_count, { self: const_type } do
-        inline_code %{
-          assert(self);
-          return #{nodes.size}(&self->nodes);
-        }
-      end
-      def_method node.type, :node, { self: const_type, index: :size_t } do
-        inline_code %{
-            assert(self);
-            return #{nodes.get}(&self->nodes, index);
-        }
-      end
-    end
-  end
-
-
-  class Cartesian::Range < AutoC::Range::Forward
-
-    private def node_range = @node_range ||= iterable.send(:nodes).range
-    
-    def composite_interface_declarations(stream)
-      stream << %{
-        /**
-          @brief
-        */
-        typedef struct {
-          #{node_range.type} node_range; /**< @private */
-        } #{type};
+      index.inline_code %{
+        assert(self);
+        assert(self->x1 <= node.x && node.x <= self->x2);
+        assert(self->y1 <= node.y && node.y <= self->y2);
+        return self->nx*(node.y-self->y1) + (node.x-self->x1);
       }
     end
 
-    private def configure
-      super
-      custom_create.inline_code %{
-        assert(self);
-        assert(iterable);
-        #{node_range.create}(&self->node_range, &iterable->nodes);
-      }
-      empty.inline_code %{
-        assert(self);
-        return #{node_range.empty}(&self->node_range);
-      }
-      pop_front.inline_code %{
-        assert(self);
-        #{node_range.pop_front}(&self->node_range);
-      }
-      view_front.inline_code %{
-        assert(self);
-        return #{node_range.view_front}(&self->node_range);
-      }
-    end
   end
 
 

@@ -11,23 +11,97 @@ require 'autoc/structure'
 module Finita::Grid
 
 
+  # @private
   # @abstract
-  # A base class representing generic node <-> index mapping type.
-  class GenericMapping < AutoC::Structure
+  # Common base for all regular grids
+  class Base < AutoC::Structure
 
-    private attr_reader :_node
-    private def _i2n = @_i2n ||= AutoC::Vector.new(decorate_identifier(:_V), _node, visibility: :internal)
-    private def _n2i = @_n2i ||= AutoC::HashMap.new(decorate_identifier(:_M), _node, :size_t, visibility: :internal)
+    prepend AutoC::Composite::Traversable
+
+    def node  = nodes.element
+    def nodes = @nodes ||= AutoC::Vector.new(decorate_identifier(:_V), node, visibility:) # FIXME force internal visibility
+
+    def element = node # Method employed be the generic range type
+
+    def configure
+      super
+      def_method :size_t, :size, { self: const_type } do
+        inline_code %{
+          assert(self);
+          return #{nodes.size}(&self->nodes);
+        }
+      end
+      def_method node.type, :node, { self: const_type, index: :size_t } do
+        inline_code %{
+            assert(self);
+            return #{nodes.get}(&self->nodes, index);
+        }
+      end
+      def_method :size_t, :index, { self: const_type, node: node.const_type }
+    end
+
+  end
+
+  # Unified range type for regular grids
+  class Base::Range < AutoC::Range::Forward
+
+    private def node_range = @node_range ||= iterable.send(:nodes).range
+    
+    def composite_interface_declarations(stream)
+      stream << %{
+        /**
+          @brief
+        */
+        typedef struct {
+          #{node_range.type} node_range; /**< @private */
+        } #{type};
+      }
+    end
+
+    private def configure
+      super
+      custom_create.inline_code %{
+        assert(self);
+        assert(iterable);
+        #{node_range.create}(&self->node_range, &iterable->nodes);
+      }
+      empty.inline_code %{
+        assert(self);
+        return #{node_range.empty}(&self->node_range);
+      }
+      pop_front.inline_code %{
+        assert(self);
+        #{node_range.pop_front}(&self->node_range);
+      }
+      view_front.inline_code %{
+        assert(self);
+        return #{node_range.view_front}(&self->node_range);
+      }
+      take_front.inline_code %{
+        assert(self);
+        return #{node_range.take_front}(&self->node_range);
+      }
+    end
+  end
+
+
+  # @abstract
+  # Class representing generic node <-> index mapping type.
+  class GenericMapping < Base
+
+    attr_reader :node
+
+    def indices = @indices ||= AutoC::HashMap.new(decorate_identifier(:_M), node, :size_t, visibility: :internal)
 
     def initialize(type, node:, visibility: :public)
       super(type, {}, visibility:, profile: :blackbox)
       @omit_accessors = true
-      @_node = node
+      @node = node
     end
 
     def composite_interface_definitions(stream)
       super
-      lookup_list = _node.items.collect { |t| "#{t} = #{_lookup}(grid, __current__).#{t}"}.join(',')
+      lookup_list = node.items.collect { |t| "#{t} = #{_lookup}(grid, __current__).#{t}"}.join(',')
       stream << %{
         /**
           @brief Macro to traverse through the #{type} grid instance
@@ -71,34 +145,20 @@ module Finita::Grid
           #endif
         }
         /** @private */
-        #{define} #{_node} #{_lookup}(#{const_ptr_type} self, int index) {
+        #{define} #{node} #{_lookup}(#{const_ptr_type} self, int index) {
           assert(index >= 0 && index < #{size}(self));
-          return self->nodes.elements[index]; /* Excerpt from #{_i2n.get}(&self->nodes, index) as this function is private */
+          return self->nodes.elements[index]; /* Excerpt from #{nodes.get}(&self->nodes, index) as this function might be private */
         }
       }
     end
 
     def configure
-      self.fields = { nodes: _i2n, indices: _n2i }
+      self.fields = { nodes:, indices: }
       super
-      def_method :size_t, :size, { self: const_type } do
-        code %{
-          assert(#{_i2n.size}(&self->nodes) == #{_n2i.size}(&self->indices));
-          return #{_i2n.size}(&self->nodes);
-        }
-      end
-      def_method :size_t, :index, { self: const_type, node: _node } do
-        code %{
-          assert(#{_n2i.contains_key}(&self->indices, node));
-          return #{_n2i.get}(&self->indices, node);
-        }
-      end
-      def_method _node, :node, { self: const_type, index: :size_t } do
-        code %{
-          assert(#{_i2n.check_position}(&self->nodes, index));
-          return #{_i2n.get}(&self->nodes, index);
-        }
-      end
+      index.code %{
+        assert(#{indices.contains_key}(&self->indices, node));
+        return #{indices.get}(&self->indices, node);
+      }
     end
   end
 

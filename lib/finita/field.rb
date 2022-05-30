@@ -102,7 +102,7 @@ module Finita
           self->grid = grid;
           self->layer_count = layer_count;
           self->layers = #{memory.allocate(scalar.ptr_type, :layer_count)};
-          const size_t layer_size = #{grid.index_count}(self->grid);
+          const size_t layer_size = #{grid.size}(self->grid);
           for(size_t i = 0; i < self->layer_count; ++i) self->layers[i] = #{memory.allocate(scalar.type, :layer_size, true)};
           }
       end
@@ -151,7 +151,7 @@ module Finita
               size_t i = 0;
               #{grid.range.type} r = _r;
               for(; !#{grid.range.empty}(&r); #{grid.range.pop_front}(&r), ++i) {
-                #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
+                #{grid.node.const_type} n = #{grid.range.take_front}(&r);
                 norm2 = (norm2*i + pow(*#{view}((#{ptr_type})self, n, n2), 2))/(i+1);
               }
             }
@@ -160,7 +160,7 @@ module Finita
               size_t i = 0;
               #{grid.range.type} r = _r;
               for(; !#{grid.range.empty}(&r); #{grid.range.pop_front}(&r), ++i) {
-                #{grid.node.const_type} n = *#{grid.range.view_front}(&r);
+                #{grid.node.const_type} n = #{grid.range.take_front}(&r);
                 norm12 = (norm12*i + pow(*#{view}((#{ptr_type})self, n, n1) - *#{view}((#{ptr_type})self, n, n2), 2))/(i+1);
               }
             }
