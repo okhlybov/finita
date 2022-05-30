@@ -33,6 +33,10 @@ module Finita
       @items = items
       super type, ::Hash[items.collect{ |_| [_, :int] }], profile: :glassbox
     end
+    def configure
+      super
+      copy.code %{*self = *source;} # At once copying should be faster than inherent per field
+    end
   end
 
 
