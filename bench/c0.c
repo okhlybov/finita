@@ -33,24 +33,17 @@ void runme() {
 
 #else
 
-#if defined(__GNUC__) || defined(__clang__)
-  #include <mm_malloc.h>
-#endif
-
 void runme() {
-  const int* xs = _mm_malloc(N*sizeof(int), 32);
-  const int* ys = _mm_malloc(N*sizeof(int), 32);
   for(unsigned t = 0; t < 10000; ++t) {
     #pragma omp parallel
-    for(size_t i = 0; i < N; ++i) {
-      const int x = xs[i], y = ys[i];
-      f_(x,y) = ( (f(x+1,y) + f(x-1,y) + f(x,y+1) + f(x,y-1) - 4*f(x,y)) + f(x,y) )*0.1;
+    C2For(&interior) {
+      f_(x,y) = ( (f(x+1,y) + f(x-1,y) + f(x,y+1) + f(x,y-1) - 4*f(x,y)) + f(x,y) )*0.05;
     }
     C2DRotate(&f);
   }
 }
 #endif
-
+#include <complex.h>
 int main(int argc, char** argv) {
 #ifndef static_N
   N = 1024;
@@ -58,5 +51,7 @@ int main(int argc, char** argv) {
   c0Setup();
   int x = 0; for(int y = 0; y < N; ++y) f_(x,y) = f(x,y) = 1;
   runme();
-  printf("%e\n", f_(1,1));
+  printf("%e\n", creal(f_(1,1)));
+  C2DWriteDAT(&f, "%s.dat", "1");
+  c0Cleanup();
 }
