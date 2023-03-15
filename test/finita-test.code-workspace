@@ -1,0 +1,10 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"cmake.sourceDirectory": "${workspaceFolder}/test",
+		"cmake.buildDirectory": "${workspaceFolder}/test/build",
+	},}
