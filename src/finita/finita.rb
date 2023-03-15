@@ -1,8 +1,0 @@
-require 'finita/common'
-require 'finita/symbolic'
-require 'finita/problem'
-require 'finita/system'
-require 'finita/equation'
-require 'finita/generator'
-require 'finita/backend'
-require 'finita/cell'
