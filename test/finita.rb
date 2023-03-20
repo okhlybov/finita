@@ -1,8 +1,8 @@
 require 'autoc/module'
-require 'autoc/cstring'
+require 'finita/grid/cartesian'
 
-m = AutoC::Module.render(:_finita) do |m|
-  m << AutoC::CString.new
+m = AutoC::Module.render(:_finita, stateful: false) do |m|
+  m << Finita::Grid::CXY
 end
 
 require 'autoc/cmake'
