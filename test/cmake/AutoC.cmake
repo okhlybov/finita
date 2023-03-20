@@ -4,8 +4,10 @@ find_package(Ruby 3.2)
 
 if(NOT Ruby_FOUND)
   message(STATUS "Attempting to locate default Ruby executable")
-  find_program(Ruby ruby REQUIRED)
+  find_program(Ruby_EXECUTABLE ruby REQUIRED)
 endif()
+
+find_program(Astyle_EXECUTABLE astyle REQUIRED)
 
 function(add_autoc_module module)
   set(args DIRECTORY MAIN_DEPENDENCY)
@@ -27,11 +29,12 @@ function(add_autoc_module module)
   include(${module_cmake})
   add_custom_command(
     OUTPUT ${module_state}
-    BYPRODUCTS ${module_cmake}
+    BYPRODUCTS ${module_cmake} fake
     MAIN_DEPENDENCY ${key_MAIN_DEPENDENCY}
     DEPENDS ${key_DEPENDS}
     WORKING_DIRECTORY ${key_DIRECTORY}
     COMMAND ${key_COMMAND}
+    COMMAND ${Astyle_EXECUTABLE} -n ${${module}_HEADER} ${${module}_SOURCES}
     VERBATIM
   )
   add_custom_target(${module_target} DEPENDS ${module_state})
