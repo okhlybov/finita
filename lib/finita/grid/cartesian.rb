@@ -31,6 +31,7 @@ module Finita::Grid
           @brief Fast traverser macro over grid
         */
         #define #{self}_FOREACH(grid) \\
+          assert(grid); \\
           _Pragma("omp for") for(int y = (grid)->first.y; y <= (grid)->last.y; ++y) \\
           _Pragma("omp simd") for(int x = (grid)->first.x; x <= (grid)->last.x; ++x)
       }
@@ -41,6 +42,7 @@ module Finita::Grid
       method(:size_t, :index, { target: const_rvalue, node: node.const_rvalue }).configure do
         code %{
           assert(target);
+          assert(node);
           assert(target->first.x <= node->x && node->x <= target->last.x);
           assert(target->first.y <= node->y && node->y <= target->last.y);
           return (target->last.x - target->first.x + 1)*(node->y - target->first.y) + (node->x - target->first.x);
@@ -61,6 +63,8 @@ module Finita::Grid
       method(:void, :create, { target: lvalue, first: node.const_rvalue, last: node.const_rvalue }).configure do
         code %{
           assert(target);
+          assert(first);
+          assert(last);
           assert(first->x < last->x);
           assert(first->y < last->y);
           target->first = *first;
