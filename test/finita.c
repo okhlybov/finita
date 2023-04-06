@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
   CXY_FOREACH(&g) {
     printf("%d,%d\n", x, y);
   }
-  size_t i = CXYIndex(&g, &(XY){4,8});
+  size_t i = CXYIndex(&g, (XY){3,8});
   printf("%zu\n", i);
   XY node = CXYNode(&g, i);
   printf("%d %d\n", node.x, node.y);

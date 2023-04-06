@@ -42,10 +42,9 @@ module Finita::Grid
       method(:size_t, :index, { target: const_rvalue, node: node.const_rvalue }).configure do
         code %{
           assert(target);
-          assert(node);
-          assert(target->first.x <= node->x && node->x <= target->last.x);
-          assert(target->first.y <= node->y && node->y <= target->last.y);
-          return (target->last.x - target->first.x + 1)*(node->y - target->first.y) + (node->x - target->first.x);
+          assert(target->first.x <= node.x && node.x <= target->last.x);
+          assert(target->first.y <= node.y && node.y <= target->last.y);
+          return (target->last.x - target->first.x + 1)*(node.y - target->first.y) + (node.x - target->first.x);
         }
       end
       method(node, :node, { target: const_rvalue, index: :size_t.const_rvalue }).configure do
@@ -63,12 +62,10 @@ module Finita::Grid
       method(:void, :create, { target: lvalue, first: node.const_rvalue, last: node.const_rvalue }).configure do
         code %{
           assert(target);
-          assert(first);
-          assert(last);
-          assert(first->x < last->x);
-          assert(first->y < last->y);
-          target->first = *first;
-          target->last = *last;
+          assert(first.x < last.x);
+          assert(first.y < last.y);
+          target->first = first;
+          target->last = last;
           #{nodes.custom_create.('target->nodes', size.(target))};
           size_t i = 0;
           #{type}_FOREACH(target) {
