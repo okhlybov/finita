@@ -3,6 +3,7 @@ require 'autoc/record'
 require 'autoc/vector'
 
 
+require 'finita/core'
 require 'finita/nodes'
 
 
@@ -20,9 +21,9 @@ module Finita::Grid
     def default_constructible? = false
     def custom_constructible? = false
 
-    def initialize(name = :CXY)
-      super(name, { first: node, last: node, nodes: nodes })
-    end
+    def initialize(name = :CXY) = super(name, { first: node, last: node, nodes: nodes })
+
+    def instance(name = nil) = Finita::Instance.new(self, name)
 
     def render_interface(stream)
       super
