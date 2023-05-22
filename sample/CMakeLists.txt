@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(bratu)
+project(poisson)
 
 find_package(PkgConfig REQUIRED)
 find_package(OpenMP)
@@ -13,6 +13,7 @@ add_custom_command(
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.rb
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMAND ruby -I${ROOT}/lib -I${ROOT}/ext/autoc/lib ${ROOT}/bin/finitac ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.rb
+  COMMAND astyle -n ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}_auto.c ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}_auto.h
 )
 
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}_auto.c ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.c)
