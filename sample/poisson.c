@@ -14,7 +14,7 @@ FINITA_HEAD { \
 
 int main(int argc, char** argv) {
     NX = NY = 100;
-    Rho = 1;
+    Rho = -1;
     PoissonSetup(argc, argv);
     PoissonSystemSolve();
     WRITE_FIELD("F.dat", F);
