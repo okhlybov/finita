@@ -1,0 +1,22 @@
+cmake_minimum_required(VERSION 3.15)
+
+project(bratu)
+
+find_package(PkgConfig REQUIRED)
+find_package(OpenMP)
+find_package(MPI REQUIRED)
+
+set(ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}_auto.c fake
+  BYPRODUCTS ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}_auto.h
+  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.rb
+  COMMAND ruby -I${ROOT}/lib -I${ROOT}/ext/autoc/lib ${ROOT}/bin/finitac ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.rb
+)
+
+add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}_auto.c ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.c)
+
+pkg_check_modules(PETSc REQUIRED IMPORTED_TARGET petsc)
+target_include_directories(${PROJECT_NAME} PUBLIC ${PETSc_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PETSc_STATIC_LDFLAGS})
