@@ -99,7 +99,7 @@ class RHS
         //
         #{fpCount} = 0;
         for(i = 0; i < #{indexCount}; ++i) #{fpCount} += #{indices}[i].count;
-        #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type}));
+        #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type})); assert(#{fps});
         //
         i = 0;
         #{@vector_code.itCtor}(&vit, &#{vector});
