@@ -268,9 +268,13 @@ class Solver::PETSc < Solver::Matrix
           #{free}(columns);
           ierr = MatAssemblyBegin(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
             #{assert}(#{matrixSize} >= #{vectorSize});
+#if 0
             for(index = 0; index < #{vectorSize}; ++index) {
               values[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(#{vectorIndices}[index]));
             }
+#else
+            #{rhs_code.compute}(values, #{vectorSize});
+#endif
             ierr = VecSetValues(#{vector}, #{vectorSize}, #{vectorIndices}, values, INSERT_VALUES); CHKERRQ(ierr);
             ierr = VecAssemblyBegin(#{vector}); CHKERRQ(ierr);
               ierr = KSPCreate(PETSC_COMM_WORLD, &ksp); CHKERRQ(ierr);

@@ -48,6 +48,13 @@ class RHS
       dc = solver_code.decomposer_code
       sc = solver_code.system_code
       stream << %$
+        typedef struct {
+          size_t start, count;
+          #{NodeCode.type} row;
+        } #{indexS};
+        static #{indexS}* #{indices};
+        static #{FunctionCode[sc.result].type}* #{fps};
+        static size_t #{indexCount}, #{fpCount};
         static #{@vector_code.type} #{vector};
         void #{setup}(void) {
           int x, y, z;
@@ -65,7 +72,7 @@ class RHS
         stream << %$#{@vector_code.merge}(&#{vector}, row, #{mc[:rhs_codes][nil].instance});$
         mc[:rhs_codes].each do |r, ec|
           stream << %$
-            if(!#{solver_code.mapper_code.hasNode}(#{NodeCode.new}(#{r[0]}, #{r[1]}, #{r[2]}, #{r[3]}))) {
+            if(!#{solver_code.mapper_code.hasNode}(#{NodeCode.new}(#{r.join(',')}))) {
               #{@vector_code.merge}(&#{vector}, row, #{ec.instance});
             }
           $ unless r.nil?
@@ -73,7 +80,54 @@ class RHS
         stream << "continue;" unless mc[:merge]
         stream << "}"
       end
-      stream << "}FINITA_LEAVE;}"
+      stream << '}'
+      stream << %{
+        size_t i, start = 0;
+        #{indexCount} = #{@vector_code.size}(&#{vector}); assert(#{indexCount} > 0);
+        #{indices} = malloc(#{indexCount}*sizeof(#{indexS})); assert(#{indices});
+        #{@vector_code.it} vit;
+        //
+        i = 0;
+        #{@vector_code.itCtor}(&vit, &#{vector});
+        while(#{@vector_code.itMove}(&vit)) {
+          #{indices}[i].start = start;
+          #{indices}[i].row = #{@vector_code.itGetKey}(&vit);
+          start += #{indices}[i].count = #{@function_list_code.size}(#{@vector_code.itGetElement}(&vit));
+          assert(#{indices}[i].count > 0);
+          ++i;
+        }
+        //
+        #{fpCount} = 0;
+        for(i = 0; i < #{indexCount}; ++i) #{fpCount} += #{indices}[i].count;
+        #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type}));
+        //
+        i = 0;
+        #{@vector_code.itCtor}(&vit, &#{vector});
+        while(#{@vector_code.itMove}(&vit)) {
+          #{@function_list_code.it} lit;
+          #{@function_list_code.itCtor}(&lit, #{@vector_code.itGetElement}(&vit));
+          while(#{@function_list_code.itMove}(&lit)) {
+            #{fps}[i++] = #{@function_list_code.itGet}(&lit);
+          }
+        }
+      }
+      stream << 'FINITA_LEAVE;}'
+      stream << %{
+        static void #{compute}(double *values, size_t count) {
+          assert(count == #{indexCount});
+          #pragma parallel for
+          for(size_t i = 0; i < count; ++i) {
+            double v = 0;
+            const int x = #{indices}[i].row.x;
+            const int y = #{indices}[i].row.y;
+            const int z = #{indices}[i].row.z;
+            const size_t s = #{indices}[i].start;
+            const size_t e = s + #{indices}[i].count;
+            for(size_t j = s; j < e; ++j) v -= #{fps}[j](x, y, z);
+            values[i] = v;
+          }
+        }
+      }
       stream << %$
         #{sc.cresult} #{evaluate}(#{NodeCode.type} row) {
           #{sc.cresult} result;
