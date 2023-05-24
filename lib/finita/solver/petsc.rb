@@ -247,6 +247,8 @@ class Solver::PETSc < Solver::Matrix
           PC pc;
           FINITA_ENTER;
           values = (PetscScalar*)#{malloc}(#{matrixSize}*sizeof(PetscScalar)); #{assert}(values);
+          #define #{_FAST} // Rig for fast values computation
+#ifndef #{_FAST}
           columns = (PetscInt*)#{malloc}(#{matrixSize}*sizeof(PetscInt)); #{assert}(columns);
           for(index = count = 0, row = #{matrixRC}[index].row; index < #{matrixSize}; ++index) {
             /* assuming RC is in the row-first form */
@@ -266,9 +268,15 @@ class Solver::PETSc < Solver::Matrix
           }
           ierr = MatSetValues(#{matrix}, 1, &row, count, columns, values, INSERT_VALUES); CHKERRQ(ierr);
           #{free}(columns);
+#else
+          #{lhs_code.compute}(values, #{matrixSize});
+          for(index = 0; index < #{lhs_code.indexCount}; ++index) {
+            ierr = MatSetValue(#{matrix}, #{lhs_code.indices}[index].row, #{lhs_code.indices}[index].column, values[index], INSERT_VALUES); CHKERRQ(ierr);
+          }
+#endif
           ierr = MatAssemblyBegin(#{matrix}, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
             #{assert}(#{matrixSize} >= #{vectorSize});
-#if 0
+#ifndef #{_FAST}
             for(index = 0; index < #{vectorSize}; ++index) {
               values[index] = -#{rhs_code.evaluate}(#{mapper_code.node}(#{vectorIndices}[index]));
             }

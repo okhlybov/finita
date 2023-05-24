@@ -50,7 +50,7 @@ class LHS
         typedef struct {
           size_t start, count;
           #{NodeCoordCode.type} node;
-          size_t i, j;
+          size_t row, column;
         } #{indexS};
         static #{indexS}* #{indices};
         static #{FunctionCode[sc.result].type}* #{fps};
@@ -91,8 +91,8 @@ class LHS
         while(#{@matrix_code.itMove}(&mit)) {
           #{indices}[i].start = start;
           const #{NodeCoordCode.type} node = #{indices}[i].node = #{@matrix_code.itGetKey}(&mit);
-          #{indices}[i].i = #{solver_code.mapper_code.index}(node.column);
-          #{indices}[i].j = #{solver_code.mapper_code.index}(node.row);
+          #{indices}[i].column = #{solver_code.mapper_code.index}(node.column);
+          #{indices}[i].row = #{solver_code.mapper_code.index}(node.row);
           start += #{indices}[i].count = #{@function_list_code.size}(#{@matrix_code.itGetElement}(&mit));
           assert(#{indices}[i].count > 0);
           ++i;
@@ -127,6 +127,22 @@ class LHS
           FINITA_RETURN(value);
         }
       $
+      stream << %{
+        static void #{compute}(double *values, size_t count) {
+          assert(count == #{indexCount});
+          #pragma parallel for
+          for(size_t i = 0; i < count; ++i) {
+            double v = 0;
+            const int x = #{indices}[i].node.column.x;
+            const int y = #{indices}[i].node.column.y;
+            const int z = #{indices}[i].node.column.z;
+            const size_t s = #{indices}[i].start;
+            const size_t e = s + #{indices}[i].count;
+            for(size_t j = s; j < e; ++j) v += #{fps}[j](x, y, z);
+            values[i] = v;
+          }
+        }
+      }
     end
     def write_initializer(stream)
       stream << %$#{setup}();$
