@@ -172,6 +172,11 @@ NodeSetCode = Class.new(AutoC::HashSet) do
 end.new(:FinitaNodeSet, NodeCode) # NodeSetCode
 
 
+NodeQueueCode = Class.new(AutoC::Queue) do
+  def entities; super << NodeCode end
+end.new(:FinitaNodeQueue, NodeCode) # NodeQueueCode
+
+
 NodeIndexMapCode = Class.new(AutoC::HashMap) do
   def entities; super << NodeCode end
 end.new(:FinitaNodeIndexMap, NodeCode, {:type => :size_t}) # NodeIndexMapCode

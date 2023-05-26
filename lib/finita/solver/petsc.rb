@@ -210,6 +210,11 @@ class Solver::PETSc < Solver::Matrix
             #{vectorIndices}[index - first] = index;
           }
           #{SparsityPatternCode.purge('&'+sparsity) if @solver.purge_sparsity};
+          #{rhs_code.nodeCacheStart}();
+          for(index = 0; index < #{vectorSize}; ++index) {
+            #{rhs_code.nodeCache}(#{mapper_code.node}(#{vectorIndices}[index]));
+          }
+          #{rhs_code.nodeCacheStop}();
           FINITA_RETURN(0);
         }
       $
@@ -247,7 +252,7 @@ class Solver::PETSc < Solver::Matrix
           PC pc;
           FINITA_ENTER;
           values = (PetscScalar*)#{malloc}(#{matrixSize}*sizeof(PetscScalar)); #{assert}(values);
-          #define #{_FAST} // Rig for fast values computation
+          //#define #{_FAST} // Rig for fast values computation
 #ifndef #{_FAST}
           columns = (PetscInt*)#{malloc}(#{matrixSize}*sizeof(PetscInt)); #{assert}(columns);
           for(index = count = 0, row = #{matrixRC}[index].row; index < #{matrixSize}; ++index) {

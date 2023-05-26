@@ -27,7 +27,7 @@ class RHS
       sc.initializer_codes << self
     end
     def entities
-      super.concat([NodeCode, @vector_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes)
+      super.concat([NodeCode, NodeQueueCode, @vector_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes)
     end
     attr_reader :solver_code
     def hash
@@ -49,8 +49,8 @@ class RHS
       sc = solver_code.system_code
       stream << %$
         typedef struct {
-          size_t start, count;
-          #{NodeCode.type} row;
+          size_t start, stop;
+          #{NodeCode.type} node;
         } #{indexS};
         static #{indexS}* #{indices};
         static #{FunctionCode[sc.result].type}* #{fps};
@@ -81,49 +81,51 @@ class RHS
         stream << "}"
       end
       stream << '}'
-      stream << %{
-        size_t i, start = 0;
-        #{indexCount} = #{@vector_code.size}(&#{vector}); assert(#{indexCount} > 0);
-        #{indices} = malloc(#{indexCount}*sizeof(#{indexS})); assert(#{indices});
-        #{@vector_code.it} vit;
-        //
-        i = 0;
-        #{@vector_code.itCtor}(&vit, &#{vector});
-        while(#{@vector_code.itMove}(&vit)) {
-          #{indices}[i].start = start;
-          #{indices}[i].row = #{@vector_code.itGetKey}(&vit);
-          start += #{indices}[i].count = #{@function_list_code.size}(#{@vector_code.itGetElement}(&vit));
-          assert(#{indices}[i].count > 0);
-          ++i;
-        }
-        //
-        #{fpCount} = 0;
-        for(i = 0; i < #{indexCount}; ++i) #{fpCount} += #{indices}[i].count;
-        #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type})); assert(#{fps});
-        //
-        i = 0;
-        #{@vector_code.itCtor}(&vit, &#{vector});
-        while(#{@vector_code.itMove}(&vit)) {
-          #{@function_list_code.it} lit;
-          #{@function_list_code.itCtor}(&lit, #{@vector_code.itGetElement}(&vit));
-          while(#{@function_list_code.itMove}(&lit)) {
-            #{fps}[i++] = #{@function_list_code.itGet}(&lit);
-          }
-        }
-      }
       stream << 'FINITA_LEAVE;}'
       stream << %{
+        static #{NodeQueueCode.type} #{nodes};
+        static void #{nodeCacheStart}() {
+          #{NodeQueueCode.ctor}(&#{nodes});
+        }
+        static void #{nodeCache}(#{NodeCode.type} node) {
+          #{NodeQueueCode.push}(&#{nodes}, node);
+        }
+        static void #{nodeCacheStop}() {
+          #{NodeQueueCode.it} it;
+          size_t i, j, start;
+          #{indexCount} = #{NodeQueueCode.size}(&#{nodes}); assert(#{indexCount} > 0);
+          #{indices} = malloc(#{indexCount}*sizeof(#{indexS})); assert(#{indices});
+          i = start = 0;
+          #{NodeQueueCode.itCtor}(&it, &#{nodes});
+          while(#{NodeQueueCode.itMove}(&it)) {
+            #{indices}[i].start = start;
+            #{indices}[i].node = #{NodeQueueCode.itGet}(&it);
+            #{indices}[i].stop = start + #{@function_list_code.size}(#{@vector_code.get}(&#{vector}, #{indices}[i].node)) - 1;
+            start = #{indices}[i].stop + 1;
+            ++i;
+          }
+          #{fpCount} = #{indices}[#{indexCount}-1].stop + 1;
+          #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type})); assert(#{fps});
+          #{NodeQueueCode.itCtor}(&it, &#{nodes});
+          i = j = 0;
+          while(#{NodeQueueCode.itMove}(&it)) {
+            #{@function_list_code.it} lit;
+            #{@function_list_code.itCtor}(&lit, #{@vector_code.get}(&#{vector}, #{indices}[i++].node));
+            while(#{@function_list_code.itMove}(&lit)) {
+              #{fps}[j++] = #{@function_list_code.itGet}(&lit);
+            }
+          }
+          #{NodeQueueCode.dtor}(&#{nodes});
+        }
         static void #{compute}(double *values, size_t count) {
           assert(count == #{indexCount});
           #pragma parallel for
           for(size_t i = 0; i < count; ++i) {
             double v = 0;
-            const int x = #{indices}[i].row.x;
-            const int y = #{indices}[i].row.y;
-            const int z = #{indices}[i].row.z;
-            const size_t s = #{indices}[i].start;
-            const size_t e = s + #{indices}[i].count;
-            for(size_t j = s; j < e; ++j) v -= #{fps}[j](x, y, z);
+            const int x = #{indices}[i].node.x;
+            const int y = #{indices}[i].node.y;
+            const int z = #{indices}[i].node.z;
+            for(size_t j = #{indices}[i].start; j <= #{indices}[i].stop; ++j) v -= #{fps}[j](x, y, z);
             values[i] = v;
           }
         }
