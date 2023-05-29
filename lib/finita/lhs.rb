@@ -26,7 +26,7 @@ class LHS
       sc.initializer_codes << self
     end
     def entities
-      super.concat([NodeCode, @matrix_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes)
+      super.concat([NodeCode, NodeCoordQueueCode, @matrix_code, @function_list_code, solver_code.mapper_code, solver_code.decomposer_code] + solver_code.all_dependent_codes)
     end
     attr_reader :solver_code
     def hash
@@ -48,8 +48,8 @@ class LHS
       sc = solver_code.system_code
       stream << %$
         typedef struct {
-          size_t start, count;
-          #{NodeCoordCode.type} node;
+          size_t start, stop;
+          #{NodeCoordCode.type} coord;
           size_t row, column;
         } #{indexS};
         static #{indexS}* #{indices};
@@ -80,38 +80,6 @@ class LHS
         stream << '}'
       end
       stream << '}'
-      stream << %{
-        size_t i, start = 0;
-        #{indexCount} = #{@matrix_code.size}(&#{matrix}); assert(#{indexCount} > 0);
-        #{indices} = malloc(#{indexCount}*sizeof(#{indexS})); assert(#{indices});
-        #{@matrix_code.it} mit;
-        //
-        i = 0;
-        #{@matrix_code.itCtor}(&mit, &#{matrix});
-        while(#{@matrix_code.itMove}(&mit)) {
-          #{indices}[i].start = start;
-          const #{NodeCoordCode.type} node = #{indices}[i].node = #{@matrix_code.itGetKey}(&mit);
-          #{indices}[i].column = #{solver_code.mapper_code.index}(node.column);
-          #{indices}[i].row = #{solver_code.mapper_code.index}(node.row);
-          start += #{indices}[i].count = #{@function_list_code.size}(#{@matrix_code.itGetElement}(&mit));
-          assert(#{indices}[i].count > 0);
-          ++i;
-        }
-        //
-        #{fpCount} = 0;
-        for(i = 0; i < #{indexCount}; ++i) #{fpCount} += #{indices}[i].count;
-        #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type})); assert(#{fps});
-        //
-        i = 0;
-        #{@matrix_code.itCtor}(&mit, &#{matrix});
-        while(#{@matrix_code.itMove}(&mit)) {
-          #{@function_list_code.it} lit;
-          #{@function_list_code.itCtor}(&lit, #{@matrix_code.itGetElement}(&mit));
-          while(#{@function_list_code.itMove}(&lit)) {
-            #{fps}[i++] = #{@function_list_code.itGet}(&lit);
-          }
-        }
-      }
       stream << %${
         FILE* file = fopen("#{matrix}.txt", "wt");
         #{@matrix_code.dumpStats}(&#{matrix}, file);
@@ -128,17 +96,52 @@ class LHS
         }
       $
       stream << %{
+        static #{NodeCoordQueueCode.type} #{coords};
+        static void #{coordCacheStart}() {
+          #{NodeCoordQueueCode.ctor}(&#{coords});
+        }
+        static void #{coordCache}(#{NodeCoordCode.type} coord) {
+          #{NodeCoordQueueCode.push}(&#{coords}, coord);
+        }
+        static void #{coordCacheStop}() {
+          #{NodeCoordQueueCode.it} it;
+          size_t i, j, start;
+          #{indexCount} = #{NodeCoordQueueCode.size}(&#{coords}); assert(#{indexCount} > 0);
+          #{indices} = malloc(#{indexCount}*sizeof(#{indexS})); assert(#{indices});
+          i = start = 0;
+          #{NodeCoordQueueCode.itCtor}(&it, &#{coords});
+          while(#{NodeCoordQueueCode.itMove}(&it)) {
+            #{indices}[i].start = start;
+            #{indices}[i].coord = #{NodeCoordQueueCode.itGet}(&it);
+            #{indices}[i].row = #{solver_code.mapper_code.index}(#{indices}[i].coord.row);
+            #{indices}[i].column = #{solver_code.mapper_code.index}(#{indices}[i].coord.column);
+            #{indices}[i].stop = start + #{@function_list_code.size}(#{@matrix_code.get}(&#{matrix}, #{indices}[i].coord)) - 1;
+            start = #{indices}[i].stop + 1;
+            ++i;
+          }
+          #{fpCount} = #{indices}[#{indexCount}-1].stop + 1;
+          #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type})); assert(#{fps});
+          #{NodeCoordQueueCode.itCtor}(&it, &#{coords});
+          i = j = 0;
+          while(#{NodeCoordQueueCode.itMove}(&it)) {
+            #{@function_list_code.it} lit;
+            #{@function_list_code.itCtor}(&lit, #{@matrix_code.get}(&#{matrix}, #{indices}[i++].coord));
+            while(#{@function_list_code.itMove}(&lit)) {
+              #{fps}[j++] = #{@function_list_code.itGet}(&lit);
+            }
+          }
+          #{NodeCoordQueueCode.dtor}(&#{coords});
+        }
+        // FIXME: hardcoded double
         static void #{compute}(double *values, size_t count) {
           assert(count == #{indexCount});
           #pragma parallel for
           for(size_t i = 0; i < count; ++i) {
             double v = 0;
-            const int x = #{indices}[i].node.column.x;
-            const int y = #{indices}[i].node.column.y;
-            const int z = #{indices}[i].node.column.z;
-            const size_t s = #{indices}[i].start;
-            const size_t e = s + #{indices}[i].count;
-            for(size_t j = s; j < e; ++j) v += #{fps}[j](x, y, z);
+            const int x = #{indices}[i].coord.row.x;
+            const int y = #{indices}[i].coord.row.y;
+            const int z = #{indices}[i].coord.row.z;
+            for(size_t j = #{indices}[i].start; j <= #{indices}[i].stop; ++j) v += #{fps}[j](x, y, z);
             values[i] = v;
           }
         }

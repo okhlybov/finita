@@ -194,13 +194,16 @@ class Solver::PETSc < Solver::Matrix
             index = 0;
             #{matrixSize} = #{SparsityPatternCode.size}(&#{sparsity});
             #{matrixRC} = (FinitaRowColumn*)#{malloc}(#{matrixSize}*sizeof(FinitaRowColumn)); #{assert}(#{matrixRC});
+            #{lhs_code.coordCacheStart}();
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
             while(#{SparsityPatternCode.itMove}(&it)) {
               #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
               #{matrixRC}[index].row = #{mapper_code.index}(coord.row);
               #{matrixRC}[index].column = #{mapper_code.index}(coord.column);
+              #{lhs_code.coordCache}(coord);
               ++index;
             }
+            #{lhs_code.coordCacheStop}();
             #{assert}(index == #{matrixSize});
             FinitaRowColumnSort(#{matrixRC}, #{matrixSize}, 1);
           }
@@ -252,7 +255,7 @@ class Solver::PETSc < Solver::Matrix
           PC pc;
           FINITA_ENTER;
           values = (PetscScalar*)#{malloc}(#{matrixSize}*sizeof(PetscScalar)); #{assert}(values);
-          //#define #{_FAST} // Rig for fast values computation
+          #define #{_FAST} // Rig for fast values computation
 #ifndef #{_FAST}
           columns = (PetscInt*)#{malloc}(#{matrixSize}*sizeof(PetscInt)); #{assert}(columns);
           for(index = count = 0, row = #{matrixRC}[index].row; index < #{matrixSize}; ++index) {

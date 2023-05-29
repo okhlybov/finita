@@ -215,6 +215,12 @@ NodeCoordCode = Class.new(AutoC::UserDefinedType) do
 end.new # NodeCoordCode
 
 
+NodeCoordQueueCode = Class.new(AutoC::Queue) do
+  def entities; super << NodeCoordCode end
+end.new(:FinitaNodeCoordQueue, NodeCoordCode) # NodeCoordQueueCode
+
+
+
 SparsityPatternCode = Class.new(AutoC::HashSet) do |type|
   def entities; super << NodeCoordCode end
   def initialize(type) super(type, NodeCoordCode) end

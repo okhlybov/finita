@@ -82,6 +82,14 @@ class RHS
       end
       stream << '}'
       stream << 'FINITA_LEAVE;}'
+      stream << %$
+        #{sc.cresult} #{evaluate}(#{NodeCode.type} row) {
+          #{sc.cresult} result;
+          FINITA_ENTER;
+          result = #{@function_list_code.summate}(#{@vector_code.get}(&#{vector}, row), row.x, row.y, row.z);
+          FINITA_RETURN(result);
+        }
+      $
       stream << %{
         static #{NodeQueueCode.type} #{nodes};
         static void #{nodeCacheStart}() {
@@ -117,6 +125,7 @@ class RHS
           }
           #{NodeQueueCode.dtor}(&#{nodes});
         }
+        // FIXME: hardcoded double
         static void #{compute}(double *values, size_t count) {
           assert(count == #{indexCount});
           #pragma parallel for
@@ -130,14 +139,6 @@ class RHS
           }
         }
       }
-      stream << %$
-        #{sc.cresult} #{evaluate}(#{NodeCode.type} row) {
-          #{sc.cresult} result;
-          FINITA_ENTER;
-          result = #{@function_list_code.summate}(#{@vector_code.get}(&#{vector}, row), row.x, row.y, row.z);
-          FINITA_RETURN(result);
-        }
-      $
     end
     def write_initializer(stream)
       stream << %$#{setup}();$
