@@ -80,13 +80,45 @@ class Problem
       $
     end
     def write_defs(stream)
+      ###
       stream << %$
         FINITA_ARGSUSED
         void #{setup}(int argc, char** argv) {FINITA_ENTER;$
-      AutoC.priority_sort(initializer_codes, false).each {|e| e.write_initializer(stream)}
+      system_codes = []
+      other_codes = []
+      AutoC.priority_sort(initializer_codes, false).each do |c|
+        if c.is_a?(Finita::System::Code)
+          system_codes << c
+        else
+          other_codes << c
+        end
+      end
+      other_codes.each { |c| c.write_initializer(stream) }
+      stream << "\n#pragma omp parallel sections\n{"
+      system_codes.each do |c|
+        stream << "\n#pragma omp section\n"
+        c.write_initializer(stream)
+      end
+      stream << "}"
       stream << "FINITA_LEAVE;}"
+      ###
       stream << %$void #{cleanup}(void) {FINITA_ENTER;$
-      AutoC.priority_sort(finalizer_codes, true).each {|e| e.write_finalizer(stream)}
+      system_codes = []
+      other_codes = []
+      AutoC.priority_sort(finalizer_codes, true).each do |c|
+        if c.is_a?(Finita::System::Code)
+          system_codes << c
+        else
+          other_codes << c
+        end
+      end
+      stream << "\n#pragma omp parallel sections\n{"
+      system_codes.each do |c|
+        stream << "\n#pragma omp section\n"
+        c.write_finalizer(stream)
+      end
+      stream << "}"
+      other_codes.each { |c| c.write_finalizer(stream) }
       stream << "FINITA_LEAVE;}"
     end
   end # Code
