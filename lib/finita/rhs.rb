@@ -138,6 +138,9 @@ class RHS
             values[i] = v;
           }
         }
+        static void #{destroy}() {
+          #{@vector_code.dtor}(&#{vector});
+        }
       }
     end
     def write_initializer(stream)

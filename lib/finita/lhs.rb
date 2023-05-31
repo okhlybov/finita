@@ -145,6 +145,9 @@ class LHS
             values[i] = v;
           }
         }
+        static void #{destroy}() {
+          #{@matrix_code.dtor}(&#{matrix});
+        }
       }
     end
     def write_initializer(stream)
