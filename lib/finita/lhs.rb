@@ -135,7 +135,7 @@ class LHS
         // FIXME: hardcoded double
         static void #{compute}(double *values, size_t count) {
           assert(count == #{indexCount});
-          #pragma parallel for
+          #pragma omp parallel for
           for(size_t i = 0; i < count; ++i) {
             double v = 0;
             const int x = #{indices}[i].coord.row.x;
