@@ -107,7 +107,7 @@ class LHS
           #{NodeCoordQueueCode.it} it;
           size_t i, j, start;
           #{indexCount} = #{NodeCoordQueueCode.size}(&#{coords}); assert(#{indexCount} > 0);
-          #{indices} = malloc(#{indexCount}*sizeof(#{indexS})); assert(#{indices});
+          #{indices} = (#{indexS}*)malloc(#{indexCount}*sizeof(#{indexS})); assert(#{indices});
           i = start = 0;
           #{NodeCoordQueueCode.itCtor}(&it, &#{coords});
           while(#{NodeCoordQueueCode.itMove}(&it)) {
@@ -120,7 +120,7 @@ class LHS
             ++i;
           }
           #{fpCount} = #{indices}[#{indexCount}-1].stop + 1;
-          #{fps} = malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type})); assert(#{fps});
+          #{fps} = (#{FunctionCode[sc.result].type}*)malloc(#{fpCount}*sizeof(#{FunctionCode[sc.result].type})); assert(#{fps});
           #{NodeCoordQueueCode.itCtor}(&it, &#{coords});
           i = j = 0;
           while(#{NodeCoordQueueCode.itMove}(&it)) {
@@ -135,9 +135,8 @@ class LHS
         // FIXME: hardcoded double
         static void #{compute}(double *values, size_t count) {
           assert(count == #{indexCount});
-          int i;
           #pragma omp parallel for
-          for(i = 0; i < count; ++i) {
+          for(int i = 0; i < count; ++i) {
             double v = 0;
             const int x = #{indices}[i].coord.row.x;
             const int y = #{indices}[i].coord.row.y;
