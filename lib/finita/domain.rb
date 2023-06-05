@@ -82,13 +82,13 @@ StaticCode = Class.new(Finita::Code) do
         int x, y, z;
       } #{node};
       struct #{type} {
-        char* name;
+        const char* name;
         int x1, x2, y1, y2, z1, z2;
         size_t size;
         #{node}* nodes;
       };
       typedef struct #{it} #{it};
-      #{extern} void #{ctor}(#{type}*, char*, int, int, int, int, int, int);
+      #{extern} void #{ctor}(#{type}*, const char*, int, int, int, int, int, int);
       #{extern} int #{within}(#{type}*, int, int, int);
       #{extern} size_t #{size}(#{type}*);
       #ifndef NDEBUG
@@ -128,7 +128,7 @@ StaticCode = Class.new(Finita::Code) do
           FINITA_LEAVE;
         }
       #endif
-      void #{ctor}(#{type}* self, char* name, int x1, int x2, int y1, int y2, int z1, int z2) {
+      void #{ctor}(#{type}* self, const char* name, int x1, int x2, int y1, int y2, int z1, int z2) {
         int i, x, y, z;
         FINITA_ENTER;
         #{assert}(self);
