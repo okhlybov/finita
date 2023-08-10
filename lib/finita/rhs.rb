@@ -129,7 +129,7 @@ class RHS
         static void #{compute}(double *values, size_t count) {
           assert(count == #{indexCount});
           #pragma omp parallel for
-          for(int i = 0; i < count; ++i) {
+          for(size_t i = 0; i < count; ++i) {
             double v = 0;
             const int x = #{indices}[i].node.x;
             const int y = #{indices}[i].node.y;

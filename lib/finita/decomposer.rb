@@ -30,9 +30,9 @@ class Decomposer
     def write_intf(stream)
       stream << %$
         #{extern} void #{setup}(void);
-        #{extern} size_t #{firstIndex}(void);
-        #{extern} size_t #{lastIndex}(void);
-        #{extern} size_t #{indexCount}(void);
+        #{extern} int #{firstIndex}(void);
+        #{extern} int #{lastIndex}(void);
+        #{extern} int #{indexCount}(void);
         #{extern} void #{synchronizeUnknowns}(void);
       $
       stream << %$
@@ -56,17 +56,17 @@ class Decomposer
       stream << %$
         static int* #{counts};
         static int* #{offsets};
-        size_t #{firstIndex}(void) {
+        int #{firstIndex}(void) {
           return #{offsets}[FinitaProcessIndex];
         }
-        size_t #{lastIndex}(void) {
+        int #{lastIndex}(void) {
           return #{offsets}[FinitaProcessIndex] + #{counts}[FinitaProcessIndex] - 1;
         }
-        size_t #{indexCount}(void) {
+        int #{indexCount}(void) {
           return #{counts}[FinitaProcessIndex];
         }
         void #{synchronizeUnknowns}(void) {
-          size_t index, count, process;
+          int index, count, process;
           #{@numeric_array_code.type} array;
           FINITA_ENTER;
           #{@numeric_array_code.ctor}(&array, #{@mapper_code.size}());
@@ -86,13 +86,14 @@ class Decomposer
         }
         void #{synchronizeArray}(#{@numeric_array_code.type}* array) {
           int ierr, index, count, process;
-          #{ctype} *input, *real, *imaginary;
+          #{ctype} *input, *real;
           FINITA_ENTER;
           input = (#{ctype}*)#{malloc}(#{indexCount}()*sizeof(#{ctype})); #{assert}(input);
           real = (#{ctype}*)#{malloc}(#{@mapper_code.size}()*sizeof(#{ctype})); #{assert}(real);
         $
       if sc.complex?
         stream << %$
+          #{ctype} *imaginary;
           imaginary = (#{ctype}*)#{malloc}(#{NodeCodeArray.size}(&#{nodes})*sizeof(#{ctype})); #{assert}(imaginary);
           for(count = 0, index = #{firstIndex}(); count < #{indexCount}(); ++count, ++index) {
             input[count] = creal(#{@numeric_array_code.get}(array, index));
@@ -134,13 +135,14 @@ class Decomposer
       stream << %$
         void #{gatherArray}(#{@numeric_array_code.type}* array) {
           int ierr, index, count, process;
-          #{ctype} *input, *real, *imaginary;
+          #{ctype} *input, *real;
           FINITA_ENTER;
           input = (#{ctype}*)#{malloc}(#{indexCount}()*sizeof(#{ctype})); #{assert}(input);
           real = (#{ctype}*)#{malloc}(#{@mapper_code.size}()*sizeof(#{ctype})); #{assert}(real);
       $
       if sc.complex?
         stream << %$
+          #{ctype} *imaginary;
           imaginary = (#{ctype}*)#{malloc}(#@mapper_code.size}()*sizeof(#{ctype})); #{assert}(imaginary);
           FINITA_NHEAD for(count = 0, index = #{firstIndex}(); count < #{indexCount}(); ++count, ++index) {
             input[count] = creal(#{@numeric_array_code.get}(array, index));
@@ -177,9 +179,8 @@ class Decomposer
       }$
       stream << %$
         void #{scatterArray}(#{@numeric_array_code.type}* array) {
-          int ierr, count, index, process;
-          #{ctype} *output, *real, *imaginary;
-          size_t size;
+          int ierr, count, index, process, size;
+          #{ctype} *output, *real;
           FINITA_ENTER;
           size = #{@mapper_code.size}();
           output = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(output);
@@ -187,6 +188,7 @@ class Decomposer
       $
       if sc.complex?
         stream << %$
+          #{ctype} *imaginary;
           imaginary = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(imaginary);
           FINITA_HEAD for(index = 0; index < size; ++index) {
             output[index] = creal(#{@numeric_array_code.get}(array, index));
@@ -223,15 +225,15 @@ class Decomposer
       }$
       stream << %$
         void #{broadcastArray}(#{@numeric_array_code.type}* array) {
-          int ierr, count, index, process;
-          #{ctype} *real, *imaginary;
-          size_t size;
+          int ierr, index, size;
+          #{ctype} *real;
           FINITA_ENTER;
           size = #{@mapper_code.size}();
           real = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(real);
       $
       if sc.complex?
         stream << %$
+          #{ctype} *imaginary;
           imaginary = (#{ctype}*)#{malloc}(size*sizeof(#{ctype})); #{assert}(imaginary);
           FINITA_HEAD for(index = 0; index < size; ++index) {
             real[index] = creal(#{@numeric_array_code.get}(array, index));
@@ -264,9 +266,9 @@ class Decomposer
     end
     def write_defs_nompi(stream)
       stream << %$
-        size_t #{firstIndex}(void) {return 0;}
-        size_t #{lastIndex}(void) {return #{@mapper_code.size}()-1;}
-        size_t #{indexCount}(void) {return #{@mapper_code.size}();}
+        int #{firstIndex}(void) {return 0;}
+        int #{lastIndex}(void) {return #{@mapper_code.size}()-1;}
+        int #{indexCount}(void) {return #{@mapper_code.size}();}
         void #{synchronizeUnknowns}() {}
       $
     end
@@ -281,7 +283,7 @@ class Decomposer::Naive < Decomposer
       if solver_code.mpi?
         stream << %$
           void #{setup}(void) {
-            size_t index, base_index, process, size;
+            int index, base_index, process, size;
             FINITA_ENTER;
             size = #{@mapper_code.size}();
             FINITA_ASSERT(FinitaProcessCount <= size);

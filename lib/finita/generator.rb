@@ -12,7 +12,7 @@ CallStackCode = Class.new(AutoC::List) do
   Closing = %$\n#endif\n$
   def write_intf(stream)
     stream << %$
-      #ifndef NDEBUG
+      #if !defined(NDEBUG) && defined(FINITA_CALL_TRACE)
         #{extern} void #{dump}(void);
       #else
         #define #{dump}()
@@ -27,7 +27,7 @@ CallStackCode = Class.new(AutoC::List) do
         int line;
       };
       /* NOTE : fake functions, not for use! */
-      #define #{element.equal}(lt, rt) 0
+      #define #{element.equal}(lt, rt) &lt==&rt
       #define #{element.identify}(obj) 0
     $
     super
@@ -41,19 +41,21 @@ CallStackCode = Class.new(AutoC::List) do
   def write_defs(stream)
     stream << Opening
     stream << %$
-      void #{dump}(void) {
-        FINITA_HEAD {
-          #{CallStackCode.it} it;
-          #{CallStackCode.itCtor}(&it, &#{CallStackCode.trace});
-          fprintf(stderr, "\\n--- stack trace start ---\\n");
-          while(#{CallStackCode.itMove}(&it)) {
-            #{CallStackCode.element.type} cs = #{CallStackCode.itGet}(&it);
-            fprintf(stderr, "%s(), %s:%d\\n", cs.func, cs.file, cs.line);
+      #if !defined(NDEBUG) && defined(FINITA_CALL_TRACE)
+        void #{dump}(void) {
+          FINITA_HEAD {
+            #{CallStackCode.it} it;
+            #{CallStackCode.itCtor}(&it, &#{CallStackCode.trace});
+            fprintf(stderr, "\\n--- stack trace start ---\\n");
+            while(#{CallStackCode.itMove}(&it)) {
+              #{CallStackCode.element.type} cs = #{CallStackCode.itGet}(&it);
+              fprintf(stderr, "%s(), %s:%d\\n", cs.func, cs.file, cs.line);
+            }
+            fprintf(stderr, "---  stack trace end  ---\\n");
+            fflush(stderr);
           }
-          fprintf(stderr, "---  stack trace end  ---\\n");
-          fflush(stderr);
         }
-      }
+      #endif
     $
     super
     stream << Closing
@@ -189,7 +191,7 @@ class Code < AutoC::Code
           #define FINITA_NORETURN(x) x
         #endif
 
-        #ifndef NDEBUG
+        #if !defined(NDEBUG) && defined(FINITA_CALL_TRACE)
           extern #{CallStackCode.type} #{CallStackCode.trace};
           #define FINITA_ENTER {#{CallStackCode.element.type} cs = {__FINITA_FUNC__, __FILE__, __LINE__}; #{CallStackCode.push}(&#{CallStackCode.trace}, cs);}
           #define FINITA_LEAVE {#{CallStackCode.pop}(&#{CallStackCode.trace});}
