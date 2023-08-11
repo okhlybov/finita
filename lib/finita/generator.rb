@@ -46,12 +46,12 @@ CallStackCode = Class.new(AutoC::List) do
           FINITA_HEAD {
             #{CallStackCode.it} it;
             #{CallStackCode.itCtor}(&it, &#{CallStackCode.trace});
-            fprintf(stderr, "\\n--- stack trace start ---\\n");
+            fputs("\\n--- stack trace start ---\\n", stderr);
             while(#{CallStackCode.itMove}(&it)) {
               #{CallStackCode.element.type} cs = #{CallStackCode.itGet}(&it);
               fprintf(stderr, "%s(), %s:%d\\n", cs.func, cs.file, cs.line);
             }
-            fprintf(stderr, "---  stack trace end  ---\\n");
+            fputs("---  stack trace end  ---\\n", stderr);
             fflush(stderr);
           }
         }
@@ -243,10 +243,10 @@ class Code < AutoC::Code
           #{StringCode.ctor}(&out, NULL);
           #ifdef FINITA_MPI
             #{StringCode.pushFormat}(&out, "\\n[%d] Finita INFO in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
-            fprintf(stderr, #{StringCode.chars}(&out));
+            fputs(#{StringCode.chars}(&out), stderr);
           #else
             #{StringCode.pushFormat}(&out, "\\nFinita INFO in %s(), %s:%d: %s\\n", func, file, line, msg);
-            fprintf(stderr, #{StringCode.chars}(&out));
+            fputs(#{StringCode.chars}(&out), stderr);
           #endif
         }
         void FinitaFailure(const char* func, const char* file, int line, const char* msg) {
@@ -254,10 +254,10 @@ class Code < AutoC::Code
           #{StringCode.ctor}(&out, NULL);
           #ifdef FINITA_MPI
             #{StringCode.pushFormat}(&out, "\\n[%d] Finita ERROR in %s(), %s:%d: %s\\n", FinitaProcessIndex, func, file, line, msg);
-            fprintf(stderr, #{StringCode.chars}(&out));
+            fputs(#{StringCode.chars}(&out), stderr);
           #else
             #{StringCode.pushFormat}(&out, "\\nFinita ERROR in %s(), %s:%d: %s\\n", func, file, line, msg);
-            fprintf(stderr, #{StringCode.chars}(&out));
+            fputs(#{StringCode.chars}(&out), stderr);
           #endif
           #{abort}();
         }
