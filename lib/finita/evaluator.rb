@@ -121,13 +121,20 @@ NodeCode = Class.new(AutoC::UserDefinedType) do
   def initialize; super(:type => :FinitaNode, :equal => :FinitaNodeEqual, :identify => :FinitaNodeIdentify, :ctor => :FinitaNodeDefault, :less => nil) end
   def write_intf(stream)
     stream << %$
+      #define XXH_INLINE_ALL
+      #include "xxhash.h"
       typedef struct {
-        int field, x, y, z;
-        size_t hash;
+        union {
+          uint64_t state;
+          struct {
+            unsigned short field;
+            short x, y, z;
+          };
+        };
       } #{type};
       #{extern} #{type} #{new}(int, int, int, int);
-      #define #{equal}(lt,rt) ((lt).field == (rt).field && (lt).x == (rt).x && (lt).y == (rt).y && (lt).z == (rt).z)
-      #define #{identify}(obj) ((obj).hash)
+      #define #{equal}(lt,rt) ((lt).state == (rt).state)
+      #define #{identify}(obj) (XXH3_64bits(&obj, sizeof(obj)))
       #define #{ctor}(obj) ((obj) = #{new}(0,0,0,0))
     $
     debug_code(stream) do
@@ -136,7 +143,6 @@ NodeCode = Class.new(AutoC::UserDefinedType) do
   end
   def write_defs(stream)
     stream << %$
-      #define SIGN2LSB(x) ((abs(x) << 1) | (x < 0))
       #{type} #{new}(int field, int x, int y, int z) {
         #{type} result;
         FINITA_ENTER;
@@ -145,11 +151,8 @@ NodeCode = Class.new(AutoC::UserDefinedType) do
         result.x = x;
         result.y = y;
         result.z = z;
-        /* abs(x|y|z) < 2^9 is implied; extra bit is reserved for the sign */
-        result.hash = FinitaHashMix(((SIGN2LSB(x) & 0x3FF) | ((SIGN2LSB(y) & 0x3FF) << 10) | ((SIGN2LSB(z) & 0x3FF) << 20)) ^ (field << 30));
         FINITA_RETURN(result);
       }
-      #undef SIGN2LSB
     $
     debug_code(stream) do
       stream << %$
@@ -189,11 +192,10 @@ NodeCoordCode = Class.new(AutoC::UserDefinedType) do
     stream << %$
       typedef struct {
         #{NodeCode.type} row, column;
-        size_t hash;
       } #{type};
       #{extern} #{type} #{new}(#{NodeCode.type}, #{NodeCode.type});
       #{extern} int #{equal}(#{type}, #{type});
-      #define #{identify}(obj) ((obj).hash)
+      #define #{identify}(obj) (XXH3_64bits(&obj, sizeof(obj)))
     $
   end
   def write_defs(stream)
@@ -203,7 +205,6 @@ NodeCoordCode = Class.new(AutoC::UserDefinedType) do
         FINITA_ENTER;
         result.row = row;
         result.column = column;
-        result.hash = #{NodeCode.identify("row")} ^ (#{NodeCode.identify("column")} << 1);
         FINITA_RETURN(result);
       }
       int #{equal}(#{type} lt, #{type} rt) {
