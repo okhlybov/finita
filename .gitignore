@@ -1,0 +1,4 @@
+build
+*_auto.[ch]
+*.cmake
+.vscode

@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.15)
+
+project(test)
+
+set(AUTOC_MODULE_NAME _${PROJECT_NAME})
+set(AUTOC_MODULE_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.rb)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
+include(AutoC)
+
+add_autoc_module(
+  ${AUTOC_MODULE_NAME}
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  MAIN_DEPENDENCY ${AUTOC_MODULE_SOURCE}
+  COMMAND ${Ruby_EXECUTABLE} -I../../autoc/lib -I../lib ${AUTOC_MODULE_SOURCE}
+)
+
+add_executable(${PROJECT_NAME} ${PROJECT_NAME}.c)
+target_link_libraries(${PROJECT_NAME} ${AUTOC_MODULE_NAME})
