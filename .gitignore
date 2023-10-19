@@ -1,4 +1,5 @@
 build
-*_auto.[ch]
+a.out
+*_auto*.[ch]
 *.cmake
 .vscode

@@ -3,9 +3,6 @@
 #include <stdio.h>
 
 int main(int argc, char **argv) {
-  CString msg;
-  CStringCreateFormat(&msg, "Hello %s!\n", "test");
-  printf(msg);
-  CStringDestroy(&msg);
+  N3 n = N3(0,0,0,0);
   return 0;
 }

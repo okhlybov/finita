@@ -1,8 +1,9 @@
 require 'autoc/module'
-require 'autoc/cstring'
+
+require 'finita/cartesian'
 
 m = AutoC::Module.render(:_test, stateful: false) do |m|
-  m << AutoC::CString.new
+  m << Finita::Cartesian::N3.instance.rc
 end
 
 require 'autoc/cmake'

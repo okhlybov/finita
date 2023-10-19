@@ -3,6 +3,9 @@
   "folders": [
     {
       "path": ".."
+    },
+    {
+      "path": "../../autoc"
     }
   ],
   "settings": {

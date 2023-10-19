@@ -1,0 +1,269 @@
+{
+  "version": 4,
+  "configurePresets": [
+    {
+      "name": "system",
+      "displayName": "System",
+      "description": "generic toolset for *NIX environments",
+      "binaryDir": "${sourceDir}/build",
+      "generator": "Ninja Multi-Config",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "$env{CC}",
+        "CMAKE_CXX_COMPILER": "$env{CXX}",
+        "CMAKE_C_FLAGS_DEBUG": "$env{CFLAGS_DEBUG}",
+        "CMAKE_C_FLAGS_RELEASE": "$env{CFLAGS_RELEASE}",
+        "CMAKE_CXX_FLAGS_DEBUG": "$env{CFLAGS_DEBUG}",
+        "CMAKE_CXX_FLAGS_RELEASE": "$env{CFLAGS_RELEASE}"
+      },
+      "environment": {
+        "CC": "cc",
+        "CXX": "c++",
+        "MPI_C_COMPILER": "mpicc",
+        "MPI_CXX_COMPILER": "mpicxx",
+        "CFLAGS_DEBUG": "-g -Wall -Og",
+        "CFLAGS_RELEASE": "-g -Ofast -funroll-loops -ffast-math -mavx2 -DNDEBUG",
+        "LDFLAGS": "-g"
+      }
+    },
+    {
+      "name": "gnu",
+      "displayName": "GNU",
+      "description": "omni-environment toolset",
+      "inherits": "system",
+      "cacheVariables": {
+        "CMAKE_Fortran_COMPILER": "$env{FC}",
+        "CMAKE_Fortran_FLAGS_DEBUG": "$env{CFLAGS_DEBUG}",
+        "CMAKE_Fortran_FLAGS_RELEASE": "$env{CFLAGS_RELEASE}"
+      },
+      "environment": {
+        "CC": "gcc",
+        "CXX": "g++",
+        "FC": "gfortran",
+        "MPI_Fortran_COMPILER": "mpifort"
+      }
+    },
+    {
+      "name": "clang",
+      "displayName": "CLang",
+      "description": "omni-environment toolset",
+      "inherits": "system",
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++",
+        "FC": "flang",
+        "OMPI_CC": "$env{CC}",
+        "OMPI_CXX": "$env{CXX}",
+        "OMPI_FC": "$env{FC}"
+      }
+    },
+    {
+      "name": "oneapi",
+      "displayName": "Intel oneAPI",
+      "description": "toolset for *NIX environments",
+      "binaryDir": "${sourceDir}/build",
+      "inherits": "system",
+      "generator": "Ninja Multi-Config",
+      "condition": {
+        "lhs": "${hostSystemName}",
+        "type": "equals",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_Fortran_COMPILER": "$env{FC}",
+        "CMAKE_Fortran_FLAGS_DEBUG": "$env{CFLAGS_DEBUG}",
+        "CMAKE_Fortran_FLAGS_RELEASE": "$env{CFLAGS_RELEASE}"
+      },
+      "environment": {
+        "CC": "icx",
+        "CXX": "icpx",
+        "FC": "ifx",
+        "I_MPI_CC": "$env{CC}",
+        "I_MPI_CXX": "$env{CXX}",
+        "I_MPI_FC": "$env{FC}",
+        "MPI_C_COMPILER": "mpicc",
+        "MPI_CXX_COMPILER": "mpicxx",
+        "MPI_Fortran_COMPILER": "mpifc"
+      }
+    },
+    {
+      "name": "msvc",
+      "displayName": "Microsoft Visual Studio",
+      "description": "default version & architecture",
+      "binaryDir": "${sourceDir}/build",
+      "condition": {
+        "lhs": "${hostSystemName}",
+        "type": "equals",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "$env{CC}",
+        "CMAKE_CXX_COMPILER": "$env{CXX}",
+        "CMAKE_C_FLAGS_DEBUG": "$env{CFLAGS_DEBUG}",
+        "CMAKE_C_FLAGS_RELEASE": "$env{CFLAGS_RELEASE}",
+        "CMAKE_CXX_FLAGS_DEBUG": "$env{CFLAGS_DEBUG}",
+        "CMAKE_CXX_FLAGS_RELEASE": "$env{CFLAGS_RELEASE}"
+      },
+      "environment": {
+        "CC": "cl",
+        "CXX": "cl",
+        "CFLAGS_DEBUG": "/nologo /MP /Zi /Wall /WX- /Od /Ob0 /Oy- /D WIN32 /D _WINDOWS /RTC1 /MDd /GS /Zc:wchar_t /Zc:forScope /Zc:inline /Gd",
+        "CFLAGS_RELEASE": "/nologo /MP /Zi /W1 /WX- /Ox /Ot /Ob2 /Oy /D NDEBUG /D WIN32 /D _WINDOWS /MD /fp:fast /arch:AVX2 /Zc:wchar_t /Zc:forScope /Zc:inline /Gd"
+      }
+    },
+    {
+      "name": "msvc2015",
+      "displayName": "Microsoft Visual Studio 2015",
+      "inherits": "msvc",
+      "generator": "Visual Studio 14 2015",
+      "toolset": {
+        "strategy": "set",
+        "value": "v140"
+      },
+      "architecture": {
+        "strategy": "set",
+        "value": "x64"
+      }
+    },
+    {
+      "name": "msvc2022",
+      "displayName": "Microsoft Visual Studio 2022",
+      "inherits": "msvc",
+      "generator": "Visual Studio 17 2022",
+      "toolset": {
+        "strategy": "set",
+        "value": "v143"
+      },
+      "architecture": {
+        "strategy": "set",
+        "value": "x64"
+      }
+    },
+    {
+      "name": "oneapi",
+      "displayName": "Intel oneAPI",
+      "description": "toolset for Windows environment",
+      "binaryDir": "${sourceDir}/build",
+      "inherits": "msvc",
+      "generator": "Ninja Multi-Config",
+      "condition": {
+        "lhs": "${hostSystemName}",
+        "type": "equals",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_Fortran_COMPILER": "$env{FC}",
+        "CMAKE_Fortran_FLAGS_DEBUG": "$env{CFLAGS_DEBUG}",
+        "CMAKE_Fortran_FLAGS_RELEASE": "$env{CFLAGS_RELEASE}"
+      },
+      "environment": {
+        "CC": "icx",
+        "CXX": "icx",
+        "FC": "ifx",
+        "I_MPI_CC": "$env{CC}",
+        "I_MPI_CXX": "$env{CXX}",
+        "I_MPI_FC": "$env{FC}",
+        "MPI_C_COMPILER": "mpicc",
+        "MPI_CXX_COMPILER": "mpicxx",
+        "MPI_Fortran_COMPILER": "mpifc"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "system",
+      "configurePreset": "system"
+    },
+    {
+      "name": "system-debug",
+      "displayName": "Debug",
+      "configurePreset": "system",
+      "configuration": "Debug"
+    },
+    {
+      "name": "system-release",
+      "displayName": "Release",
+      "configurePreset": "system",
+      "configuration": "Release"
+    },
+    {
+      "name": "gnu",
+      "configurePreset": "gnu"
+    },
+    {
+      "name": "gnu-debug",
+      "displayName": "Debug",
+      "configurePreset": "gnu",
+      "configuration": "Debug"
+    },
+    {
+      "name": "gnu-release",
+      "displayName": "Release",
+      "configurePreset": "gnu",
+      "configuration": "Release"
+    },
+    {
+      "name": "clang",
+      "configurePreset": "clang"
+    },
+    {
+      "name": "clang-debug",
+      "displayName": "Debug",
+      "configurePreset": "clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "clang-release",
+      "displayName": "Release",
+      "configurePreset": "clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "oneapi",
+      "configurePreset": "oneapi"
+    },
+    {
+      "name": "oneapi-debug",
+      "displayName": "Debug",
+      "configurePreset": "oneapi",
+      "configuration": "Debug"
+    },
+    {
+      "name": "oneapi-release",
+      "displayName": "Release",
+      "configurePreset": "oneapi",
+      "configuration": "Release"
+    },
+    {
+      "name": "msvc2015",
+      "configurePreset": "msvc2015"
+    },
+    {
+      "name": "msvc2015-release",
+      "displayName": "Release",
+      "configuration": "Release",
+      "configurePreset": "msvc2015"
+    },
+    {
+      "name": "msvc2015-debug",
+      "displayName": "Debug",
+      "configuration": "Debug",
+      "configurePreset": "msvc2015"
+    },
+    {
+      "name": "msvc2022",
+      "configurePreset": "msvc2022"
+    },
+    {
+      "name": "msvc2022-release",
+      "displayName": "Release",
+      "configuration": "Release",
+      "configurePreset": "msvc2022"
+    },
+    {
+      "name": "msvc2022-debug",
+      "displayName": "Debug",
+      "configuration": "Debug",
+      "configurePreset": "msvc2022"
+    }
+  ]
+}
