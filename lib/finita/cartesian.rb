@@ -1,3 +1,6 @@
+# frozen_string_literal: true
+
+
 require 'singleton'
 require 'autoc/std'
 require 'autoc/hashers'
@@ -18,9 +21,9 @@ module Finita::Cartesian
       super(:N3)
       dependencies << AutoC::STD::ASSERT_H << AutoC::STD::INTTYPES_H << AutoC::STD::LIMITS_H << AutoC::Hashers.instance
     end
-  
+
     def rc = @rc ||= Finita::Matrix::RC.new(self)
-  
+
     def render_interface(stream)
       stream << %{
         typedef struct {
@@ -35,8 +38,8 @@ module Finita::Cartesian
         } #{signature};
 
         // ensure .state unambiguously represents the node state (no intermittent garbage is captured between fields, no extra padding etc.)
-        _Static_assert(sizeof(#{signature}) == sizeof(uint64_t), "#{signature} must be unambiguously representable as uint64_t");
-  
+        static_assert(sizeof(#{signature}) == sizeof(uint64_t), "#{signature} must be unambiguously representable as uint64_t");
+
         #define #{prefix}(x,y,z,field) #{new!}(x,y,z,field)
         AUTOC_INLINE #{signature} #{new!}(short x, short y, short z, unsigned short field) {
           assert(SHRT_MIN <= x); assert(x <= SHRT_MAX);
@@ -51,17 +54,17 @@ module Finita::Cartesian
         }
       }
     end
-  
+
     def default_create = @default_create ||= -> (target) { "#{target} = #{new}(0, 0, 0, 0)" }
-    
+
     def custom_create = @custom_create ||= -> (target, source) { copy.(target, source) }
-  
+
     def copy = @copy ||= -> (target, source) { "#{target} = #{source}" }
-  
+
     def equal = @equal ||= -> (lt, rt) { "((#{lt}).state == (#{rt}).state)" }
-  
+
     def compare = @compare ||= -> (lt, rt) { "((#{lt}).state == (#{rt}).state ? 0 : ((#{lt}).state < (#{rt}).state ? -1 : +1))" }
-  
+
     def hash_code = @hash_code ||= -> (target) { "#{hash!}(#{target})" }
   end # N3
 

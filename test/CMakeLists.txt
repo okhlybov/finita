@@ -18,3 +18,5 @@ add_autoc_module(
 
 add_executable(${PROJECT_NAME} ${PROJECT_NAME}.c)
 target_link_libraries(${PROJECT_NAME} ${AUTOC_MODULE_NAME})
+
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)
