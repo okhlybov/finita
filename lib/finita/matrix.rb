@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
 
+require 'finita/core'
 require 'autoc/record'
 require 'autoc/intrusive_hash_set'
-require 'finita/core'
+require 'autoc/intrusive_hash_map'
 
 
 module Finita::Matrix
@@ -28,10 +29,8 @@ module Finita::Matrix
       is_deleted.inline_code %{return slot->element.field == USHRT_MAX-1;}
     end
 
-  end # IndexSet
+  end # NodeSet
 
-
-  require 'autoc/intrusive_hash_map'
 
   class Matrix < AutoC::IntrusiveHashMap
 
@@ -57,7 +56,7 @@ module Finita::Matrix
       is_deleted.inline_code %{return slot->index.row.field == USHRT_MAX-1;}
     end
 
-  end
+  end # Matrix
 
 
 end
