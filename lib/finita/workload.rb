@@ -38,12 +38,22 @@ module Finita
       super
       method(:unsigned, :processes, { target: const_rvalue }).configure do
         header %{
-          @brief Return total number of processes participating in the workload
+          @brief Return total number of processes sharing the workload
         }
       end
       method(:unsigned, :process, { target: const_rvalue }).configure do
         header %{
           @brief Return current process index
+        }
+      end
+      method(:unsigned, :threads, { target: const_rvalue }).configure do
+        header %{
+          @brief Return total number of threads sharing the workload on the current process
+        }
+      end
+      method(:unsigned, :thread, { target: const_rvalue }).configure do
+        header %{
+          @brief Return current per-process thread index
         }
       end
     end
@@ -57,26 +67,40 @@ module Finita
       super
       stream << %{
         typedef struct {
-          unsigned threads;
+          unsigned threads; ///< @private
         } #{signature};
       }
     end
 
     def configure
       super
-      destroy.inline_code %{}
-      default_create.inline_code %{
+      destroy.code %{}
+      default_create.code %{
         assert(target);
-        target->threads =
-          #ifdef _OPENMP
-            omp_get_num_threads();
-          #else
-            1
-          #endif
-        ;
+        #ifdef _OPENMP
+          #pragma omp parallel
+          #pragma omp single
+          target->threads = omp_get_num_threads(); // capture default thread count when run in OMP parallel
+        #else
+          target->threads = 1;
+        #endif
       }
       processes.inline_code %{return 1;}
       process.inline_code %{return 0;}
+      threads.inline_code %{
+        assert(target);
+        return target->threads;
+      }
+      thread.inline_code %{
+        assert(target);
+        return
+          #ifdef _OPENMP
+            omp_get_thread_num();
+          #else
+            0
+          #endif
+        ;
+      }
     end
 
   end # Uniprocess
@@ -91,8 +115,8 @@ module Finita
           @brief
         */
         typedef struct {
-          unsigned* process_threads; //< threads per process
-          unsigned processes; //< process count
+          unsigned* process_threads; //< @private
+          unsigned processes; //< @ptivate
         } #{signature};
       }
     end
@@ -110,7 +134,7 @@ module Finita
       }
       default_create.code %{
         assert(target);
-
+        // TODO
       }
     end
 

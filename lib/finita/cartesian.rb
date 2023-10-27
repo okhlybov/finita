@@ -29,10 +29,10 @@ module Finita::Cartesian
         typedef struct {
           /// @private
           union {
-            uint64_t state; // used for fast contents-based comparison/ordering/hashing
+            uint64_t state; // used for fast content-based comparison/ordering/hashing
             struct {
-              unsigned short dx, dy, dz;
               unsigned short field;
+              unsigned short dx, dy, dz;
             };
           };
         } #{signature};
@@ -45,12 +45,24 @@ module Finita::Cartesian
           assert(SHRT_MIN <= x); assert(x <= SHRT_MAX);
           assert(SHRT_MIN <= y); assert(y <= SHRT_MAX);
           assert(SHRT_MIN <= z); assert(z <= SHRT_MAX);
-          #{signature} target = {.dx = x + SHRT_MIN, .dy = y + SHRT_MIN, .dz = z + SHRT_MIN, .field = field};
+          #{signature} target = {.field = field, .dx = x + SHRT_MIN, .dy = y + SHRT_MIN, .dz = z + SHRT_MIN};
           // store node indices as unsigned values to be able to compute ordering by the state's contents
           return target;
         }
-        AUTOC_INLINE size_t #{hash!}(N3 target) {
+        AUTOC_INLINE size_t #{hash!}(#{signature} target) {
           return autoc_hash(target.state);
+        }
+        AUTOC_INLINE short #{x}(#{signature} target) {
+          return target.dx - SHRT_MIN;
+        }
+        AUTOC_INLINE short #{y}(#{signature} target) {
+          return target.dy - SHRT_MIN;
+        }
+        AUTOC_INLINE short #{z}(#{signature} target) {
+          return target.dz - SHRT_MIN;
+        }
+        AUTOC_INLINE short #{field}(#{signature} target) {
+          return target.field;
         }
       }
     end
@@ -66,6 +78,7 @@ module Finita::Cartesian
     def compare = @compare ||= -> (lt, rt) { "((#{lt}).state == (#{rt}).state ? 0 : ((#{lt}).state < (#{rt}).state ? -1 : +1))" }
 
     def hash_code = @hash_code ||= -> (target) { "#{hash!}(#{target})" }
+
   end # N3
 
 
