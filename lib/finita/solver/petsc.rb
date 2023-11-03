@@ -194,6 +194,8 @@ class Solver::PETSc < Solver::Matrix
             index = 0;
             #{matrixSize} = #{SparsityPatternCode.size}(&#{sparsity});
             #{matrixRC} = (FinitaRowColumn*)#{malloc}(#{matrixSize}*sizeof(FinitaRowColumn)); #{assert}(#{matrixRC});
+      $
+      stream << %$
             #{lhs_code.coordCacheStart}();
             #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
             while(#{SparsityPatternCode.itMove}(&it)) {
@@ -204,6 +206,8 @@ class Solver::PETSc < Solver::Matrix
               ++index;
             }
             #{lhs_code.coordCacheStop}();
+      $ if @solver.linear?
+      stream << %$
             #{assert}(index == #{matrixSize});
             FinitaRowColumnSort(#{matrixRC}, #{matrixSize}, 1);
           }
@@ -213,11 +217,15 @@ class Solver::PETSc < Solver::Matrix
             #{vectorIndices}[index - first] = index;
           }
           #{SparsityPatternCode.purge('&'+sparsity) if @solver.purge_sparsity};
+      $
+      stream << %$
           #{rhs_code.nodeCacheStart}();
           for(index = 0; index < #{vectorSize}; ++index) {
             #{rhs_code.nodeCache}(#{mapper_code.node}(#{vectorIndices}[index]));
           }
           #{rhs_code.nodeCacheStop}();
+      $ if @solver.linear?
+      stream << %$
           FINITA_RETURN(0);
         }
       $
