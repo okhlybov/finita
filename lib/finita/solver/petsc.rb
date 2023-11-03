@@ -195,18 +195,31 @@ class Solver::PETSc < Solver::Matrix
             #{matrixSize} = #{SparsityPatternCode.size}(&#{sparsity});
             #{matrixRC} = (FinitaRowColumn*)#{malloc}(#{matrixSize}*sizeof(FinitaRowColumn)); #{assert}(#{matrixRC});
       $
-      stream << %$
-            #{lhs_code.coordCacheStart}();
-            #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
-            while(#{SparsityPatternCode.itMove}(&it)) {
-              #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
-              #{matrixRC}[index].row = #{mapper_code.index}(coord.row);
-              #{matrixRC}[index].column = #{mapper_code.index}(coord.column);
-              #{lhs_code.coordCache}(coord);
-              ++index;
-            }
-            #{lhs_code.coordCacheStop}();
-      $ if @solver.linear?
+      # NOTE copy-pasted blocks, must be kept in sync
+      if @solver.linear?
+        stream << %$
+              #{lhs_code.coordCacheStart}();
+              #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
+              while(#{SparsityPatternCode.itMove}(&it)) {
+                #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
+                #{matrixRC}[index].row = #{mapper_code.index}(coord.row);
+                #{matrixRC}[index].column = #{mapper_code.index}(coord.column);
+                #{lhs_code.coordCache}(coord);
+                ++index;
+              }
+              #{lhs_code.coordCacheStop}();
+        $
+      else
+        stream << %$
+              #{SparsityPatternCode.itCtor}(&it, &#{sparsity});
+              while(#{SparsityPatternCode.itMove}(&it)) {
+                #{NodeCoordCode.type} coord = #{SparsityPatternCode.itGet}(&it);
+                #{matrixRC}[index].row = #{mapper_code.index}(coord.row);
+                #{matrixRC}[index].column = #{mapper_code.index}(coord.column);
+                ++index;
+              }
+        $
+      end
       stream << %$
             #{assert}(index == #{matrixSize});
             FinitaRowColumnSort(#{matrixRC}, #{matrixSize}, 1);
