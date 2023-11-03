@@ -84,7 +84,7 @@ class Mapper
       fs = @mapper.unknowns.collect{|u| %~"#{u.name}"~}.join(",")
       stream << %$
         #ifndef NDEBUG
-          //static const char* #{fieldName}[] = {#{fs}};
+          static const char* #{fieldName}[] = {#{fs}};
         #endif
       $
       stream << %$
