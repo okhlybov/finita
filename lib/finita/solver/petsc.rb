@@ -366,7 +366,7 @@ class Solver::PETSc < Solver::Matrix
         }
         static PetscErrorCode #{vector2Unknowns}(Vec x) {
           PetscErrorCode ierr;
-          PetscScalar* values;
+          const PetscScalar* values;
           PetscInt size;
           size_t index, first;
           FINITA_ENTER;
@@ -374,11 +374,11 @@ class Solver::PETSc < Solver::Matrix
           ierr = VecGetLocalSize(x, &size); CHKERRQ(ierr);
           #{assert}(#{decomposer_code.indexCount}() == size);
           #{assert}(#{decomposer_code.lastIndex}() == first + size - 1);
-          ierr = VecGetArray(x, &values); CHKERRQ(ierr);
+          ierr = VecGetArrayRead(x, &values); CHKERRQ(ierr);
           for(index = 0; index < size; ++index) {
             #{mapper_code.indexSet}(index + first, values[index]);
           }
-          ierr = VecRestoreArray(x, &values); CHKERRQ(ierr);
+          ierr = VecRestoreArrayRead(x, &values); CHKERRQ(ierr);
           #{decomposer_code.synchronizeUnknowns}();
           FINITA_RETURN(0);
         }
