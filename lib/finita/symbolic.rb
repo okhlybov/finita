@@ -607,6 +607,9 @@ class Ref::Merger
   def log(obj)
     merge_unary(obj)
   end
+  def abs(obj)
+    merge_unary(obj)
+  end
   def apply!(obj)
     obj.convert!.apply(self)
     @result
@@ -689,6 +692,10 @@ class TypeInferer < Symbolic::Traverser
     @type = Float if @type.equal?(Integer)
   end
   def log(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def abs(obj)
     super
     @type = Float if @type.equal?(Integer)
   end
@@ -839,6 +846,9 @@ class CEmitter < Symbolic::CEmitter
   end
   def log(obj)
     unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "clog" : "log", obj)
+  end
+  def abs(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "cabs" : "fabs", obj)
   end
   def power(obj)
     power_op(obj, *obj.args)

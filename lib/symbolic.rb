@@ -4,10 +4,11 @@
 module Symbolic
 
 
-# Standard mathematics functions.
+# Standard mathematic functions.
 module Math
   def self.exp(obj) Exp.new(obj) end
   def self.log(obj) Log.new(obj) end
+  def self.abs(obj) Abs.new(obj) end
 end
 
 
@@ -209,6 +210,9 @@ class Expression
     def revert!; revert end
     def expand!; expand end
     def collect!; collect end
+  end
+  def abs
+    Abs.new(self)
   end
 end
 
@@ -634,6 +638,18 @@ private
 end
 
 
+# Absolute value.
+class Abs < UnaryFunction
+  def apply(obj) obj.abs(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.abs : Abs.new(op)
+  end
+end
+
+
+
 # Visitor class which performs full symbolic differentiation of expression.
 class Differ
   attr_reader :diffs, :result
@@ -711,6 +727,7 @@ class Differ
       diffs_seq(obj)
     end
   end
+  # Can't differentiate abs()
   def self.coerce(diffs)
     diffs.is_a?(Hash) ? diffs : {diffs=>1} # TODO validity check
   end
@@ -740,6 +757,7 @@ class Traverser
   def minus(obj) traverse_unary(obj) end
   def exp(obj) traverse_unary(obj) end
   def log(obj) traverse_unary(obj) end
+  def abs(obj) traverse_unary(obj) end
   def add(obj) traverse_nary(obj) end
   def multiply(obj) traverse_nary(obj) end
   def subtract(obj) traverse_nary(obj) end
@@ -774,7 +792,8 @@ class PrecedenceComputer
   def power(obj) 30 end
   def exp(obj) 100 end
   def log(obj) 100 end
-end # PrecedenceComputer
+  def abs(obj) 100 end
+  end # PrecedenceComputer
 
 
 # Default symbolic expression renderer.
@@ -802,7 +821,8 @@ class Emitter
   def power(obj) ncomm_op("**", obj) end
   def exp(obj) unary_func("exp", obj) end
   def log(obj) unary_func("log", obj) end
-  private
+  def abs(obj) unary_func("abs", obj) end
+    private
   def prec(obj) obj.apply(@pc) end
   def unary_func(op, obj)
     @out << op << "("
@@ -870,6 +890,7 @@ class RubyEmitter < Emitter
   end
   def exp(obj) unary_func("Math.exp", obj) end
   def log(obj) unary_func("Math.log", obj) end
+  def abs(obj) unary_func("Math.abs", obj) end
   def power(obj)
     power_op(obj, *obj.args)
   end
@@ -905,6 +926,7 @@ class CEmitter < Emitter
   end
   def exp(obj) unary_func("exp", obj) end
   def log(obj) unary_func("log", obj) end
+  def abs(obj) unary_func("abs", obj) end
   def power(obj)
     power_op(obj, *obj.args)
   end
