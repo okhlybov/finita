@@ -6,9 +6,51 @@ module Symbolic
 
 # Standard mathematic functions.
 module Math
-  def self.exp(obj) Exp.new(obj) end
-  def self.log(obj) Log.new(obj) end
-  def self.abs(obj) Abs.new(obj) end
+  def self.exp(obj)
+    Exp.new(obj)
+  end
+  def self.log(obj)
+    Log.new(obj)
+  end
+  def self.abs(obj)
+    Abs.new(obj)
+  end
+  def self.sin(obj)
+    Sin.new(obj)
+  end
+  def self.cos(obj)
+    Cos.new(obj)
+  end
+  def self.tan(obj)
+    Tan.new(obj)
+  end
+  def self.sinh(obj)
+    Sinh.new(obj)
+  end
+  def self.cosh(obj)
+    Cosh.new(obj)
+  end
+  def self.tanh(obj)
+    Tanh.new(obj)
+  end
+  def self.asin(obj)
+    ASin.new(obj)
+  end
+  def self.acos(obj)
+    ACos.new(obj)
+  end
+  def self.atan(obj)
+    ATan.new(obj)
+  end
+  def self.asinh(obj)
+    ASinh.new(obj)
+  end
+  def self.acosh(obj)
+    ACosh.new(obj)
+  end
+  def self.atanh(obj)
+    ATanh.new(obj)
+  end
 end
 
 
@@ -213,6 +255,42 @@ class Expression
   end
   def abs
     Abs.new(self)
+  end
+  def sin
+    Sin.new(self)
+  end
+  def cos
+    Cos.new(self)
+  end
+  def tan
+    Tan.new(self)
+  end
+  def sinh
+    Sinh.new(self)
+  end
+  def cosh
+    Cosh.new(self)
+  end
+  def tanh
+    Tanh.new(self)
+  end
+  def asin
+    ASin.new(self)
+  end
+  def acos
+    ACos.new(self)
+  end
+  def atan
+    ATan.new(self)
+  end
+  def asinh
+    ASinh.new(self)
+  end
+  def acosh
+    ACosh.new(self)
+  end
+  def atanh
+    ATanh.new(self)
   end
 end
 
@@ -649,6 +727,125 @@ private
 end
 
 
+class Sin < UnaryFunction
+  def apply(obj) obj.sin(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.sin : Sin.new(op)
+  end
+end
+
+
+class Cos < UnaryFunction
+  def apply(obj) obj.cos(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.cos : Cos.new(op)
+  end
+end
+
+
+class Tan < UnaryFunction
+  def apply(obj) obj.tan(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.tan : Tan.new(op)
+  end
+end
+
+
+class Sinh < UnaryFunction
+  def apply(obj) obj.sinh(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.sinh : Sinh.new(op)
+  end
+end
+
+
+class Cosh < UnaryFunction
+  def apply(obj) obj.cosh(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.cosh : Cosh.new(op)
+  end
+end
+
+
+class Tanh < UnaryFunction
+  def apply(obj) obj.tanh(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.tanh : Tanh.new(op)
+  end
+end
+
+
+class ASin < UnaryFunction
+  def apply(obj) obj.asin(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.asin : ASin.new(op)
+  end
+end
+
+
+class ACos < UnaryFunction
+  def apply(obj) obj.acos(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.acos : ACos.new(op)
+  end
+end
+
+
+class ATan < UnaryFunction
+  def apply(obj) obj.atan(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.atan : ATan.new(op)
+  end
+end
+
+
+class ASinh < UnaryFunction
+  def apply(obj) obj.asinh(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.asinh : ASinh.new(op)
+  end
+end
+
+
+class ACosh < UnaryFunction
+  def apply(obj) obj.acosh(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.acosh : ACosh.new(op)
+  end
+end
+
+
+class ATanh < UnaryFunction
+  def apply(obj) obj.atanh(self) end
+private
+  def convert
+    op = arg.convert!
+    op.is_a?(Numeric) ? op.atanh : ATanh.new(op)
+  end
+end
+
 
 # Visitor class which performs full symbolic differentiation of expression.
 class Differ
@@ -753,17 +950,73 @@ end # Differ
 
 #
 class Traverser
-  def plus(obj) traverse_unary(obj) end
-  def minus(obj) traverse_unary(obj) end
-  def exp(obj) traverse_unary(obj) end
-  def log(obj) traverse_unary(obj) end
-  def abs(obj) traverse_unary(obj) end
-  def add(obj) traverse_nary(obj) end
-  def multiply(obj) traverse_nary(obj) end
-  def subtract(obj) traverse_nary(obj) end
-  def divide(obj) traverse_nary(obj) end
-  def power(obj) traverse_nary(obj) end
-  protected
+  def plus(obj)
+    traverse_unary(obj)
+  end
+  def minus(obj)
+    traverse_unary(obj)
+  end
+  def exp(obj)
+    traverse_unary(obj)
+  end
+  def log(obj)
+    traverse_unary(obj)
+  end
+  def abs(obj)
+    traverse_unary(obj)
+  end
+  def add(obj)
+    traverse_nary(obj)
+  end
+  def multiply(obj)
+    traverse_nary(obj)
+  end
+  def subtract(obj)
+    traverse_nary(obj)
+  end
+  def divide(obj)
+    traverse_nary(obj)
+  end
+  def power(obj)
+    traverse_nary(obj)
+  end
+  def sin(obj)
+    traverse_unary(obj)
+  end
+  def cos(obj)
+    traverse_unary(obj)
+  end
+  def tan(obj)
+    traverse_unary(obj)
+  end
+  def sinh(obj)
+    traverse_unary(obj)
+  end
+  def cosh(obj)
+    traverse_unary(obj)
+  end
+  def tanh(obj)
+    traverse_unary(obj)
+  end
+  def asin(obj)
+    traverse_unary(obj)
+  end
+  def acos(obj)
+    traverse_unary(obj)
+  end
+  def atan(obj)
+    traverse_unary(obj)
+  end
+  def asinh(obj)
+    traverse_unary(obj)
+  end
+  def acosh(obj)
+    traverse_unary(obj)
+  end
+  def atanh(obj)
+    traverse_unary(obj)
+  end
+protected
   def traverse_unary(obj)
     obj.arg.apply(self)
   end
@@ -781,19 +1034,79 @@ end # Traverser
 # That is, the subexpressions with higher precedence which are a part of the expression with lower precedence
 # must be enclosed into round braces to maintain the proper evaluation order.
 class PrecedenceComputer
-  def numeric(obj) obj.is_a?(Complex) || obj < 0 ? 0 : 100 end
-  def symbol(obj) 100 end
-  def plus(obj) 1 end
-  def minus(obj) 1 end
-  def add(obj) 10 end
-  def subtract(obj) 10 end
-  def multiply(obj) 20 end
-  def divide(obj) 20 end
-  def power(obj) 30 end
-  def exp(obj) 100 end
-  def log(obj) 100 end
-  def abs(obj) 100 end
-  end # PrecedenceComputer
+  def numeric(obj)
+    obj.is_a?(Complex) || obj < 0 ? 0 : 100
+  end
+  def symbol(obj)
+    100
+  end
+  def plus(obj)
+    1
+  end
+  def minus(obj)
+    1
+  end
+  def add(obj)
+    10
+  end
+  def subtract(obj)
+    10
+  end
+  def multiply(obj)
+    20
+  end
+  def divide(obj)
+    20
+  end
+  def power(obj)
+    30
+  end
+  def exp(obj)
+    100
+  end
+  def log(obj)
+    100
+  end
+  def abs(obj)
+    100
+  end
+  def sin(obj)
+    100
+  end
+  def cos(obj)
+    100
+  end
+  def tan(obj)
+    100
+  end
+  def sinh(obj)
+    100
+  end
+  def cosh(obj)
+    100
+  end
+  def tanh(obj)
+    100
+  end
+  def asin(obj)
+    100
+  end
+  def acos(obj)
+    100
+  end
+  def atan(obj)
+    100
+  end
+  def asinh(obj)
+    100
+  end
+  def acosh(obj)
+    100
+  end
+  def atanh(obj)
+    100
+  end
+end # PrecedenceComputer
 
 
 # Default symbolic expression renderer.
@@ -821,8 +1134,46 @@ class Emitter
   def power(obj) ncomm_op("**", obj) end
   def exp(obj) unary_func("exp", obj) end
   def log(obj) unary_func("log", obj) end
-  def abs(obj) unary_func("abs", obj) end
-    private
+  def abs(obj)
+    unary_func("abs", obj)
+  end
+  def sin(obj)
+    unary_func("sin", obj)
+  end
+  def cos(obj)
+    unary_func("cos", obj)
+  end
+  def tan(obj)
+    unary_func("tan", obj)
+  end
+  def sinh(obj)
+    unary_func("sinh", obj)
+  end
+  def cosh(obj)
+    unary_func("cosh", obj)
+  end
+  def tanh(obj)
+    unary_func("tanh", obj)
+  end
+  def asin(obj)
+    unary_func("asin", obj)
+  end
+  def acos(obj)
+    unary_func("acos", obj)
+  end
+  def atan(obj)
+    unary_func("atan", obj)
+  end
+  def asinh(obj)
+    unary_func("asinh", obj)
+  end
+  def acosh(obj)
+    unary_func("acosh", obj)
+  end
+  def atanh(obj)
+    unary_func("atanh", obj)
+  end
+private
   def prec(obj) obj.apply(@pc) end
   def unary_func(op, obj)
     @out << op << "("
@@ -888,9 +1239,51 @@ class RubyEmitter < Emitter
       @out << obj.to_s
     end
   end
-  def exp(obj) unary_func("Math.exp", obj) end
-  def log(obj) unary_func("Math.log", obj) end
-  def abs(obj) unary_func("Math.abs", obj) end
+  def exp(obj)
+    unary_func("Math.exp", obj)
+  end
+  def log(obj)
+    unary_func("Math.log", obj)
+  end
+  def abs(obj)
+    unary_func("Math.abs", obj)
+  end
+  def sin(obj)
+    unary_func("Math.sin", obj)
+  end
+  def cos(obj)
+    unary_func("Math.cos", obj)
+  end
+  def tan(obj)
+    unary_func("Math.tan", obj)
+  end
+  def sinh(obj)
+    unary_func("Math.sinh", obj)
+  end
+  def cosh(obj)
+    unary_func("Math.cosh", obj)
+  end
+  def tanh(obj)
+    unary_func("Math.tanh", obj)
+  end
+  def asin(obj)
+    unary_func("Math.asin", obj)
+  end
+  def acos(obj)
+    unary_func("Math.acos", obj)
+  end
+  def atan(obj)
+    unary_func("Math.atan", obj)
+  end
+  def asinh(obj)
+    unary_func("Math.asinh", obj)
+  end
+  def acosh(obj)
+    unary_func("Math.acosh", obj)
+  end
+  def atanh(obj)
+    unary_func("Math.atanh", obj)
+  end
   def power(obj)
     power_op(obj, *obj.args)
   end

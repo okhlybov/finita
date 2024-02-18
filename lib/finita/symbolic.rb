@@ -610,6 +610,42 @@ class Ref::Merger
   def abs(obj)
     merge_unary(obj)
   end
+  def sin(obj)
+    merge_unary(obj)
+  end
+  def cos(obj)
+    merge_unary(obj)
+  end
+  def tan(obj)
+    merge_unary(obj)
+  end
+  def sinh(obj)
+    merge_unary(obj)
+  end
+  def cosh(obj)
+    merge_unary(obj)
+  end
+  def tanh(obj)
+    merge_unary(obj)
+  end
+  def asin(obj)
+    merge_unary(obj)
+  end
+  def acos(obj)
+    merge_unary(obj)
+  end
+  def atan(obj)
+    merge_unary(obj)
+  end
+  def asinh(obj)
+    merge_unary(obj)
+  end
+  def acosh(obj)
+    merge_unary(obj)
+  end
+  def atanh(obj)
+    merge_unary(obj)
+  end
   def apply!(obj)
     obj.convert!.apply(self)
     @result
@@ -699,7 +735,55 @@ class TypeInferer < Symbolic::Traverser
     super
     @type = Float if @type.equal?(Integer)
   end
-  protected
+  def sin(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def cos(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def tan(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def sinh(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def cosh(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def tanh(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def asin(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def acos(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def atan(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def asinh(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def acosh(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+  def atanh(obj)
+    super
+    @type = Float if @type.equal?(Integer)
+  end
+protected
   def traverse_nary(obj)
     @type = Numeric.promoted_type(*obj.args.collect {|o| o.apply(self); @type})
   end
@@ -849,6 +933,42 @@ class CEmitter < Symbolic::CEmitter
   end
   def abs(obj)
     unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "cabs" : "fabs", obj)
+  end
+  def sin(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "csin" : "sin", obj)
+  end
+  def cos(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "ccos" : "cos", obj)
+  end
+  def tan(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "ctan" : "tan", obj)
+  end
+  def sinh(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "csinh" : "sinh", obj)
+  end
+  def cosh(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "ccosh" : "cosh", obj)
+  end
+  def tanh(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "ctanh" : "tanh", obj)
+  end
+  def asin(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "casin" : "asin", obj)
+  end
+  def acos(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "cacos" : "acos", obj)
+  end
+  def atan(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "catan" : "atan", obj)
+  end
+  def asinh(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "casinh" : "asinh", obj)
+  end
+  def acosh(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "cacosh" : "acosh", obj)
+  end
+  def atanh(obj)
+    unary_func(TypeInferer.new.apply!(obj).equal?(Complex) ? "catanh" : "atanh", obj)
   end
   def power(obj)
     power_op(obj, *obj.args)
