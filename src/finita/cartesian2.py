@@ -29,18 +29,21 @@ class Node(Primitive):
       """)
 
 
-node_t = Node("N2")
+#
+node = Node("N2")
 
 
+#
 class Grid(Record):
   
   def __init__(self, name):
-    super().__init__(name, {"first": node_t, "last": node_t}, getters=False, setters=False)
+    self.node = node
+    super().__init__(name, {"first": self.node, "last": self.node}, getters=False, setters=False)
     
   def __setup__(self):
     super().__setup__()
-    
-    with self.method(None, "create", {"target": out(self), "first": node_t, "last": node_t}) as f:
+
+    with self.method(None, "create", {"target": out(self), "first": self.node, "last": self.node}) as f:
       f.code = f"""
         assert(target);
         assert(last.x >= first.x);
@@ -54,7 +57,7 @@ class Grid(Record):
         return (target->last.y - target->first.y + 1)*(target->last.x - target->first.x + 1);
       """
       
-    with self.method(std.size_t, "index", {"target": self, "node": node_t}) as f:
+    with self.method(std.size_t, "index", {"target": self, "node": self.node}, attribute=("index", "of")) as f:
       f.inline_code = f"""
         assert(target);
         size_t result = (node.x - target->first.x) + (target->last.x - target->first.x + 1)*(node.y - target->first.y);
@@ -62,15 +65,15 @@ class Grid(Record):
         return result; 
       """
       
-    with self.method(node_t, "node", {"target": self, "index": std.size_t}) as f:
+    with self.method(self.node, "node", {"target": self, "index": std.size_t}, attribute=("node", "of")) as f:
       f.inline_code = f"""
         assert(target);
         assert(index < {self.size(f.target)});
         size_t nx = target->last.x - target->first.x + 1;
         size_t dx = index % nx;
         size_t dy = (index - dx)/nx;
-        return ({node_t}){{dx + target->first.x, dy + target->first.y}};  
+        return ({self.node}){{dx + target->first.x, dy + target->first.y}};  
       """
 
 
-grid_t =  Arc(Grid("C2"))
+grid =  Arc(Grid("C2"))

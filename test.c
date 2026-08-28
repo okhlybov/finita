@@ -9,8 +9,11 @@ int main(int argc, char** argv) {
   printf("size=%d\n", C2Size(g));
   C2Index(g, b);
   C2Index(g, C2Node(g, 20));
-  C2Field* f = C2FieldNew(g);
-  f->elements[0] = 6;
+  C2Field* f = C2FieldNew(g, 5);
+  *C2FieldAccess(f, (N2){3,3}, 0) = 3;
+  C2FieldRotate(f, -5);
+  C2FieldRotate(f, 3);
   C2Free(g);
+  C2FieldFree(f);
   return 0;
 }
