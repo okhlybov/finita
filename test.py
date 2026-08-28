@@ -4,18 +4,19 @@ sys.path.insert(0, "../autoc/src")
 import autoc.std as std
 
 
-from pathlib import Path
+from finita.module import Module
+from finita.problem import Problem
 
+from finita.cartesian2 import Mesh
 
-import autoc.module
+from finita.field import Field
+
+F = Field(std.complex, Mesh())
+
+with Module("test", stateful=False) as m:
+  with Problem("Test"):
+    M = Mesh().instance("M")
+    T = F.instance("T")
+
 import autoc.cmake
-
-
-from finita.cartesian2 import grid
-
-from finita.field import field
-
-with autoc.module.Module(sys.argv[1], stateful=False) as m:
-  m.add(field(std.float, grid))
-
 autoc.cmake.CMake(m)
