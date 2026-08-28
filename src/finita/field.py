@@ -1,8 +1,10 @@
+import finita.problem
 import autoc.std as std
+from autoc.module import Code
 from autoc.reference import Arc
 from autoc.memory import Manager
-from autoc.core import out, inout, Callable, Indirection
 from autoc.composite import Composite, _StructRenderer
+from autoc.core import out, inout, Callable, Indirection, Variable
 
 
 #
@@ -14,8 +16,8 @@ class _Field(_StructRenderer, Composite):
     self.memory = memory
     self.mesh = mesh
     self._layer = Indirection(self.scalar)
-    self._layers = Indirection(self.scalar, indirection=2)
-    
+    self._layers = Indirection(self._layer)
+
   @property
   def comparable(self):
     return False
@@ -86,9 +88,7 @@ class _Field(_StructRenderer, Composite):
           }}
         }}
       """
-      
-      
-      
+
   def _render_struct(self, stream):
     super()._render_struct(stream)
     if self.public:
@@ -99,7 +99,32 @@ class _Field(_StructRenderer, Composite):
       const {self.mesh} mesh; /**< @private */
     }} {self.name};
     """)
+
+
+#
+class Field(Arc):
+  
+  def __init__(self, scalar, mesh):
+    super().__init__(_Field(scalar, mesh))
     
+  def instance(self, name):
+    return Field.Instance(self, name)
+
+  class Instance(Variable, finita.problem.Entity):
     
-def field(scalar, mesh):
-  return Arc(_Field(scalar, mesh))
+    def __init__(self, type, name, *args, **kws):
+      super().__init__(type, name, *args, dependencies=(type,), **kws)
+      
+    def _render_interface(self, stream):
+      super()._render_interface(stream)
+      stream.append(f"""
+        AUTOC_EXTERN {self.definition};
+        #define {self.name}(node) *{self.type.access(self, "node", 0)}
+        #define {self.name}_(node, layer) *{self.type.access(self, "node", "layer")}
+      """)
+      
+    def _render_definitions(self, stream):
+      super()._render_definitions(stream)
+      stream.append(f"""
+        {self.definition};
+      """)

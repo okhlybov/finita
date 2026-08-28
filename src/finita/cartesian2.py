@@ -1,8 +1,9 @@
-from autoc.reference import *
-from autoc.composite import *
-from autoc.record import *
-from autoc.core import *
+import functools
 import autoc.std as std
+from autoc.record import Record
+from autoc.reference import Arc
+from autoc.module import Code
+from autoc.core import Primitive, Macro, Variable, out
 
 
 #
@@ -34,7 +35,7 @@ node = Node("N2")
 
 
 #
-class Grid(Record):
+class _Mesh(Record):
   
   def __init__(self, name):
     self.node = node
@@ -76,4 +77,32 @@ class Grid(Record):
       """
 
 
-grid =  Arc(Grid("C2"))
+import finita.problem
+
+
+#
+@functools.cache
+class Mesh(Arc):
+  
+  def __init__(self):
+    super().__init__(_Mesh("C2"))
+    
+  def instance(self, name):
+    return Mesh.Instance(self, name)
+
+  class Instance(Variable, finita.problem.Entity):
+    
+    def __init__(self, type, name, *args, **kws):
+      super().__init__(type, name, *args, dependencies=(type,), **kws)
+      
+    def _render_interface(self, stream):
+      super()._render_interface(stream)
+      stream.append(f"""
+        AUTOC_EXTERN {self.definition};
+      """)
+      
+    def _render_definitions(self, stream):
+      super()._render_definitions(stream)
+      stream.append(f"""
+        {self.definition};
+      """)
