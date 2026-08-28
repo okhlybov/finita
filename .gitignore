@@ -1,0 +1,114 @@
+# Generated sources
+*_auto.c
+*_auto.h
+
+# =========================
+# CMake
+# =========================
+
+# Build directories
+/build/
+/build-*/
+/cmake-build-*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+Makefile
+
+# CMake presets / user-local state
+CMakeUserPresets.json
+
+# =========================
+# C / C++ build artifacts
+# =========================
+
+*.o
+*.obj
+*.lo
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Debug / profiling output
+*.dSYM/
+*.stackdump
+
+# =========================
+# Python
+# =========================
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Packaging / distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Type checkers / linters
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =========================
+# IDEs / editors
+# =========================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =========================
+# OS files
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# Project-specific generated files
+# =========================
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
