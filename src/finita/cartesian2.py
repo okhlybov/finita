@@ -90,6 +90,15 @@ class Mesh(Arc):
   def instance(self, name):
     return Mesh.Instance(self, name)
 
+  def _render_struct(self, stream):
+    super()._render_struct(stream)
+    stream.append(f"""
+      #define {self.type}_XY(mesh) \\
+        _Pragma("omp parallel for") \\
+        for(int x = (mesh)->first.x; x <= (mesh)->last.x; ++x) \\
+        for(int y = (mesh)->first.y; y <= (mesh)->last.y; ++y)
+    """)
+    
   class Instance(Variable, finita.problem.Entity):
     
     def __init__(self, type, name, *args, **kws):

@@ -17,5 +17,11 @@ int main(int argc, char** argv) {
   C2FieldFree(f);
   T(((N2){1,1})) = 8;
   T_(b,1) *= 2;
+  
+  #pragma omp parallel
+  C2_XY(T->mesh) {
+    T(((N2){x+1,y})) = 1;
+  }
+  
   return 0;
 }
