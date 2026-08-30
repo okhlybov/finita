@@ -3,14 +3,14 @@
 
 
 int main(int argc, char** argv) {
-  N2 a = (N2){1,1};
+  N2 a = N2(1,1);
   N2 b = (N2){10,20};
   C2* g = C2New(a,b);
-  printf("size=%d\n", C2Size(g));
+  printf("size=%zu\n", C2Size(g));
   C2Index(g, b);
   C2Index(g, C2Node(g, 20));
   C2Field* f = C2FieldNew(g, 5);
-  *C2FieldAccess(f, (N2){3,3}, 0) = -3i;
+  *C2FieldAccess(f, (N2){3,3}, 0) = -3;
   C2FieldRotate(f, -5);
   C2FieldRotate(f, 3);
   C2Free(g);
@@ -18,10 +18,16 @@ int main(int argc, char** argv) {
   T(((N2){1,1})) = 8;
   T_(b,1) *= 2;
   
+  C2_FOREACH_XY(g);
   #pragma omp parallel
-  C2_XY(T->mesh) {
-    T(((N2){x+1,y})) = 1;
+  {
+    C2_FOREACH_XY(T->mesh) {
+      T(N2(x+1,1)) = 1;
+    }
   }
-  
+  #pragma omp parallel
+  {
+    C2_FOREACH_XY(g) T(b) = -1;
+  }
   return 0;
 }

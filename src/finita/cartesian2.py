@@ -27,6 +27,11 @@ class Node(Primitive):
           {self.coord_t} x;
           {self.coord_t} y;
         }} {self.name};
+        #ifdef __cplusplus
+          #define {self.name}(x,y) {self.name}{{x,y}}
+        #else
+          #define {self.name}(x,y) ({self.name}){{x,y}}
+        #endif
       """)
 
 
@@ -37,9 +42,9 @@ node = Node("N2")
 #
 class _Mesh(Record):
   
-  def __init__(self, name):
+  def __init__(self, name, **kws):
     self.node = node
-    super().__init__(name, {"first": self.node, "last": self.node}, getters=False, setters=False)
+    super().__init__(name, {"first": self.node, "last": self.node}, getters=False, setters=False, **kws)
     
   def __setup__(self):
     super().__setup__()
@@ -93,8 +98,18 @@ class Mesh(Arc):
   def _render_struct(self, stream):
     super()._render_struct(stream)
     stream.append(f"""
-      #define {self.type}_XY(mesh) \\
-        _Pragma("omp parallel for") \\
+      #ifdef __cplusplus
+        #include <type_traits>
+        #define _{self.type}_TYPE_CHECK(x) \\
+          static_assert(std::is_same<typename std::remove_cv<typename std::remove_pointer<decltype(mesh)>::type>::type, x>::value && std::is_pointer<decltype(x)>::value, #x " must be of type {self}");
+      #else
+        #define _{self.type}_TYPE_CHECK(x) \\
+          static_assert(_Generic((x), {self}:1, const {self}:1, default:0), #x " must be of type {self}");
+      #endif
+
+      #define {self.type}_FOREACH_XY(mesh) \\
+        _{self.type}_TYPE_CHECK(mesh) \\
+        _Pragma("omp for") \\
         for(int x = (mesh)->first.x; x <= (mesh)->last.x; ++x) \\
         for(int y = (mesh)->first.y; y <= (mesh)->last.y; ++y)
     """)

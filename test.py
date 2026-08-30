@@ -11,11 +11,11 @@ from finita.cartesian2 import Mesh
 
 from finita.field import Field
 
-F = Field(std.complex, Mesh())
+F = Field(std.float, Mesh())
 
 with Module("test", stateful=False) as m:
   with Problem("Test"):
-    M = Mesh().instance("M")
+    #M = Mesh().instance("M")
     T = F.instance("T")
 
 import autoc.cmake
