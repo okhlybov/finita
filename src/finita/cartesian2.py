@@ -100,11 +100,11 @@ class Mesh(Arc):
     stream.append(f"""
       #ifdef __cplusplus
         #include <type_traits>
-        #define _{self.type}_TYPE_CHECK(x) \\
-          static_assert(std::is_same<typename std::remove_cv<typename std::remove_pointer<decltype(mesh)>::type>::type, x>::value && std::is_pointer<decltype(x)>::value, #x " must be of type {self}");
+        #define _{self.type}_TYPE_CHECK(mesh) \\
+          static_assert(std::is_convertible<decltype(mesh), {self}>::value || std::is_convertible<decltype(mesh), const {self}>::value, #mesh " must be of type {self}");
       #else
-        #define _{self.type}_TYPE_CHECK(x) \\
-          static_assert(_Generic((x), {self}:1, const {self}:1, default:0), #x " must be of type {self}");
+        #define _{self.type}_TYPE_CHECK(mesh) \\
+          static_assert(_Generic((mesh), {self}:1, const {self}:1, default:0), #mesh " must be of type {self}");
       #endif
 
       #define {self.type}_FOREACH_XY(mesh) \\

@@ -19,4 +19,5 @@ add_autoc_module(
 
 add_executable(${PROJECT_NAME} ${PROJECT_NAME}.c)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11 C_STANDARD_REQUIRED ON)
+#set_source_files_properties(test.c PROPERTIES LANGUAGE CXX)
 target_link_libraries(${PROJECT_NAME} ${AUTOC_MODULE_NAME}-auto)
