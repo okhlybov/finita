@@ -9,13 +9,16 @@ from autoc.core import Primitive, Macro, Variable, out
 #
 class Node(Primitive):
   
+  _macro_access_decl_args = "x,y"
+  _macro_access_pass_args = "N2(x,y)"
+  
   def __init__(self, *args, dependencies=(), **kws):
     self.coord_t = std.int
-    super().__init__(*args, dependencies=(*dependencies, self.coord_t, std.size_t), **kws)
+    super().__init__(*args, dependencies=(*dependencies, self.coord_t), **kws)
     
   def __setup__(self):
     super().__setup__()
-    self.create = Macro.of(self.create, lambda target: f"{target} = ({self.name}){{0,0}}")
+    self.create = Macro.of(self.create, lambda target: f"{target} = {self.name}(0,0)")
     self.equal = Macro.of(self.equal, lambda left, right: f"({left}).x == ({right}).x && ({left}).y == ({right}).y")
     self.hash = Macro.of(self.hash, lambda target: f"({target}).x ^ ({target}).y") # FIXME
     
@@ -106,12 +109,15 @@ class Mesh(Arc):
         #define _{self.type}_TYPE_CHECK(mesh) \\
           static_assert(_Generic((mesh), {self}:1, const {self}:1, default:0), #mesh " must be of type {self}");
       #endif
-
       #define {self.type}_FOREACH_XY(mesh) \\
         _{self.type}_TYPE_CHECK(mesh) \\
         _Pragma("omp for") \\
         for(int x = (mesh)->first.x; x <= (mesh)->last.x; ++x) \\
+        _Pragma("omp simd") \\
         for(int y = (mesh)->first.y; y <= (mesh)->last.y; ++y)
+      #define {self.type}_FOREACH_N(mesh) \\
+        {self.type}_FOREACH_XY(mesh) \\
+          for({self.node} n = {self.node}(x,y), *_ = &n; _; _ = NULL)
     """)
     
   class Instance(Variable, finita.problem.Entity):

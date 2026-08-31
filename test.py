@@ -15,7 +15,7 @@ F = Field(std.float, Mesh())
 
 with Module("test", stateful=False) as m:
   with Problem("Test"):
-    #M = Mesh().instance("M")
+    M = Mesh().instance("M")
     T = F.instance("T")
 
 import autoc.cmake

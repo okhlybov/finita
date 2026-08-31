@@ -10,24 +10,27 @@ int main(int argc, char** argv) {
   C2Index(g, b);
   C2Index(g, C2Node(g, 20));
   C2Field* f = C2FieldNew(g, 5);
-  *C2FieldAccess(f, (N2){3,3}, 0) = -3;
+  *C2FieldAccess(f, N2(3,3), 0) = -3;
   C2FieldRotate(f, -5);
   C2FieldRotate(f, 3);
   C2Free(g);
   C2FieldFree(f);
-  T(((N2){1,1})) = 8;
-  T_(b,1) *= 2;
+  T(1,1) = 8;
+  T_(2, a) *= 2;
   
   C2_FOREACH_XY(g);
+
   #pragma omp parallel
   {
     C2_FOREACH_XY(T->mesh) {
-      T(N2(x+1,1)) = 1;
+      T(x+1,1) = 1;
     }
   }
+
   #pragma omp parallel
   {
-    C2_FOREACH_XY(g) T(b) = -1;
+    C2_FOREACH_N(g) T_(1, n) = -y;
   }
+
   return 0;
 }

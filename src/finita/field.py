@@ -117,10 +117,11 @@ class Field(Arc):
       
     def _render_interface(self, stream):
       super()._render_interface(stream)
+      _node = self.type.mesh.node
       stream.append(f"""
         AUTOC_EXTERN {self.definition};
-        #define {self.name}(node) *{self.type.access(self, "node", 0)}
-        #define {self.name}_(node, layer) *{self.type.access(self, "node", "layer")}
+        #define {self.name}({_node._macro_access_decl_args}) *{self.type.access(self, _node._macro_access_pass_args, 0)}
+        #define {self.name}_(layer, node) *{self.type.access(self, "node", "layer")}
       """)
       
     def _render_definitions(self, stream):
