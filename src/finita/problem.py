@@ -34,7 +34,7 @@ class Problem(autoc.composite.Composite, finita.module.Entity):
     if header:
       stream.append(f"""
         typedef struct {{
-          //
+          int _;
         }} {self};
       """)
       

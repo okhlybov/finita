@@ -81,7 +81,7 @@ class _Mesh(Record):
         size_t nx = target->last.x - target->first.x + 1;
         size_t dx = index % nx;
         size_t dy = (index - dx)/nx;
-        return ({self.node}){{dx + target->first.x, dy + target->first.y}};  
+        return {self.node}(({self.node.coord_t})dx + target->first.x, ({self.node.coord_t})dy + target->first.y);  
       """
 
 

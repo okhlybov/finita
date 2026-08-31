@@ -4,7 +4,7 @@
 
 int main(int argc, char** argv) {
   N2 a = N2(1,1);
-  N2 b = (N2){10,20};
+  N2 b = N2(10,20);
   C2* g = C2New(a,b);
   printf("size=%zu\n", C2Size(g));
   C2Index(g, b);
