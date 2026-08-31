@@ -124,7 +124,14 @@ class Mesh(Arc):
     
     def __init__(self, type, name, *args, **kws):
       super().__init__(type, name, *args, dependencies=(type,), **kws)
+
+    def _problem_attach(self, problem):
+      super()._problem_attach(problem)
+      problem.cleanup.add(self)
       
+    def _render_cleanup(self, stream):
+      stream.append(f"{self.type.free(self.name)};")
+
     def _render_interface(self, stream):
       super()._render_interface(stream)
       stream.append(f"""

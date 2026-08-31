@@ -32,5 +32,8 @@ int main(int argc, char** argv) {
     C2_FOREACH_N(g) T_(1, n) = -y;
   }
 
+  TestCreate(NULL);
+  TestDestroy(NULL);
+  
   return 0;
 }

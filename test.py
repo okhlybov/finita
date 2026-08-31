@@ -11,9 +11,8 @@ from finita.cartesian2 import Mesh
 
 from finita.field import Field
 
-F = Field(std.float, Mesh())
-
 with Module("test", stateful=False) as m:
+  F = Field(std.float, Mesh())
   with Problem("Test"):
     M = Mesh().instance("M")
     T = F.instance("T")

@@ -1,25 +1,67 @@
 import sys
 import finita.module
+import autoc.composite
 
 
 _context = None
 
 
 #
-class Problem(finita.module.Entity):
+class Problem(autoc.composite.Composite, finita.module.Entity):
   
-  def __init__(self, name, *args, **kws):
-    super().__init__(*args, **kws)
-    self.name = str(name)
+  setup = set()
+  cleanup = set()
 
+  def __setup__(self):
+    super().__setup__()
+    
+    with self.create as f:
+      f.code = f"""
+        assert(target);
+      """
+      
+    with self.destroy as f:
+      f.code = lambda: self._destroy_c()
+
+  def _destroy_c(self):
+    code = ["assert(target);"]
+    for e in sorted(self.cleanup, reverse=True):
+      e._render_cleanup(code)
+    return "".join(code)
+    
+  def render_declarations(self, stream, header):
+    super().render_declarations(stream, header)
+    if header:
+      stream.append(f"""
+        typedef struct {{
+          //
+        }} {self};
+      """)
+      
   def __enter__(self):
     self.__context = sys.modules[__name__]._context
     sys.modules[__name__]._context = self
+    return self
     
   def __exit__(self, *args):
     sys.modules[__name__]._context = self.__context
     return False
   
+  @property
+  def copyable(self):
+    return False
+  
+  @property
+  def comparable(self):
+    return False
+  
+  @property
+  def orderable(self):
+    return False
+  
+  @property
+  def hashable(self):
+    return False
   
 #
 class Entity(finita.module.Entity):
@@ -27,8 +69,11 @@ class Entity(finita.module.Entity):
   def __init__(self, *args, **kws):
     super().__init__(*args, **kws)
     if _context:
-      _context.dependencies.add(self)
-      
+      self._problem_attach(_context)
+     
+  def _problem_attach(self, problem):
+    problem.dependencies.add(self)
+    
   def render_declarations(self, stream, header):
     super().render_declarations(stream, header)
     if header:
