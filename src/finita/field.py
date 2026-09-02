@@ -1,6 +1,5 @@
 import finita.problem
 import autoc.std as std
-from autoc.module import Code
 from autoc.reference import Arc
 from autoc.memory import Manager
 from autoc.composite import Composite, _StructRenderer
@@ -110,18 +109,11 @@ class Field(Arc):
   def instance(self, name):
     return Field.Instance(self, name)
 
-  class Instance(Variable, finita.problem.Entity):
+  class Instance(Variable, finita.problem.Managed):
     
     def __init__(self, type, name, *args, **kws):
       super().__init__(type, name, *args, dependencies=(type,), **kws)
 
-    def _problem_attach(self, problem):
-      super()._problem_attach(problem)
-      problem.cleanup.add(self)
-    
-    def _render_cleanup(self, stream):
-      stream.append(f"{self.type.free(self.name)};")
-      
     def _render_interface(self, stream):
       super()._render_interface(stream)
       _node = self.type.mesh.node
@@ -136,3 +128,9 @@ class Field(Arc):
       stream.append(f"""
         {self.definition};
       """)
+      
+    def create(self, mesh, *args, layers=1, **kws):
+      super().create(*args, **kws)
+      self._setup_c = f"{self} = {self.type.new(mesh, layers)};"
+      self._cleanup_c = f"{self.type.free(self)};"
+      return self

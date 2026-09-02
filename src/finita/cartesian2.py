@@ -37,6 +37,9 @@ class Node(Primitive):
         #endif
       """)
 
+  def _create(self, args):
+    return f"{self.name}({", ".join([str(x) for x in args])})"
+
 
 #
 node = Node("N2")
@@ -120,15 +123,11 @@ class Mesh(Arc):
           for({self.node} n = {self.node}(x,y), *_ = &n; _; _ = NULL)
     """)
     
-  class Instance(Variable, finita.problem.Entity):
+  class Instance(Variable, finita.problem.Managed):
     
     def __init__(self, type, name, *args, **kws):
       super().__init__(type, name, *args, dependencies=(type,), **kws)
 
-    def _problem_attach(self, problem):
-      super()._problem_attach(problem)
-      problem.cleanup.add(self)
-      
     def _render_cleanup(self, stream):
       stream.append(f"{self.type.free(self.name)};")
 
@@ -143,3 +142,9 @@ class Mesh(Arc):
       stream.append(f"""
         {self.definition};
       """)
+      
+    def create(self, first, last, *args, **kws):
+      super().create(*args, **kws)
+      self._setup_c = f"{self} = {self.type.new(self.type.node._create(first), self.type.node._create(last))};"
+      self._cleanup_c = f"{self.type.free(self)};"
+      return self

@@ -9,23 +9,26 @@ _context = None
 #
 class Problem(autoc.composite.Composite, finita.module.Entity):
   
-  setup = set()
-  cleanup = set()
-
+  _managed = set()
+  
   def __setup__(self):
     super().__setup__()
     
     with self.create as f:
-      f.code = f"""
-        assert(target);
-      """
+      f.code = lambda: self._create_c()
       
     with self.destroy as f:
       f.code = lambda: self._destroy_c()
 
+  def _create_c(self):
+    code = ["assert(target);"]
+    for e in sorted(self._managed):
+      e._render_setup(code)
+    return "".join(code)
+      
   def _destroy_c(self):
     code = ["assert(target);"]
-    for e in sorted(self.cleanup, reverse=True):
+    for e in sorted(self._managed, reverse=True):
       e._render_cleanup(code)
     return "".join(code)
     
@@ -87,3 +90,24 @@ class Entity(finita.module.Entity):
   def _render_interface(self, stream): pass
   
   def _render_definitions(self, stream): pass
+
+
+class Managed(Entity):
+  
+  _setup_c = None
+  _cleanup_c = None
+
+  def create(self, *args, **kws):
+    self._problem._managed.add(self)
+
+  def _problem_attach(self, problem):
+    super()._problem_attach(problem)
+    self._problem = problem
+  
+  def _render_setup(self, stream):
+    if self._setup_c:
+      stream.append(self._setup_c)
+
+  def _render_cleanup(self, stream):
+    if self._cleanup_c:
+      stream.append(self._cleanup_c)
