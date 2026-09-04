@@ -11,14 +11,19 @@ from finita.cartesian2 import Mesh
 
 from finita.field import Field
 
+#from autoc.intrusive_hash_set import Set
+
+import finita.object
+
 with Module("test", stateful=False) as m:
   F = Field(std.float, Mesh())
   with Problem("Test"):
     Nx = int("Nx", value=-1)
     Ny = int("Ny")
     Ra = double("Ra", value=1e5)
-    M = Mesh().instance("M").create((0,0), (Nx,Ny))
+    M = Mesh().instance("M").create((0,-10), (Nx,Ny))
     T = F.instance("T").create(M)
+    m.add(finita.object.Set("XS", F))
 
 import autoc.cmake
 autoc.cmake.CMake(m)

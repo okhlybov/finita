@@ -1,13 +1,13 @@
 import sys
+import autoc.core
 import finita.module
-import autoc.composite
 
 
 _context = None
 
 
 #
-class Problem(autoc.composite.Composite, finita.module.Entity):
+class Problem(autoc.core.Composite, finita.module.Entity):
   
   _managed = set()
   
