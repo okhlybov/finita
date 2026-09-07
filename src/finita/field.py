@@ -15,11 +15,20 @@ class _Entry(_StructRenderer, Primitive):
     self.hasher = hasher
     self._field = Indirection(field)
     field.references.add(self)
+    self.intrusive_hash_map_kws = dict(
+      # Null reference is disallowed
+      is_empty=lambda entry: f"{entry}.index.field == ({self._field})0 /* empty? */",
+      mark_empty=lambda entry: f"{entry}.index.field = ({self._field})0 /* empty! */",
+      is_deleted=lambda entry: f"{entry}.index.field == ({self._field})1 /* deleted? */",
+      mark_deleted=lambda entry: f"{entry}.index.field = ({self._field})1 /* deleted! */",
+    )
     
   def __setup__(self):
     super().__setup__()
 
     node = self.field.mesh.node
+    
+    self.macro_from("create", lambda target: f"{target} = ({self}){{.field = NULL}}")
     
     with self.method(self, "new", {"target": inout(self.field), "node": node, "layer": std.unsigned}) as f:
       f.inline_code = f"""
@@ -31,7 +40,7 @@ class _Entry(_StructRenderer, Primitive):
         return result;
       """
     
-    with self.method_from("equal", visibility="internal") as f:
+    with self.method_from("equal", visibility="private") as f:
       f.inline_code = f"""
         return
           {f.left}.field == {f.right}.field && // field value is treated by identity
@@ -39,7 +48,7 @@ class _Entry(_StructRenderer, Primitive):
           {f.left}.layer == {f.right}.layer;
       """
       
-    with self.method_from("hash", visibility="internal") as f:
+    with self.method_from("hash", visibility="private") as f:
       state = self.hasher.state_t.variable("state")
       f.code = f"""
         size_t result;
@@ -58,6 +67,11 @@ class _Entry(_StructRenderer, Primitive):
         return {self.field.access(f"{f.target}.field", f"{f.target}.node", f"{f.target}.layer")};
       """
       
+    del self.destroy
+      
+  @property
+  def destructible(self):
+    return False
       
   def _render_struct(self, stream):
     super()._render_struct(stream)

@@ -5,14 +5,15 @@ from autoc.core import Primitive, Macro, Variable, out
 
 
 #
-class Node(Primitive):
+class Node(Primitive, metaclass=finita.object._Cached):
   
-  _macro_access_decl_args = "x,y"
-  _macro_access_pass_args = "N2(x,y)"
   
   def __init__(self, *args, dependencies=(), **kws):
     self.coord_t = std.int
     super().__init__(*args, dependencies=(*dependencies, self.coord_t), **kws)
+    self._macro_access_decl_args = "x,y"
+    self._macro_access_pass_args = f"{self}(x,y)"
+    
     
   def __setup__(self):
     super().__setup__()
@@ -40,13 +41,9 @@ class Node(Primitive):
 
 
 #
-node = Node("N2")
-
-
-#
 class _Mesh(Record):
   
-  def __init__(self, name, **kws):
+  def __init__(self, name, node=Node("N2"), **kws):
     self.node = node
     super().__init__(name, {"first": self.node, "last": self.node}, getters=False, setters=False, **kws)
     

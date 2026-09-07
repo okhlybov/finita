@@ -33,6 +33,13 @@ int main(int argc, char** argv) {
   }
 
   TestCreate(NULL);
+
+
+
+  C2FieldSolution s;
+  C2FieldSolutionCreate(&s);
+  C2FieldSolutionDestroy(&s);
+
   TestDestroy(NULL);
   
   return 0;

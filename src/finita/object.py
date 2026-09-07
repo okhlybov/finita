@@ -1,6 +1,7 @@
 import autoc.core
 import autoc.reference
 import autoc.intrusive_hash_set
+import autoc.intrusive_hash_map
 
 
 _named = {}
@@ -13,7 +14,7 @@ class _Cached(autoc.core._MultiphaseConstructible):
     if obj.name in _named:
       _obj = _named[obj.name]
       if not (_obj.__class__ == obj.__class__):
-        raise TypeError(f"encountered object of different types")
+        raise TypeError(f"encountered objects of different types")
       return _obj
     else:
       _named[obj.name] = obj
@@ -44,3 +45,10 @@ class Set(autoc.intrusive_hash_set.Set):
   
   def __init__(self, name, element, *args, **kws):
     super().__init__(name, element, *args, **element.intrusive_hash_set_kws)
+
+
+#
+class Map(autoc.intrusive_hash_map.Map):
+  
+  def __init__(self, name, element, index, *args, **kws):
+    super().__init__(name, element, index, *args, **index.intrusive_hash_map_kws)
