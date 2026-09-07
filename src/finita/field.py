@@ -1,3 +1,4 @@
+import autoc.core
 import finita.object
 import finita.problem
 import autoc.std as std
@@ -73,7 +74,8 @@ class _Entry(_StructRenderer, Primitive):
 class _Field(_StructRenderer, Composite):
   
   def __init__(self, scalar, mesh, *args, name=None, memory=Manager(), **kws):
-    super().__init__(name if name else mesh.decorate("field"), *args, dependencies=(scalar, mesh, memory, std.assert_h), **kws)
+    scalar = autoc.core._type(scalar)
+    super().__init__(name if name else mesh.decorate(self._scalar_suffix(scalar)), *args, dependencies=(scalar, mesh, memory, std.assert_h), **kws)
     self.scalar = scalar
     self.memory = memory
     self.mesh = mesh
@@ -81,6 +83,9 @@ class _Field(_StructRenderer, Composite):
     self.entry = _Entry(self, self._decorate_component("entry", abbreviate=False))
     self._layer = Indirection(self.scalar)
     self._layers = Indirection(self._layer)
+
+  def _scalar_suffix(self, scalar):
+    return {std.float: "s", std.double: "d", std.float_complex: "c", std.double_complex: "z", std.long_double: "q"}[scalar]
 
   @property
   def comparable(self):
@@ -168,7 +173,7 @@ class _Field(_StructRenderer, Composite):
 class Field(finita.object.Object):
   
   def __init__(self, scalar, mesh, *args, **kws):
-    super().__init__(_Field(scalar, mesh), *args, **kws)
+    super().__init__(_Field(scalar, mesh, *args, **kws))
 
   def instance(self, name):
     return Field.Instance(self, name)

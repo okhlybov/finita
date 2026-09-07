@@ -1,8 +1,6 @@
-import functools
+import finita.object
 import autoc.std as std
 from autoc.record import Record
-from autoc.reference import Arc
-from autoc.module import Code
 from autoc.core import Primitive, Macro, Variable, out
 
 
@@ -88,15 +86,11 @@ class _Mesh(Record):
       """
 
 
-import finita.problem
-
-
 #
-@functools.cache
-class Mesh(Arc):
+class Mesh(finita.object.Object):
   
-  def __init__(self):
-    super().__init__(_Mesh("C2"))
+  def __init__(self, name="C2"):
+    super().__init__(_Mesh(name))
     
   def instance(self, name):
     return Mesh.Instance(self, name)

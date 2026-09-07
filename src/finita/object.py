@@ -1,17 +1,35 @@
+import autoc.core
 import autoc.reference
 import autoc.intrusive_hash_set
 
 
+_named = {}
+
+
+class _Cached(autoc.core._MultiphaseConstructible):
+  
+  def __call__(cls, *args, **kws):
+    obj = super().__call__(*args, **kws)
+    if obj.name in _named:
+      _obj = _named[obj.name]
+      if not (_obj.__class__ == obj.__class__):
+        raise TypeError(f"encountered object of different types")
+      return _obj
+    else:
+      _named[obj.name] = obj
+      return obj
+
+
 # A proxy for shared reference-counted identity-based values
-class Object(autoc.reference.Arc):
+class Object(autoc.reference.Arc, metaclass=_Cached):
   def __init__(self, type, *args, **kws):
     super().__init__(type, *args, **kws)
     self.intrusive_hash_set_kws = dict(
       # Null reference is disallowed
-      is_empty=lambda element: f"{element} == ({self})(size_t)0 /* empty? */",
-      mark_empty=lambda element: f"{element} = ({self})(size_t)0 /* empty! */",
-      is_deleted=lambda element: f"{element} == ({self})(size_t)1 /* deleted? */",
-      mark_deleted=lambda element: f"{element} = ({self})(size_t)1 /* deleted! */",
+      is_empty=lambda element: f"{element} == ({self})0 /* empty? */",
+      mark_empty=lambda element: f"{element} = ({self})0 /* empty! */",
+      is_deleted=lambda element: f"{element} == ({self})1 /* deleted? */",
+      mark_deleted=lambda element: f"{element} = ({self})1 /* deleted! */",
     )
     
   def __setup__(self):
