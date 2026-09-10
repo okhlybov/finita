@@ -9,12 +9,12 @@ int main(int argc, char** argv) {
   printf("size=%zu\n", C2Size(g));
   C2Index(g, b);
   C2Index(g, C2Node(g, 20));
-  C2Field* f = C2FieldNew(g, 5);
-  *C2FieldAccess(f, N2(3,3), 0) = -3;
-  C2FieldRotate(f, -5);
-  C2FieldRotate(f, 3);
+  C2Q* f = C2QNew(g, 5);
+  *C2QAccess(f, N2(3,3), 0) = -3;
+  C2QRotate(f, -5);
+  C2QRotate(f, 3);
   C2Free(g);
-  C2FieldFree(f);
+  C2QFree(f);
   T(1,1) = 8;
   T_(2, a) *= 2;
   
@@ -36,9 +36,12 @@ int main(int argc, char** argv) {
 
 
 
-  C2FieldSolution s;
-  C2FieldSolutionCreate(&s);
-  C2FieldSolutionDestroy(&s);
+  C2QSolution* s = C2QSolutionNew();
+  C2QSolutionRegister(s, C2QEntryNew(T, N2(3,3), 1));
+  C2QSolutionFinalize(s);
+  *C2QSolutionAccess(s, 1) = 4;
+  C2QSolutionSize(s);
+  C2QSolutionFree(s);
 
   TestDestroy(NULL);
   

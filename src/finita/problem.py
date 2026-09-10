@@ -1,13 +1,14 @@
 import sys
 import autoc.core
 import finita.module
+import finita.object
 
 
 _context = None
 
 
 #
-class Problem(autoc.core.Composite, finita.module.Entity):
+class Problem(finita.object._Traitless, autoc.core.Composite, finita.module.Entity):
   
   _managed = set()
   
@@ -49,23 +50,8 @@ class Problem(autoc.core.Composite, finita.module.Entity):
   def __exit__(self, *args):
     sys.modules[__name__]._context = self.__context
     return False
-  
-  @property
-  def copyable(self):
-    return False
-  
-  @property
-  def comparable(self):
-    return False
-  
-  @property
-  def orderable(self):
-    return False
-  
-  @property
-  def hashable(self):
-    return False
-  
+
+
 #
 class Entity(finita.module.Entity):
   
@@ -92,6 +78,7 @@ class Entity(finita.module.Entity):
   def _render_definitions(self, stream): pass
 
 
+#
 class Managed(Entity):
   
   _setup_c = None

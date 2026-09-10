@@ -85,7 +85,7 @@ class _Entry(_StructRenderer, Primitive):
 
 
 #
-class _Field(_StructRenderer, Composite):
+class _Field(finita.object._Traitless, _StructRenderer, Composite):
   
   def __init__(self, scalar, mesh, *args, name=None, memory=Manager(), **kws):
     scalar = autoc.core._type(scalar)
@@ -100,22 +100,6 @@ class _Field(_StructRenderer, Composite):
 
   def _scalar_suffix(self, scalar):
     return {std.float: "s", std.double: "d", std.float_complex: "c", std.double_complex: "z", std.long_double: "q"}[scalar]
-
-  @property
-  def comparable(self):
-    return False
-  
-  @property
-  def copyable(self):
-    return False
-  
-  @property
-  def hashable(self):
-    return False
-  
-  @property
-  def orderable(self):
-    return False
   
   def __setup__(self):
     super().__setup__()
@@ -186,8 +170,8 @@ class _Field(_StructRenderer, Composite):
 #
 class Field(finita.object.Object):
   
-  def __init__(self, scalar, mesh, *args, **kws):
-    super().__init__(_Field(scalar, mesh, *args, **kws))
+  def __init__(self, *args, **kws):
+    super().__init__(_Field(*args, **kws))
 
   def instance(self, name):
     return Field.Instance(self, name)

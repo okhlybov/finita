@@ -41,11 +41,11 @@ class Node(Primitive, metaclass=finita.object._Cached):
 
 
 #
-class _Mesh(Record):
+class _Mesh(finita.object._Traitless, Record):
   
-  def __init__(self, name, node=Node("N2"), **kws):
+  def __init__(self, name, *args, node=Node("N2"), **kws):
     self.node = node
-    super().__init__(name, {"first": self.node, "last": self.node}, getters=False, setters=False, **kws)
+    super().__init__(name, {"first": self.node, "last": self.node}, *args, getters=False, setters=False, **kws)
     
   def __setup__(self):
     super().__setup__()

@@ -52,3 +52,27 @@ class Map(autoc.intrusive_hash_map.Map):
   
   def __init__(self, name, element, index, *args, **kws):
     super().__init__(name, element, index, *args, **index.intrusive_hash_map_kws)
+
+
+# Mark classes intended to be the base type for Object
+class _Traitless:
+
+  @property
+  def comparable(self):
+    return False
+  
+  @property
+  def copyable(self):
+    return False
+  
+  @property
+  def hashable(self):
+    return False
+  
+  @property
+  def orderable(self):
+    return False
+
+  @property
+  def moveable(self):
+    return False

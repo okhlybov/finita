@@ -11,10 +11,11 @@ from finita.cartesian2 import Mesh
 
 from finita.field import Field
 
-import finita.solution
+from finita.solution import Solution
+
 
 with Module("test", stateful=False) as m:
-  F = Field("long double", Mesh(), name="C2Field")
+  F = Field("long double", Mesh())
   with Problem("Test"):
     Nx = int("Nx", value=-1)
     Ny = int("Ny")
@@ -22,7 +23,7 @@ with Module("test", stateful=False) as m:
     M = Mesh().instance("M").create((0,-10), (Nx,Ny))
     T = F.instance("T").create(M)
     #m.add(finita.solution.Builder(F))
-    m.add(finita.solution._Solution(F))
+    m.add(Solution(F))
 
 import autoc.cmake
 autoc.cmake.CMake(m)
