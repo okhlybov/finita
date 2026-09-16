@@ -92,8 +92,8 @@ class Mesh(finita.object.Object):
   def instance(self, name):
     return Mesh.Instance(self, name)
 
-  def _render_struct(self, stream):
-    super()._render_struct(stream)
+  def _render_struct(self, stream, header):
+    super()._render_struct(stream, header)
     stream.append(f"""
       #ifdef __cplusplus
         #include <type_traits>

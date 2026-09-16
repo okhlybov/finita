@@ -73,8 +73,8 @@ class _Entry(_StructRenderer, Primitive):
   def destructible(self):
     return False
       
-  def _render_struct(self, stream):
-    super()._render_struct(stream)
+  def _render_struct(self, stream, header):
+    super()._render_struct(stream, header)
     if self.public:
       stream.append("/// @public\n")
     stream.append(f"""typedef struct {{
@@ -156,8 +156,8 @@ class _Field(finita.object._Traitless, _StructRenderer, Composite):
         }}
       """
 
-  def _render_struct(self, stream):
-    super()._render_struct(stream)
+  def _render_struct(self, stream, header):
+    super()._render_struct(stream, header)
     if self.public:
       stream.append("/// @public\n")
     stream.append(f"""typedef struct {{
