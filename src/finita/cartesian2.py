@@ -14,13 +14,43 @@ class Node(Primitive, metaclass=finita.object._Cached):
     self._macro_access_decl_args = "x,y"
     self._macro_access_pass_args = f"{self}(x,y)"
     
-    
   def __setup__(self):
     super().__setup__()
-    self.create = Macro.of(self.create, lambda target: f"{target} = {self.name}(0,0)")
-    self.equal = Macro.of(self.equal, lambda left, right: f"({left}).x == ({right}).x && ({left}).y == ({right}).y")
-    self.hash = Macro.of(self.hash, lambda target: f"({target}).x ^ ({target}).y") # FIXME
-    
+
+    with self.method_from("create", visibility="private") as f:
+      f.inline_code = f"""
+        assert(target);
+        *target = {self.name}(0, 0);
+      """
+
+    with self.method_from("equal", visibility="private") as f:
+      f.inline_code = f"""
+        return left.x == right.x && left.y == right.y;
+      """
+
+    with self.method_from("compare", visibility="private") as f:
+      f.inline_code = f"""
+        if(left.x != right.x) return left.x < right.x ? -1 : 1;
+        if(left.y != right.y) return left.y < right.y ? -1 : 1;
+        return 0;
+      """
+
+    with self.method_from("hash", visibility="private") as f:
+      f.inline_code = f"""
+        // Dual-multiplier Fibonacci / avalanching spatial hasher
+        if (sizeof(size_t) >= 8) {{
+          size_t h = (size_t)(unsigned){f.target}.x * 0x9e3779b97f4a7c15ULL + (size_t)(unsigned){f.target}.y * 0xbf58476d1ce4e5b9ULL;
+          return h ^ (h >> 32);
+        }} else {{
+          size_t h = (size_t)(unsigned){f.target}.x * 0x9e3779b1U + (size_t)(unsigned){f.target}.y * 0x85ebca6bU;
+          return h ^ (h >> 16);
+        }}
+      """
+
+  @property
+  def zero_initializable(self):
+    return True
+
   def render_declarations(self, stream, header):
     super().render_declarations(stream, header)
     if header:

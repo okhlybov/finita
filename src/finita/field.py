@@ -62,26 +62,25 @@ class _Entry(_StructRenderer, Primitive):
         return result;
       """
       
+    with self.method_from("compare", visibility="private") as f:
+      f.inline_code = f"""
+        if({f.left}.field != {f.right}.field) return {f.left}.field < {f.right}.field ? -1 : 1;
+        if({f.left}.layer != {f.right}.layer) return {f.left}.layer < {f.right}.layer ? -1 : 1;
+        return {node.compare(f"{f.left}.node", f"{f.right}.node")};
+      """
+
     with self.method(self.field.accessor, "access", {"target": self}) as f:
       f.inline_code = lambda: f"""
         return {self.field.access(f"{f.target}.field", f"{f.target}.node", f"{f.target}.layer")};
       """
-      
-    del self.destroy
-      
-  @property
-  def destructible(self):
-    return False
-      
+
   def _render_struct(self, stream, header):
     super()._render_struct(stream, header)
-    if self.public:
-      stream.append("/// @public\n")
-    stream.append(f"""typedef struct {{
+    stream.append(f"""struct {self.name} {{
       {self._field} field; //< @private
       {self.field.mesh.node} node; //< @private
       unsigned layer; //< @private
-    }} {self.name};""")
+    }};""")
 
 
 #
@@ -160,11 +159,11 @@ class _Field(finita.object._Traitless, _StructRenderer, Composite):
     super()._render_struct(stream, header)
     if self.public:
       stream.append("/// @public\n")
-    stream.append(f"""typedef struct {{
+    stream.append(f"""struct {self.name} {{
       {self._layers} layers; //< @private
       unsigned layer_count; //< @private
       const {self.mesh} mesh; //< @private
-    }} {self.name};""")
+    }};""")
 
 
 #
