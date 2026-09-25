@@ -136,9 +136,10 @@ class Mesh(finita.object.Object):
       #define {self.type}_FOREACH_XY(mesh) \\
         _{self.type}_TYPE_CHECK(mesh) \\
         _Pragma("omp for") \\
-        for(int x = (mesh)->first.x; x <= (mesh)->last.x; ++x) \\
-        _Pragma("omp simd") \\
-        for(int y = (mesh)->first.y; y <= (mesh)->last.y; ++y)
+        for(int y = (mesh)->first.y; y <= (mesh)->last.y; ++y) \\
+          _Pragma("omp simd") \\
+          for(int x = (mesh)->first.x; x <= (mesh)->last.x; ++x)
+        
       #define {self.type}_FOREACH_N(mesh) \\
         {self.type}_FOREACH_XY(mesh) \\
           for({self.node} n = {self.node}(x,y), *_ = &n; _; _ = NULL)

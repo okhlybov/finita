@@ -39,13 +39,13 @@ class Node(Primitive, metaclass=finita.object._Cached):
       f.inline_code = f"""
         if (sizeof(size_t) >= 8) {{
           size_t h = (size_t)(unsigned){f.target}.x * 0x9e3779b97f4a7c15ULL
-                   + (size_t)(unsigned){f.target}.y * 0xbf58476d1ce4e5b9ULL
-                   + (size_t)(unsigned){f.target}.z * 0x94d049bb133111ebULL;
+            + (size_t)(unsigned){f.target}.y * 0xbf58476d1ce4e5b9ULL
+            + (size_t)(unsigned){f.target}.z * 0x94d049bb133111ebULL;
           return h ^ (h >> 32);
         }} else {{
           size_t h = (size_t)(unsigned){f.target}.x * 0x9e3779b1U
-                   + (size_t)(unsigned){f.target}.y * 0x85ebca6bU
-                   + (size_t)(unsigned){f.target}.z * 0xc2b2ae35U;
+            + (size_t)(unsigned){f.target}.y * 0x85ebca6bU
+            + (size_t)(unsigned){f.target}.z * 0xc2b2ae35U;
           return h ^ (h >> 16);
         }}
       """
@@ -151,10 +151,10 @@ class Mesh(finita.object.Object):
       #define {self.type}_FOREACH_XYZ(mesh) \\
         _{self.type}_TYPE_CHECK(mesh) \\
         _Pragma("omp for collapse(2)") \\
-        for(int x = (mesh)->first.x; x <= (mesh)->last.x; ++x) \\
+        for(int z = (mesh)->first.z; z <= (mesh)->last.z; ++z) \\
         for(int y = (mesh)->first.y; y <= (mesh)->last.y; ++y) \\
-        _Pragma("omp simd") \\
-        for(int z = (mesh)->first.z; z <= (mesh)->last.z; ++z)
+          _Pragma("omp simd") \\
+          for(int x = (mesh)->first.x; x <= (mesh)->last.x; ++x)
       #define {self.type}_FOREACH_N(mesh) \\
         {self.type}_FOREACH_XYZ(mesh) \\
           for({self.node} n = {self.node}(x,y,z), *_ = &n; _; _ = NULL)
