@@ -39,9 +39,17 @@ end # Jacobian
 
 
 class Jacobian::Numeric < Jacobian
-  attr_reader :relative_tolerance
-  def initialize(rtol = 1e-9)
-    @relative_tolerance = rtol
+  attr_reader :relative_tolerance, :absolute_tolerance
+  alias :rtol :relative_tolerance
+  alias :atol :absolute_tolerance
+
+  def initialize(rtol = 1e-7, atol = nil, **kwargs)
+    if rtol.is_a?(Hash)
+      kwargs = rtol
+      rtol = 1e-7
+    end
+    @relative_tolerance = kwargs[:rtol] || kwargs[:relative_tolerance] || rtol
+    @absolute_tolerance = kwargs[:atol] || kwargs[:absolute_tolerance] || atol || @relative_tolerance
   end
   class Code < Jacobian::Code
     def entities
@@ -89,6 +97,7 @@ class Jacobian::Numeric < Jacobian
       stream << "}FINITA_LEAVE;}"
       cresult = sc.cresult
       rt = @jacobian.relative_tolerance
+      at = @jacobian.absolute_tolerance
       abs = CAbs[sc.result]
       stream << %$
         #{cresult} #{evaluate}(#{NodeCode.type} row, #{NodeCode.type} column) {
@@ -97,7 +106,7 @@ class Jacobian::Numeric < Jacobian
           FINITA_ENTER;
           result = 0;
           original = #{mc.nodeGet}(column);
-          delta = #{abs}(original) > 100*#{rt} ? original*#{rt} : 100*pow(#{rt}, 2)*(original < 0 ? -1 : 1);
+          delta = (#{abs}(original)*#{rt} > #{at} ? #{abs}(original)*#{rt} : #{at}) * (original < 0 ? -1 : 1);
           fps = #{@matrix_code.get}(&#{evaluators}, #{NodeCoordCode.new}(row, column));
           #{mc.nodeSet}(column, original + delta);
           result += #{@function_list_code.summate}(fps, row.x, row.y, row.z);
