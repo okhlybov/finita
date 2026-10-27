@@ -1,7 +1,7 @@
 import finita.object
-import autoc.std as std
-from autoc.record import Record
-from autoc.core import Primitive, Macro, Variable, out
+import metac.std as std
+from metac.record import Record
+from metac.core import Primitive, Macro, Variable, out
 
 
 #

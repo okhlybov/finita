@@ -1,5 +1,5 @@
 import sys
-import autoc.core
+import metac.core
 import finita.module
 import finita.object
 
@@ -8,7 +8,7 @@ _context = None
 
 
 #
-class Problem(finita.object._Traitless, autoc.core.Composite, finita.module.Entity):
+class Problem(finita.object._Traitless, metac.core.Composite, finita.module.Entity):
   
   _managed = set()
   

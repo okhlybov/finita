@@ -1,17 +1,17 @@
-import autoc.list
-import autoc.vector
-import autoc.record
+import metac.list
+import metac.vector
+import metac.record
 import finita.object
-import autoc.std as std
-from autoc.core import inout
+import metac.std as std
+from metac.core import inout
 
 
 #
-class _Solution(finita.object._Traitless, autoc.record.Record):
+class _Solution(finita.object._Traitless, metac.record.Record):
   
   def __init__(self, field, *args, name=None, **kws):
     self._fields = finita.object.Set(field._decorate_component(("solution", "fields")), field)
-    self._entries = autoc.vector.Vector(field._decorate_component(("solution", "entries")), field.entry)
+    self._entries = metac.vector.Vector(field._decorate_component(("solution", "entries")), field.entry)
     self._indices = finita.object.Map(field._decorate_component(("solution", "indices")), std.size_t, field.entry)
     super().__init__(name if name else field._decorate_component("solution", abbreviate=False), {
       "fields": self._fields,

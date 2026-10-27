@@ -1,10 +1,10 @@
-import autoc.core
+import metac.core
 import finita.object
 import finita.problem
-import autoc.std as std
-from autoc.hash import XorRot
-from autoc.memory import Manager
-from autoc.core import Callable, Indirection, Variable, Primitive, Composite, _StructRenderer, out, inout
+import metac.std as std
+from metac.hash import XorRot
+from metac.memory import Manager
+from metac.core import Callable, Indirection, Variable, Primitive, Composite, _StructRenderer, out, inout
 
 
 class _Entry(_StructRenderer, Primitive):
@@ -87,7 +87,7 @@ class _Entry(_StructRenderer, Primitive):
 class _Field(finita.object._Traitless, _StructRenderer, Composite):
   
   def __init__(self, scalar, mesh, *args, name=None, memory=Manager(), **kws):
-    scalar = autoc.core._type(scalar)
+    scalar = metac.core._type(scalar)
     super().__init__(name if name else mesh.decorate(self._scalar_suffix(scalar)), *args, dependencies=(scalar, mesh, memory, std.assert_h), **kws)
     self.scalar = scalar
     self.memory = memory

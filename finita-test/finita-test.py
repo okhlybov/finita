@@ -1,0 +1,25 @@
+import metac.std as std
+import metac
+import metac.module
+
+from finita.module import *
+from finita.problem import *
+
+from finita.cartesian2 import Mesh
+
+from finita.field import Field
+
+from finita.solution import Solution
+
+with metac.builder(default="cmake"):
+  with metac.module(default="finita-test", stateful=False) as m:
+    F = Field("long double", Mesh())
+    with Problem("Test"):
+      Nx = int("Nx", value=33)
+      Ny = int("Ny")
+      Ra = double("Ra", value=1e5)
+      M = Mesh().instance("M").create((0,-10), (Nx,Ny))
+      T = F.instance("T").create(M)
+      #m.add(finita.solution.Builder(F))
+      m.add(Solution(F))
+      print(F.entry.equal.signature)

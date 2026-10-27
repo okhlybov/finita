@@ -1,13 +1,13 @@
-import autoc.core
-import autoc.reference
-import autoc.intrusive_hash_set
-import autoc.intrusive_hash_map
+import metac.core
+import metac.reference
+import metac.intrusive_hash_set
+import metac.intrusive_hash_map
 
 
 _named = {}
 
 
-class _Cached(autoc.core._MultiphaseConstructible):
+class _Cached(metac.core._MultiphaseConstructible):
   
   def __call__(cls, *args, **kws):
     obj = super().__call__(*args, **kws)
@@ -22,7 +22,7 @@ class _Cached(autoc.core._MultiphaseConstructible):
 
 
 # A proxy for shared reference-counted identity-based values
-class Object(autoc.reference.Arc, metaclass=_Cached):
+class Object(metac.reference.Arc, metaclass=_Cached):
   def __init__(self, type, *args, **kws):
     super().__init__(type, *args, **kws)
     self.intrusive_hash_set_kws = dict(
@@ -41,14 +41,14 @@ class Object(autoc.reference.Arc, metaclass=_Cached):
     
     
 #
-class Set(autoc.intrusive_hash_set.Set):
+class Set(metac.intrusive_hash_set.Set):
   
   def __init__(self, name, element, *args, **kws):
     super().__init__(name, element, *args, **element.intrusive_hash_set_kws)
 
 
 #
-class Map(autoc.intrusive_hash_map.Map):
+class Map(metac.intrusive_hash_map.Map):
   
   def __init__(self, name, element, index, *args, **kws):
     super().__init__(name, element, index, *args, **index.intrusive_hash_map_kws)

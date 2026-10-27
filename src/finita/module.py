@@ -1,13 +1,13 @@
 import sys
-import autoc.core
-import autoc.module
+import metac.core
+import metac.module
 
 
 _context = None
 
 
 #
-class Module(autoc.module.Module):
+class Module(metac.module.Module):
   
   def __enter__(self):
     self.__context = sys.modules[__name__]._context
@@ -21,7 +21,7 @@ class Module(autoc.module.Module):
   
   
 #
-class Entity(autoc.module.Entity):
+class Entity(metac.module.Entity):
   
     def __init__(self, *args, **kws):
       super().__init__(*args, **kws)
@@ -30,11 +30,11 @@ class Entity(autoc.module.Entity):
         
         
 #
-class Variable(autoc.core.Variable, Entity):
+class Variable(metac.core.Variable, Entity):
   
   def __init__(self, type, name, *args, default=None, **kws):
-    t = autoc.core._type(type)
-    super().__init__(type, name, *args, dependencies=(t, autoc.core._linkage_code), **kws)
+    t = metac.core._type(type)
+    super().__init__(type, name, *args, dependencies=(t, metac.core._linkage_code), **kws)
     self.default = default
     
   def render_declarations(self, stream, header):

@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../src"
+    }
+  ],
+  "settings": {
+    "python.analysis.extraPaths": [
+      "${workspaceFolder}/../src",
+      "${workspaceFolder}/../../metac/src"
+    ]
+  }
+}

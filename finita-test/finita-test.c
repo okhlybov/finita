@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "test_auto.h"
+#include "finita-test_auto.h"
 
 
 int main(int argc, char** argv) {
@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
   C2QFree(f);
   T(1,1) = 8;
   T_(2, a) *= 2;
-  
+
   C2_FOREACH_XY(g);
 
   #pragma omp parallel
@@ -44,6 +44,6 @@ int main(int argc, char** argv) {
   C2QSolutionFree(s);
 
   TestDestroy(NULL);
-  
+
   return 0;
 }
