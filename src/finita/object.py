@@ -7,7 +7,7 @@ import metac.intrusive_hash_map
 _named = {}
 
 
-class _Cached(metac.core._MultiphaseConstructible):
+class _Cached(metac.core._StageConstructorMetaclass):
   
   def __call__(cls, *args, **kws):
     obj = super().__call__(*args, **kws)
@@ -22,7 +22,7 @@ class _Cached(metac.core._MultiphaseConstructible):
 
 
 # A proxy for shared reference-counted identity-based values
-class Object(metac.reference.Arc, metaclass=_Cached):
+class Object(metac.reference.Counted, metaclass=_Cached):
   def __init__(self, type, *args, **kws):
     super().__init__(type, *args, **kws)
     self.intrusive_hash_set_kws = dict(

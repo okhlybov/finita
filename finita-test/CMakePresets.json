@@ -32,7 +32,8 @@
       "generator": "Ninja Multi-Config",
       "inherits": "common",
       "cacheVariables": {
-        "CMAKE_DEFAULT_BUILD_TYPE": "Debug"
+        "CMAKE_DEFAULT_BUILD_TYPE": "Debug",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
       }
     },
     {
@@ -94,8 +95,7 @@
     {
       "displayName": "Ninja (Multi-Config)",
       "name": "ninja",
-      "configurePreset": "ninja",
-      "configuration": "Debug"
+      "configurePreset": "ninja"
     },
     {
       "displayName": "Ninja Debug",
