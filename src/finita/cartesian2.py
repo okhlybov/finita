@@ -156,7 +156,7 @@ class Mesh(finita.object.Object):
     def _render_interface(self, stream):
       super()._render_interface(stream)
       stream.append(f"""
-        AUTOC_EXTERN {self.definition};
+        METAC_EXTERN {self.definition};
       """)
       
     def _render_definitions(self, stream):

@@ -25,13 +25,25 @@ class _Cached(metac.core._StageConstructorMetaclass):
 class Object(metac.reference.Counted, metaclass=_Cached):
   def __init__(self, type, *args, **kws):
     super().__init__(type, *args, **kws)
-    self.intrusive_hash_set_kws = dict(
+    self.sentinel_states = {
       # Null reference is disallowed
-      is_empty=lambda element: f"{element} == ({self})0 /* empty? */",
-      mark_empty=lambda element: f"{element} = ({self})0 /* empty! */",
-      is_deleted=lambda element: f"{element} == ({self})1 /* deleted? */",
-      mark_deleted=lambda element: f"{element} = ({self})1 /* deleted! */",
-    )
+      "empty": (
+        lambda element: f"{element} == ({self})0 /* empty? */",
+        lambda element: f"{element} = ({self})0 /* empty! */",
+      ),
+      "deleted": (
+        lambda element: f"{element} == ({self})1 /* deleted? */",
+        lambda element: f"{element} = ({self})1 /* deleted! */",
+      ),
+    }
+
+  @property
+  def in_type(self):
+    return self
+
+  @property
+  def view_type(self):
+    return self
     
   def __setup__(self):
     super().__setup__()
@@ -43,15 +55,19 @@ class Object(metac.reference.Counted, metaclass=_Cached):
 #
 class Set(metac.intrusive_hash_set.Set):
   
-  def __init__(self, name, element, *args, **kws):
-    super().__init__(name, element, *args, **element.intrusive_hash_set_kws)
+  def __init__(self, name, element, *args, states=None, **kws):
+    if states is None:
+      states = element.sentinel_states
+    super().__init__(name, element, states, *args, **kws)
 
 
 #
 class Map(metac.intrusive_hash_map.Map):
   
-  def __init__(self, name, element, index, *args, **kws):
-    super().__init__(name, element, index, *args, **index.intrusive_hash_map_kws)
+  def __init__(self, name, element, index, *args, states=None, **kws):
+    if states is None:
+      states = index.sentinel_states
+    super().__init__(name, element, index, states, *args, **kws)
 
 
 # Mark classes intended to be the base type for Object
@@ -75,4 +91,8 @@ class _Traitless:
 
   @property
   def moveable(self):
+    return False
+
+  @property
+  def swappable(self):
     return False

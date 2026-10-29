@@ -15,13 +15,17 @@ class _Entry(_StructRenderer, Primitive):
     self.hasher = hasher
     self._field = Indirection(field)
     field.references.add(self)
-    self.intrusive_hash_map_kws = dict(
+    self.sentinel_states = {
       # Null reference is disallowed
-      is_empty=lambda entry: f"{entry}.index.field == ({self._field})0 /* empty? */",
-      mark_empty=lambda entry: f"{entry}.index.field = ({self._field})0 /* empty! */",
-      is_deleted=lambda entry: f"{entry}.index.field == ({self._field})1 /* deleted? */",
-      mark_deleted=lambda entry: f"{entry}.index.field = ({self._field})1 /* deleted! */",
-    )
+      "empty": (
+        lambda entry: f"{entry}.index.field == ({self._field})0 /* empty? */",
+        lambda entry: f"{entry}.index.field = ({self._field})0 /* empty! */",
+      ),
+      "deleted": (
+        lambda entry: f"{entry}.index.field == ({self._field})1 /* deleted? */",
+        lambda entry: f"{entry}.index.field = ({self._field})1 /* deleted! */",
+      ),
+    }
     
   def __setup__(self):
     super().__setup__()
@@ -93,7 +97,7 @@ class _Field(finita.object._Traitless, _StructRenderer, Composite):
     self.memory = memory
     self.mesh = mesh
     self.accessor = Callable.Parameter(Indirection(self.scalar))
-    self.entry = _Entry(self, self._decorate_component("entry", abbreviate=False))
+    self.entry = _Entry(self, self.decorate("Entry"))
     self._layer = Indirection(self.scalar)
     self._layers = Indirection(self._layer)
 
@@ -162,7 +166,7 @@ class _Field(finita.object._Traitless, _StructRenderer, Composite):
     stream.append(f"""struct {self.name} {{
       {self._layers} layers; //< @private
       unsigned layer_count; //< @private
-      const {self.mesh} mesh; //< @private
+      {self.mesh} mesh; //< @private
     }};""")
 
 
@@ -184,7 +188,7 @@ class Field(finita.object.Object):
       super()._render_interface(stream)
       _node = self.type.mesh.node
       stream.append(f"""
-        AUTOC_EXTERN {self.definition};
+        METAC_EXTERN {self.definition};
         #define {self.name}({_node._macro_access_decl_args}) *{self.type.access(self, _node._macro_access_pass_args, 0)}
         #define {self.name}_(layer, node) *{self.type.access(self, "node", "layer")}
       """)

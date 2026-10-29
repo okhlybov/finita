@@ -13,7 +13,7 @@ class _Solution(finita.object._Traitless, metac.record.Record):
     self._fields = finita.object.Set(field._decorate_component(("solution", "fields")), field)
     self._entries = metac.vector.Vector(field._decorate_component(("solution", "entries")), field.entry)
     self._indices = finita.object.Map(field._decorate_component(("solution", "indices")), std.size_t, field.entry)
-    super().__init__(name if name else field._decorate_component("solution", abbreviate=False), {
+    super().__init__(name if name else field.decorate("Solution"), {
       "fields": self._fields,
       "entries": self._entries,
       "indices": self._indices,
@@ -30,11 +30,11 @@ class _Solution(finita.object._Traitless, metac.record.Record):
     
     with self.method(None, "register", {"target": inout(self), "entry": self.field.entry}) as f:
       f.code = f"""
-        size_t index = 0;
         assert(target);
         assert(!target->finalized);
+        size_t index = {self._indices.size(indices)};
         {self._fields.put(fields, "entry.field")};
-        {self._indices.set(indices, f.entry, "index++")};
+        {self._indices.set(indices, f.entry, "index")};
       """
       
     with self.method(None, "finalize", {"target": inout(self)}) as f:

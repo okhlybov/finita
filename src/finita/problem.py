@@ -22,13 +22,13 @@ class Problem(finita.object._Traitless, metac.core.Composite, finita.module.Enti
       f.code = lambda: self._destroy_c()
 
   def _create_c(self):
-    code = ["assert(target);"]
+    code = ["(void)target;"]
     for e in sorted(self._managed):
       e._render_setup(code)
     return "".join(code)
       
   def _destroy_c(self):
-    code = ["assert(target);"]
+    code = ["(void)target;"]
     for e in sorted(self._managed, reverse=True):
       e._render_cleanup(code)
     return "".join(code)

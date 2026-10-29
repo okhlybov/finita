@@ -40,7 +40,7 @@ class Variable(metac.core.Variable, Entity):
   def render_declarations(self, stream, header):
     super().render_declarations(stream, header)
     if header:
-      stream.append(f"AUTOC_EXTERN {self.definition};")
+      stream.append(f"METAC_EXTERN {self.definition};")
 
   def render_definitions(self, stream, header):
     super().render_definitions(stream, header)

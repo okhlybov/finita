@@ -13,8 +13,10 @@ int main(int argc, char** argv) {
   *C2QAccess(f, N2(3,3), 0) = -3;
   C2QRotate(f, -5);
   C2QRotate(f, 3);
-  C2Free(g);
   C2QFree(f);
+
+  TestCreate(NULL);
+
   T(1,1) = 8;
   T_(2, a) *= 2;
 
@@ -32,14 +34,14 @@ int main(int argc, char** argv) {
     C2_FOREACH_N(g) T_(1, n) = -y;
   }
 
-  TestCreate(NULL);
+  C2Free(g);
 
 
 
   C2QSolution* s = C2QSolutionNew();
   C2QSolutionRegister(s, C2QEntryNew(T, N2(3,3), 1));
   C2QSolutionFinalize(s);
-  *C2QSolutionAccess(s, 1) = 4;
+  *C2QSolutionAccess(s, 0) = 4;
   C2QSolutionSize(s);
   C2QSolutionFree(s);
 
