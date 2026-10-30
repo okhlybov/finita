@@ -27,7 +27,7 @@
       }
     },
     {
-      "displayName": "Ninja (Multi-Config)",
+      "displayName": "Ninja Multi-Config",
       "name": "ninja",
       "generator": "Ninja Multi-Config",
       "inherits": "common",
@@ -93,9 +93,16 @@
   ],
   "buildPresets": [
     {
-      "displayName": "Ninja (Multi-Config)",
-      "name": "ninja",
-      "configurePreset": "ninja"
+      "displayName": "Ninja Debug",
+      "name": "ninja-mc-Debug",
+      "configurePreset": "ninja",
+      "configuration": "Debug"
+    },
+    {
+      "displayName": "Ninja Release",
+      "name": "ninja-mc-Release",
+      "configurePreset": "ninja",
+      "configuration": "Release"
     },
     {
       "displayName": "Ninja Debug",
@@ -110,12 +117,14 @@
     {
       "displayName": "Make Debug",
       "name": "make-Debug",
-      "configurePreset": "make-Debug"
+      "configurePreset": "make-Debug",
+      "jobs": 0
     },
     {
       "displayName": "Make Release",
       "name": "make-Release",
-      "configurePreset": "make-Release"
+      "configurePreset": "make-Release",
+      "jobs": 0
     },
     {
       "displayName": "Visual Studio 2026 Debug",

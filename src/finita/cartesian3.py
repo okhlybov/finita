@@ -38,14 +38,14 @@ class Node(Primitive, metaclass=finita.object._Cached):
     with self.method_from("hash", visibility="private") as f:
       f.inline_code = f"""
         if (sizeof(size_t) >= 8) {{
-          size_t h = (size_t)(unsigned){f.target}.x * 0x9e3779b97f4a7c15ULL
-            + (size_t)(unsigned){f.target}.y * 0xbf58476d1ce4e5b9ULL
-            + (size_t)(unsigned){f.target}.z * 0x94d049bb133111ebULL;
+          size_t h = ((size_t){f.target}.x) * 0x9e3779b97f4a7c15ULL
+            + ((size_t){f.target}.y) * 0xbf58476d1ce4e5b9ULL
+            + ((size_t){f.target}.z) * 0x94d049bb133111ebULL;
           return h ^ (h >> 32);
         }} else {{
-          size_t h = (size_t)(unsigned){f.target}.x * 0x9e3779b1U
-            + (size_t)(unsigned){f.target}.y * 0x85ebca6bU
-            + (size_t)(unsigned){f.target}.z * 0xc2b2ae35U;
+          size_t h = ((size_t){f.target}.x) * 0x9e3779b1U
+            + ((size_t){f.target}.y) * 0x85ebca6bU
+            + ((size_t){f.target}.z) * 0xc2b2ae35U;
           return h ^ (h >> 16);
         }}
       """
@@ -71,7 +71,8 @@ class Node(Primitive, metaclass=finita.object._Cached):
       """)
 
   def _create(self, args):
-    return f"{self.name}({", ".join([str(x) for x in args])})"
+    value = ", ".join([str(x) for x in args])
+    return f"{self.name}({value})"
 
 
 #

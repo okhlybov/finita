@@ -1,4 +1,5 @@
 import sys
+import types
 import metac.core
 import metac.module
 
@@ -45,7 +46,8 @@ class Variable(metac.core.Variable, Entity):
   def render_definitions(self, stream, header):
     super().render_definitions(stream, header)
     if not header:
-      stream.append(f"{self.definition}{f" = {self.default}" if self.default else str()};")
+      value = f" = {self.default}" if self.default else str()
+      stream.append(f"{self.definition}{value};")
       
       
 #
@@ -56,3 +58,15 @@ def int(name, value=0):
   #
 def double(name, value=0):
   return Variable("double", name, default=value)
+
+
+class _ModuleProxy(types.ModuleType):
+  # Calling the module directly constructs the rendering context so the
+  # module scripts read `with finita.module(name) as m:` - equivalent to
+  # `with finita.module.Module(name) as m:` while every attribute of the
+  # module (Module, Code, Header, ...) stays directly accessible
+  def __call__(self, *args, **kwargs):
+    return Module(*args, **kwargs)
+
+
+sys.modules[__name__].__class__ = _ModuleProxy

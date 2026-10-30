@@ -1,4 +1,3 @@
-import metac.list
 import metac.vector
 import metac.record
 import finita.object
@@ -18,7 +17,7 @@ class _Solution(finita.object._Traitless, metac.record.Record):
       "entries": self._entries,
       "indices": self._indices,
       "finalized": std.int
-    })
+    }, getters=False, setters=False)
     self.field = field
     
   def __setup__(self):
