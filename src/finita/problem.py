@@ -9,9 +9,11 @@ _context = None
 
 #
 class Problem(finita.object._Traitless, metac.core.Composite, finita.module.Entity):
-  
-  _managed = set()
-  
+
+  def __init__(self, *args, **kws):
+    super().__init__(*args, **kws)
+    self._managed = set()
+
   def __setup__(self):
     super().__setup__()
     

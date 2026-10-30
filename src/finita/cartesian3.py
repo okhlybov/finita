@@ -131,7 +131,9 @@ class _Mesh(finita.object._Traitless, Record):
 
 #
 class Mesh(finita.object.Object):
-  
+
+  _configuration = ("node",)
+
   def __init__(self, name="C3"):
     super().__init__(_Mesh(name))
     

@@ -1,4 +1,4 @@
-
+import metac.std as std
 import metac
 
 from finita.module import *
@@ -12,7 +12,7 @@ from finita.solution import Solution
 
 with metac.builder(default="cmake"):
   with finita.module(default="finita-test", stateful=False) as m:
-    F = Field("long double", Mesh())
+    F = Field(std.long_double, Mesh())
     with Problem("Test"):
       Nx = int("Nx", value=33)
       Ny = int("Ny", value=33)

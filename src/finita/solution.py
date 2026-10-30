@@ -79,6 +79,8 @@ class _Solution(finita.object._Traitless, metac.record.Record):
 
 #
 class Solution(finita.object.Object):
-  
+
+  _configuration = ("field",)
+
   def __init__(self, *args, **kws):
     super().__init__(_Solution(*args, **kws))

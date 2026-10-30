@@ -172,7 +172,9 @@ class _Field(finita.object._Traitless, _StructRenderer, Composite):
 
 #
 class Field(finita.object.Object):
-  
+
+  _configuration = ("scalar", "mesh")
+
   def __init__(self, *args, **kws):
     super().__init__(_Field(*args, **kws))
 

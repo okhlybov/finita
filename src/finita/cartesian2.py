@@ -92,15 +92,19 @@ class _Mesh(finita.object._Traitless, Record):
     with self.method(std.size_t, "size", {"target": self}) as f:
       f.code = f"""
         assert(target);
-        return (target->last.y - target->first.y + 1)*(target->last.x - target->first.x + 1);
+        return (size_t)(target->last.y - target->first.y + 1)
+             * (size_t)(target->last.x - target->first.x + 1);
       """
-      
+
     with self.method(std.size_t, "index", {"target": self, "node": self.node}, attribute=("index", "of")) as f:
       f.inline_code = f"""
         assert(target);
-        size_t result = (node.x - target->first.x) + (target->last.x - target->first.x + 1)*(node.y - target->first.y);
+        size_t nx = target->last.x - target->first.x + 1;
+        size_t dx = node.x - target->first.x;
+        size_t dy = node.y - target->first.y;
+        size_t result = dx + nx * dy;
         assert(result < {self.size(f.target)});
-        return result; 
+        return result;
       """
       
     with self.method(self.node, "node", {"target": self, "index": std.size_t}, attribute=("node", "of")) as f:
@@ -116,7 +120,9 @@ class _Mesh(finita.object._Traitless, Record):
 
 #
 class Mesh(finita.object.Object):
-  
+
+  _configuration = ("node",)
+
   def __init__(self, name="C2"):
     super().__init__(_Mesh(name))
     

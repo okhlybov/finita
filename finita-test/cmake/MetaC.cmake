@@ -21,7 +21,7 @@ if(NOT DEFINED METAC)
 endif()
 
 if(METAC)
-  find_package(Python 3.14 REQUIRED)
+  find_package(Python 3.10 REQUIRED)
 endif()
 
 function(add_metac_module module)
