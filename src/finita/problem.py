@@ -47,9 +47,12 @@ class Problem(finita.object._Traitless, metac.core.Composite, finita.module.Enti
   def __enter__(self):
     self.__context = sys.modules[__name__]._context
     sys.modules[__name__]._context = self
+    self._frame = sys._getframe(1)
+    self._locals = dict(self._frame.f_locals)
     return self
     
   def __exit__(self, *args):
+    print({k: v for k, v in self._frame.f_locals.items() if not k in self._locals})
     sys.modules[__name__]._context = self.__context
     return False
 
@@ -100,3 +103,9 @@ class Managed(Entity):
   def _render_cleanup(self, stream):
     if self._cleanup_c:
       stream.append(self._cleanup_c)
+
+
+class LazyVariable(finita.module.Variable, Managed):
+  
+  def __init__(self, ctor):
+    self.ctor = ctor
